@@ -1,6 +1,16 @@
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { defaultProfile } from '../data'
 import { CardPreview } from './CardPreview'
 
-export function Landing({ profile, onCreate, onPreview }) {
+export function Landing() {
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
+
+  function handleCreate() {
+    navigate(isAuthenticated ? '/dashboard' : '/login')
+  }
+
   return (
     <main className="landing">
       <section className="hero-copy">
@@ -15,11 +25,8 @@ export function Landing({ profile, onCreate, onPreview }) {
           automatically matched color theme from your own logo.
         </p>
         <div className="hero-buttons">
-          <button className="primary-button" type="button" onClick={onCreate}>
-            Open card studio
-          </button>
-          <button className="ghost-button" type="button" onClick={onPreview}>
-            View sample card
+          <button className="primary-button" type="button" onClick={handleCreate}>
+            Create your personalized card!
           </button>
         </div>
         <div className="feature-row">
@@ -29,7 +36,7 @@ export function Landing({ profile, onCreate, onPreview }) {
         </div>
       </section>
       <div className="hero-preview">
-        <CardPreview profile={profile} />
+        <CardPreview profile={defaultProfile} />
       </div>
     </main>
   )

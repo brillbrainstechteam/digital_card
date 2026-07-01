@@ -8,7 +8,7 @@ function toHex(value) {
   return clamp(Math.round(value)).toString(16).padStart(2, '0')
 }
 
-function rgbToHex({ r, g, b }) {
+export function rgbToHex({ r, g, b }) {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`
 }
 
@@ -91,23 +91,58 @@ function derivePalette(primary, accent, detectedSurface) {
   }
 }
 
-export function paletteVariables(palette) {
+export function paletteVariables(palette, theme = {}) {
   const primary = hexToRgb(palette.primary)
   const accent = hexToRgb(palette.accent)
   const surface = hexToRgb(palette.surface)
   const panel = palette.panel ? hexToRgb(palette.panel) : panelColorFor(surface)
+
+  // Use user's ink color only when it meets WCAG AA contrast (4.5:1) against the surface.
+  // Buttons always use auto-derived text so they stay legible regardless.
+  const userInk = palette.ink ? hexToRgb(palette.ink) : null
+  const surfaceText = userInk && contrastRatio(userInk, surface) >= 4.5
+    ? palette.ink
+    : textColorFor(surface)
+  const panelText = userInk && contrastRatio(userInk, panel) >= 4.5
+    ? palette.ink
+    : textColorFor(panel)
+
   return {
     '--brand-primary': palette.primary,
     '--brand-accent': palette.accent,
-    '--brand-surface': palette.surface,
+    '--brand-surface': theme.cardBackground || palette.surface,
     '--brand-panel': rgbToHex(panel),
-    '--brand-ink': palette.ink,
+    '--brand-ink': surfaceText,
     '--brand-primary-rgb': `${primary.r}, ${primary.g}, ${primary.b}`,
     '--brand-accent-rgb': `${accent.r}, ${accent.g}, ${accent.b}`,
     '--brand-primary-text': textColorFor(primary),
     '--brand-accent-text': textColorFor(accent),
-    '--brand-surface-text': textColorFor(surface),
-    '--brand-panel-text': textColorFor(panel),
+    '--brand-surface-text': theme.bodyText || surfaceText,
+    '--brand-panel-text': panelText,
+    '--theme-page-background': theme.pageBackground || palette.surface,
+    '--theme-card-background': theme.cardBackground || palette.surface,
+    '--theme-heading-text': theme.headingText || surfaceText,
+    '--theme-tagline-text': theme.taglineText || theme.bodyText || surfaceText,
+    '--theme-location-text': theme.locationText || theme.bodyText || surfaceText,
+    '--theme-about-text': theme.aboutText || theme.bodyText || surfaceText,
+    '--theme-body-text': theme.bodyText || surfaceText,
+    '--theme-primary-button': theme.primaryButton || palette.primary,
+    '--theme-secondary-button': theme.secondaryButton || palette.accent,
+    '--theme-save-contact-button': theme.saveContactButton || palette.accent,
+    '--theme-call-button': theme.callButton || theme.primaryButton || palette.primary,
+    '--theme-whatsapp-button': theme.whatsappButton || theme.primaryButton || palette.primary,
+    '--theme-email-button': theme.emailButton || theme.primaryButton || palette.primary,
+    '--theme-website-button': theme.websiteButton || palette.primary,
+    '--theme-linkedin-button': theme.linkedinButton || theme.primaryButton || palette.primary,
+    '--theme-instagram-button': theme.instagramButton || theme.primaryButton || palette.primary,
+    '--theme-facebook-button': theme.facebookButton || theme.primaryButton || palette.primary,
+    '--theme-twitter-button': theme.twitterButton || theme.primaryButton || palette.primary,
+    '--theme-youtube-button': theme.youtubeButton || theme.primaryButton || palette.primary,
+    '--theme-telegram-button': theme.telegramButton || theme.primaryButton || palette.primary,
+    '--theme-footer-background': theme.cardBackground || palette.surface,
+    '--theme-footer-text': theme.footerText || surfaceText,
+    '--theme-border-color': theme.borderColor || palette.accent,
+    '--theme-accent-color': theme.accentColor || palette.accent,
   }
 }
 
@@ -145,7 +180,8 @@ export async function extractPaletteFromLogo(source) {
     current.r += color.r
     current.g += color.g
     current.b += color.b
-    current.score = current.count * (0.6 + saturation(quantized) * 1.7)
+    const sat = saturation(quantized)
+    current.score = current.count * (0.2 + sat * sat * 6)
     map.set(key, current)
   }
 
@@ -183,11 +219,29 @@ export async function extractPaletteFromLogo(source) {
     edgeWinner.count / Math.max(opaqueEdgeCount, 1) > 0.34
   const surface = hasLogoBackground ? averageColor(edgeWinner) : null
 
-  const candidates = [...groups.values()]
+  // Separate candidates into "vibrant" (clearly chromatic) and "muted" (dark/gray)
+  const all = [...groups.values()]
     .map((group) => ({ ...group, exact: averageColor(group) }))
     .filter(({ exact }) => !surface || distance(exact, surface) > 28)
-    .filter(({ exact }) => surface || luminance(exact) < 0.965)
-    .sort((a, b) => b.score - a.score)
+    .filter(({ exact }) => surface || luminance(exact) < 0.92)
+
+  const vibrant = all.filter(
+    ({ exact, color }) =>
+      saturation(color) > 0.35 &&   // clearly chromatic, not gray/brown
+      luminance(exact) > 0.02 &&     // not nearly black
+      luminance(exact) < 0.85,       // not nearly white
+  )
+
+  const muted = all.filter(
+    ({ exact, color }) =>
+      saturation(color) > 0.08 &&
+      luminance(exact) > 0.01 &&
+      luminance(exact) < 0.92,
+  )
+
+  // Prefer vibrant candidates; fall back to muted only if none exist
+  const candidates = (vibrant.length ? vibrant : muted).sort((a, b) => b.score - a.score)
+
   if (!candidates.length) {
     if (surface) {
       const opposite = textColorFor(surface) === '#ffffff' ? { r: 255, g: 255, b: 255 } : { r: 11, g: 21, b: 25 }
@@ -197,7 +251,12 @@ export async function extractPaletteFromLogo(source) {
   }
 
   const primary = candidates[0].exact
-  const contrasting = candidates.find(
+
+  // For accent, look across ALL remaining candidates (including muted) for contrast
+  const accentPool = all
+    .filter(({ exact, color }) => saturation(color) > 0.08 && luminance(exact) > 0.01)
+    .sort((a, b) => b.score - a.score)
+  const contrasting = accentPool.find(
     ({ exact }) => distance(primary, exact) > 62 && saturation(exact) > 0.1,
   )
   const accent = contrasting?.exact ?? mix(primary, { r: 238, g: 177, b: 80 }, 0.55)
@@ -237,7 +296,7 @@ export async function prepareLogoAsset(source, removal = 38) {
   return { palette, logo: canvas.toDataURL('image/png'), hasBackdrop: true }
 }
 
-async function detectBackdrop(source) {
+export async function detectBackdrop(source) {
   const image = await loadImage(source)
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('2d', { willReadFrequently: true })
