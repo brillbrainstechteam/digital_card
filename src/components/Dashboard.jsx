@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { fetchCards, deleteCard } from '../api'
 import { useToast } from '../context/ToastContext'
 import { SetupWizard } from './SetupWizard'
+import { PageHeader } from './PageHeader'
 
 function ConfirmDialog({ title, message, actionLabel, onCancel, onConfirm }) {
   return (
@@ -47,11 +48,6 @@ export function Dashboard() {
     setCreating(true)
     setError('')
     try {
-      const existing = cards.find((c) => c.status === 'draft')
-      if (existing) {
-        navigate(`/studio/${existing.id}`)
-        return
-      }
       setShowWizard(true)
     } catch (err) {
       toast.error(err.message)
@@ -101,6 +97,13 @@ export function Dashboard() {
     })
   }
 
+  const summary = {
+    total: cards.length,
+    published: cards.filter((card) => card.status === 'published').length,
+    draft: cards.filter((card) => card.status === 'draft').length,
+    archived: cards.filter((card) => card.status === 'archived').length,
+  }
+
   if (showWizard) {
     return (
       <SetupWizard
@@ -116,17 +119,32 @@ export function Dashboard() {
 
   return (
     <main className="dashboard">
-      <div className="dashboard-header">
-        <div>
-          <p className="eyebrow">Dashboard</p>
-          <h1>Your Cards</h1>
-        </div>
-        <button className="primary-button" type="button" onClick={handleCreate} disabled={creating}>
-          {creating ? 'Creating...' : '+ Create Card'}
-        </button>
-      </div>
+      <PageHeader
+        badge="YOUR CARDS"
+        title="Manage your digital cards"
+        subtitle="Create, edit, publish and organize all your digital cards from one place."
+        actions={(
+          <button className="primary-button" type="button" onClick={handleCreate} disabled={creating}>
+            {creating ? 'Creating...' : '+ Create Card'}
+          </button>
+        )}
+      />
 
       {error && <p className="dashboard-error">{error}</p>}
+
+      <div className="dashboard-summary-grid">
+        {[
+          ['Total Cards', summary.total],
+          ['Published', summary.published],
+          ['Draft', summary.draft],
+          ['Archived', summary.archived],
+        ].map(([label, value]) => (
+          <div className="dashboard-summary-card" key={label}>
+            <span>{label}</span>
+            <strong>{loading ? '-' : value}</strong>
+          </div>
+        ))}
+      </div>
 
       {loading ? (
         <div className="card-list">

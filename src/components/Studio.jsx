@@ -1,5 +1,10 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CardPreview } from './CardPreview'
+import { Dashboard } from './Dashboard'
+import { PageHeader } from './PageHeader'
+import { useAuth } from '../context/AuthContext'
+import { FONT_OPTIONS } from '../fontOptions'
 
 const CIRCLE = 260
 
@@ -107,25 +112,64 @@ const SOCIAL_PLATFORMS = [
   { key: 'instagram', label: 'Instagram' },
   { key: 'facebook', label: 'Facebook' },
   { key: 'linkedin', label: 'LinkedIn' },
-  { key: 'twitter', label: 'Twitter / X' },
+  { key: 'twitter', label: 'X (Twitter)' },
   { key: 'youtube', label: 'YouTube' },
   { key: 'telegram', label: 'Telegram' },
+  { key: 'tiktok', label: 'TikTok' },
+  { key: 'threads', label: 'Threads' },
+  { key: 'soundcloud', label: 'SoundCloud' },
+  { key: 'pinterest', label: 'Pinterest' },
+  { key: 'patreon', label: 'Patreon' },
+  { key: 'twitch', label: 'Twitch' },
+  { key: 'applemusic', label: 'Apple Music' },
+  { key: 'reddit', label: 'Reddit' },
 ]
 
-function Field({ label, value, onChange, multiline = false, colorControl = null }) {
+const SOCIAL_DEFAULT_URLS = {
+  instagram: 'https://instagram.com',
+  facebook: 'https://facebook.com',
+  linkedin: 'https://linkedin.com',
+  twitter: 'https://x.com',
+  youtube: 'https://youtube.com',
+  telegram: 'https://telegram.org',
+  tiktok: 'https://tiktok.com',
+  threads: 'https://threads.net',
+  soundcloud: 'https://soundcloud.com',
+  pinterest: 'https://pinterest.com',
+  patreon: 'https://patreon.com',
+  twitch: 'https://twitch.tv',
+  applemusic: 'https://music.apple.com',
+  reddit: 'https://reddit.com',
+}
+
+function Field({ label, value, onChange, onBegin, onCommit, multiline = false, colorControl = null }) {
   const Input = multiline ? 'textarea' : 'input'
+
+  function commit() {
+    onCommit?.()
+  }
+
   return (
     <div className="field">
       <span className="field-label-row">
         <span>{label}</span>
         {colorControl}
       </span>
-      <Input value={value} onChange={(event) => onChange(event.target.value)} rows={multiline ? 3 : undefined} />
+      <Input
+        value={value ?? ''}
+        onFocus={onBegin}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !multiline) event.currentTarget.blur()
+        }}
+        rows={multiline ? 3 : undefined}
+      />
     </div>
   )
 }
 
-function RangeControl({ label, value, min, max, suffix = '', onChange }) {
+function RangeControl({ label, value, min, max, suffix = '', onChange, onBegin, onCommit }) {
   return (
     <label className="range-control">
       <span>
@@ -137,7 +181,11 @@ function RangeControl({ label, value, min, max, suffix = '', onChange }) {
         min={min}
         max={max}
         value={value}
+        onPointerDown={onBegin}
+        onFocus={onBegin}
         onChange={(event) => onChange(Number(event.target.value))}
+        onPointerUp={onCommit}
+        onBlur={onCommit}
       />
     </label>
   )
@@ -149,18 +197,51 @@ function normalizeHex(value) {
   return null
 }
 
-function InlineColorControl({ label, value, onChange }) {
-  const color = normalizeHex(value) || '#000000'
+function InlineColorControl({ label, value, onChange, onBegin, onCommit }) {
+  const [draft, setDraft] = useState(value)
+  const color = normalizeHex(draft) || '#000000'
+
+  useEffect(() => {
+    setDraft(value)
+  }, [value])
+
+  function commit(next = draft) {
+    const normalized = normalizeHex(next)
+    if (normalized) {
+      onChange(normalized)
+      onCommit?.()
+    }
+  }
+
   return (
     <label className="inline-color-control" title={`${label} color`}>
       <span>{label}</span>
-      <input type="color" value={color} onChange={(event) => onChange(event.target.value)} />
       <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={(event) => {
+        type="color"
+        value={color}
+        onPointerDown={onBegin}
+        onFocus={onBegin}
+        onChange={(event) => {
+          setDraft(event.target.value)
+          onChange(event.target.value)
+        }}
+        onBlur={(event) => commit(event.target.value)}
+        onMouseUp={(event) => commit(event.currentTarget.value)}
+      />
+      <input
+        value={draft}
+        onFocus={onBegin}
+        onChange={(event) => {
+          setDraft(event.target.value)
           const normalized = normalizeHex(event.target.value)
           if (normalized) onChange(normalized)
+        }}
+        onBlur={(event) => {
+          const normalized = normalizeHex(event.target.value)
+          if (normalized) {
+            setDraft(normalized)
+            commit(normalized)
+          }
         }}
         aria-label={`${label} HEX color`}
       />
@@ -168,20 +249,32 @@ function InlineColorControl({ label, value, onChange }) {
   )
 }
 
-function SocialEditor({ social, onChange, onRemove, colorValue, onColorChange }) {
+function CommitInput({ value, onChange, placeholder }) {
+  return (
+    <input
+      value={value ?? ''}
+      onChange={(event) => onChange(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur()
+      }}
+      placeholder={placeholder}
+    />
+  )
+}
+
+function SocialEditor({ social, onChange, onRemove }) {
   const platform = SOCIAL_PLATFORMS.find((p) => p.key === social.platform)
   return (
     <div className="link-editor social-editor">
       <div className="link-head">
         <span className="social-platform-label">{platform?.label ?? social.platform}</span>
-        <InlineColorControl label="Color" value={colorValue} onChange={onColorChange} />
         <button className="remove reorder" type="button" onClick={onRemove} aria-label="Remove">
           ×
         </button>
       </div>
-      <input
+      <CommitInput
         value={social.url}
-        onChange={(e) => onChange({ url: e.target.value })}
+        onChange={(value) => onChange({ url: value })}
         placeholder="https://"
       />
     </div>
@@ -212,9 +305,52 @@ function LinkEditor({ link, onChange, onRemove, onMove, isFirst, isLast }) {
           </button>
         </div>
       </div>
-      <input value={link.label} onChange={(event) => onChange({ label: event.target.value })} placeholder="Button title" />
-      <input value={link.subtitle} onChange={(event) => onChange({ subtitle: event.target.value })} placeholder="Description" />
-      <input value={link.url} onChange={(event) => onChange({ url: event.target.value })} placeholder="https://" />
+      <CommitInput value={link.label} onChange={(value) => onChange({ label: value })} placeholder="Button title" />
+      <CommitInput value={link.subtitle} onChange={(value) => onChange({ subtitle: value })} placeholder="Description" />
+      <CommitInput value={link.url} onChange={(value) => onChange({ url: value })} placeholder="https://" />
+    </div>
+  )
+}
+
+function FontSelect({ label, value, onChange, onBegin, onCommit }) {
+  return (
+    <label className="field typography-field">
+      <span>{label}</span>
+      <select
+        className="font-picker"
+        value={value}
+        onFocus={onBegin}
+        onChange={(event) => {
+          onChange(event.target.value)
+          if (onCommit) setTimeout(onCommit, 0)
+        }}
+      >
+        {FONT_OPTIONS.map((font) => (
+          <option key={font.value} value={font.value}>{font.label}</option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+function DeleteAccountModal({ onCancel, onConfirm, busy, error }) {
+  return (
+    <div className="confirm-overlay">
+      <div className="confirm-dialog account-delete-dialog">
+        <h2>Delete Account?</h2>
+        <p>
+          This action is permanent.
+          <br />
+          Deleting your account will remove your profile, cards, and associated data.
+        </p>
+        {error && <p className="modal-error">{error}</p>}
+        <div className="confirm-actions">
+          <button className="secondary-button" type="button" onClick={onCancel} disabled={busy}>Cancel</button>
+          <button className="danger-button" type="button" onClick={onConfirm} disabled={busy}>
+            {busy ? 'Deleting...' : 'Delete Account'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -222,6 +358,9 @@ function LinkEditor({ link, onChange, onRemove, onMove, isFirst, isLast }) {
 export function Studio({
   profile,
   setProfile,
+  setProfileLive,
+  beginLiveEdit,
+  commitLiveEdit,
   onLogoUpload,
   onLogoSettingChange,
   onCoverConfirm,
@@ -238,7 +377,15 @@ export function Studio({
   onRedo,
   canUndo,
   canRedo,
+  cardStats,
 }) {
+  const navigate = useNavigate()
+  const { user, logout, deleteAccount } = useAuth()
+  const [activePanel, setActivePanel] = useState('content')
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const commitTimerRef = useRef(null)
   const uploadRef = useRef(null)
   const coverUploadRef = useRef(null)
   const [cropperSrc, setCropperSrc] = useState(null)
@@ -258,14 +405,92 @@ export function Studio({
   }
 
   function updateProfile(field, value) {
-    setProfile((current) => ({ ...current, [field]: value }))
+    beginLiveEdit?.()
+    ;(setProfileLive || setProfile)((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === 'personName' ? { brandName: value } : {}),
+    }))
+    scheduleLiveCommit()
   }
 
   function updateTheme(field, value) {
-    setProfile((current) => ({
+    beginLiveEdit?.()
+    ;(setProfileLive || setProfile)((current) => ({
       ...current,
       theme: { ...current.theme, [field]: value },
     }))
+    scheduleLiveCommit()
+  }
+
+  function updateTypography(field, value) {
+    beginLiveEdit?.()
+    ;(setProfileLive || setProfile)((current) => ({
+      ...current,
+      typography: {
+        ...(current.typography || {}),
+        [field]: value,
+      },
+    }))
+    scheduleLiveCommit()
+  }
+
+  function updateLogoSetting(field, value) {
+    beginLiveEdit?.()
+    ;(setProfileLive || setProfile)((current) => ({
+      ...current,
+      logoSettings: { ...current.logoSettings, [field]: value },
+    }))
+    scheduleLiveCommit()
+  }
+
+  function updateCoverSetting(field, value) {
+    beginLiveEdit?.()
+    ;(setProfileLive || setProfile)((current) => ({
+      ...current,
+      coverSettings: { ...current.coverSettings, [field]: value },
+    }))
+    scheduleLiveCommit()
+  }
+
+  function scheduleLiveCommit() {
+    if (commitTimerRef.current) clearTimeout(commitTimerRef.current)
+    commitTimerRef.current = setTimeout(() => {
+      commitLiveEdit?.()
+      commitTimerRef.current = null
+    }, 700)
+  }
+
+  function commitNow() {
+    if (commitTimerRef.current) {
+      clearTimeout(commitTimerRef.current)
+      commitTimerRef.current = null
+    }
+    commitLiveEdit?.()
+  }
+
+  const liveControlProps = {
+    onBegin: beginLiveEdit,
+    onCommit: commitNow,
+  }
+  const isFullWidthPanel = ['cards', 'settings', 'analytics', 'profile'].includes(activePanel)
+
+  function handleLogout() {
+    logout()
+    navigate('/login', { replace: true })
+  }
+
+  async function handleDeleteAccount() {
+    setDeleteBusy(true)
+    setDeleteError('')
+    try {
+      await deleteAccount()
+      navigate('/login', { replace: true })
+    } catch (error) {
+      setDeleteError(error.message || 'Delete account failed.')
+    } finally {
+      setDeleteBusy(false)
+    }
   }
 
   function handleCoverFileSelect(event) {
@@ -303,15 +528,17 @@ export function Studio({
   function addSocial(platform) {
     setProfile((current) => ({
       ...current,
-      socials: [...current.socials, { platform, url: 'https://' }],
+      socials: [...current.socials, { platform, url: SOCIAL_DEFAULT_URLS[platform] || 'https://' }],
     }))
   }
 
   function updateSocial(index, values) {
-    setProfile((current) => {
+    beginLiveEdit?.()
+    ;(setProfileLive || setProfile)((current) => {
       const socials = current.socials.map((s, i) => (i === index ? { ...s, ...values } : s))
       return { ...current, socials }
     })
+    scheduleLiveCommit()
   }
 
   function removeSocial(index) {
@@ -341,51 +568,106 @@ export function Studio({
         onCancel={() => setCropperSrc(null)}
       />
     )}
-    <main className="studio">
-      <section className="editor-panel">
-        <div className="studio-heading">
-          <div>
-            <p className="eyebrow">Card studio</p>
-            <h1>Design your card</h1>
-          </div>
-          <div className="studio-heading-actions">
-            <button className="secondary-button save-card-button" type="button" onClick={onUndo} disabled={!canUndo}>
-              Undo
+    {deleteOpen && (
+      <DeleteAccountModal
+        busy={deleteBusy}
+        error={deleteError}
+        onCancel={() => {
+          setDeleteOpen(false)
+          setDeleteError('')
+        }}
+        onConfirm={handleDeleteAccount}
+      />
+    )}
+    <main className="studio studio-workspace">
+      <aside className="editor-sidebar">
+        <div className="editor-sidebar-nav">
+          <button
+            type="button"
+            className={activePanel === 'cards' ? 'active' : ''}
+            onClick={() => setActivePanel('cards')}
+          >
+            Your Cards
+          </button>
+          {[
+            ['content', 'Content'],
+            ['customize', 'Customize'],
+            ['typography', 'Typography'],
+            ['analytics', 'Analytics'],
+            ['settings', 'Settings'],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              className={activePanel === key ? 'active' : ''}
+              onClick={() => setActivePanel(key)}
+            >
+              {label}
             </button>
-            <button className="secondary-button save-card-button" type="button" onClick={onRedo} disabled={!canRedo}>
-              Redo
-            </button>
-            {onSave && (
-              <button
-                className="primary-button save-card-button"
-                type="button"
-                onClick={onSave}
-                disabled={!cardId || saveStatus?.type === 'saving'}
-                title={!cardId ? 'No card loaded from server' : ''}
-              >
-                {saveStatus?.type === 'saving' ? 'Saving...' : saveStatus?.type === 'saved' ? 'Saved!' : 'Save Card'}
-              </button>
-            )}
-            {onShare && (
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={onShare}
-                disabled={cardStatus !== 'published'}
-                title={cardStatus === 'published' ? 'Copy public link' : 'Publish the card before sharing'}
-              >
-                Share Card
-              </button>
-            )}
-            <button className="text-button" type="button" onClick={onReset}>
-              Reset sample
-            </button>
-          </div>
+          ))}
         </div>
+        <div className="editor-sidebar-profile-wrap">
+          <button
+            className={`editor-sidebar-profile ${activePanel === 'profile' ? 'active' : ''}`}
+            type="button"
+            onClick={() => setActivePanel('profile')}
+          >
+            <div className="sidebar-avatar">{(user?.name || '?').slice(0, 1).toUpperCase()}</div>
+            <strong>{user?.name || 'User'}</strong>
+          </button>
+        </div>
+      </aside>
+      <section className={`editor-panel ${isFullWidthPanel ? 'editor-panel--wide' : ''}`}>
+        {activePanel === 'cards' ? (
+          <Dashboard embedded />
+        ) : (
+        <>
+        {['content', 'customize', 'typography'].includes(activePanel) && (
+          <PageHeader
+            badge="CARD STUDIO"
+            title="Design your card"
+            actions={(
+              <>
+                <button className="secondary-button save-card-button" type="button" onClick={onUndo} disabled={!canUndo}>
+                  Undo
+                </button>
+                <button className="secondary-button save-card-button" type="button" onClick={onRedo} disabled={!canRedo}>
+                  Redo
+                </button>
+                {onSave && (
+                  <button
+                    className="primary-button save-card-button"
+                    type="button"
+                    onClick={onSave}
+                    disabled={!cardId || saveStatus?.type === 'saving'}
+                    title={!cardId ? 'No card loaded from server' : ''}
+                  >
+                    {saveStatus?.type === 'saving' ? 'Saving...' : saveStatus?.type === 'saved' ? 'Saved!' : 'Save Card'}
+                  </button>
+                )}
+                {onShare && (
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={onShare}
+                    disabled={cardStatus !== 'published'}
+                    title={cardStatus === 'published' ? 'Copy public link' : 'Publish the card before sharing'}
+                  >
+                    Share Card
+                  </button>
+                )}
+                <button className="text-button" type="button" onClick={onReset}>
+                  Reset sample
+                </button>
+              </>
+            )}
+          />
+        )}
 
+        {activePanel === 'content' && (
         <section className="editor-section theme-box">
           <div className="editor-title">
-            <h2>Logo theme</h2>
+            <h2>Logo</h2>
             <span className={`theme-status ${paletteStatus.type}`}>{paletteStatus.text}</span>
           </div>
           <div className="upload-row">
@@ -411,7 +693,9 @@ export function Studio({
               min={30}
               max={100}
               suffix="%"
-              onChange={(value) => onLogoSettingChange('width', value)}
+              onChange={(value) => updateLogoSetting('width', value)}
+              onBegin={beginLiveEdit}
+              onCommit={commitNow}
             />
             <RangeControl
               label="Logo height"
@@ -419,7 +703,9 @@ export function Studio({
               min={70}
               max={240}
               suffix="px"
-              onChange={(value) => onLogoSettingChange('bandHeight', value)}
+              onChange={(value) => updateLogoSetting('bandHeight', value)}
+              onBegin={beginLiveEdit}
+              onCommit={commitNow}
             />
             <RangeControl
               label="Vertical position"
@@ -427,29 +713,18 @@ export function Studio({
               min={-40}
               max={40}
               suffix="px"
-              onChange={(value) => onLogoSettingChange('offsetY', value)}
+              onChange={(value) => updateLogoSetting('offsetY', value)}
+              onBegin={beginLiveEdit}
+              onCommit={commitNow}
             />
           </div>
-          <div className="palette-editor">
-            <p className="palette-editor-label">Card canvas colors</p>
-            <div className="inline-color-row">
-              <InlineColorControl
-                label="Card"
-                value={profile.theme?.cardBackground || profile.palette.surface}
-                onChange={(value) => updateTheme('cardBackground', value)}
-              />
-              <InlineColorControl
-                label="Border"
-                value={profile.theme?.borderColor || profile.palette.accent}
-                onChange={(value) => updateTheme('borderColor', value)}
-              />
-            </div>
-          </div>
         </section>
+        )}
 
+        {activePanel === 'content' && (
         <section className="editor-section cover-box">
           <div className="editor-title">
-            <h2>Profile photo</h2>
+            <h2>Personal Information</h2>
             <button className="text-button" type="button" onClick={() => coverUploadRef.current?.click()}>
               Upload photo
             </button>
@@ -481,167 +756,58 @@ export function Studio({
               min={-60}
               max={0}
               suffix="px"
-              onChange={(value) => setProfile((c) => ({
-                ...c,
-                coverSettings: { ...c.coverSettings, offsetY: value },
-              }))}
+              onChange={(value) => updateCoverSetting('offsetY', value)}
+              onBegin={beginLiveEdit}
+              onCommit={commitNow}
             />
           </div>
-        </section>
-
-        <section className="editor-section">
-          <h2>Profile</h2>
           <div className="field-grid">
-            <Field
-              label="Brand name"
-              value={profile.brandName}
-              onChange={(value) => updateProfile('brandName', value)}
-              colorControl={(
-                <InlineColorControl
-                  label="Text"
-                  value={profile.theme?.headingText || profile.palette.ink}
-                  onChange={(value) => updateTheme('headingText', value)}
-                />
-              )}
-            />
-            <Field label="Handle" value={profile.handle} onChange={(value) => updateProfile('handle', value)} />
-            <Field
-              label="Tagline"
-              value={profile.tagline}
-              onChange={(value) => updateProfile('tagline', value)}
-              colorControl={(
-                <InlineColorControl
-                  label="Text"
-                  value={profile.theme?.taglineText || profile.palette.ink}
-                  onChange={(value) => updateTheme('taglineText', value)}
-                />
-              )}
-            />
-            <Field
-              label="Location"
-              value={profile.location}
-              onChange={(value) => updateProfile('location', value)}
-              colorControl={(
-                <InlineColorControl
-                  label="Text"
-                  value={profile.theme?.locationText || profile.palette.ink}
-                  onChange={(value) => updateTheme('locationText', value)}
-                />
-              )}
-            />
-            <Field
-              label="About"
-              value={profile.about}
-              onChange={(value) => updateProfile('about', value)}
-              multiline
-              colorControl={(
-                <InlineColorControl
-                  label="Text"
-                  value={profile.theme?.aboutText || profile.palette.ink}
-                  onChange={(value) => updateTheme('aboutText', value)}
-                />
-              )}
-            />
+            <Field {...liveControlProps} label="Person Name" value={profile.personName || profile.brandName} onChange={(value) => updateProfile('personName', value)} />
+            <Field {...liveControlProps} label="Designation" value={profile.designation || ''} onChange={(value) => updateProfile('designation', value)} />
+            <Field {...liveControlProps} label="Location" value={profile.location} onChange={(value) => updateProfile('location', value)} />
           </div>
         </section>
+        )}
 
+        {activePanel === 'content' && (
         <section className="editor-section">
-          <h2>Contact</h2>
+          <h2>Business Information</h2>
+          <div className="field-grid">
+            <Field {...liveControlProps} label="Company Name" value={profile.companyName || ''} onChange={(value) => updateProfile('companyName', value)} />
+            <Field {...liveControlProps} label="Tagline" value={profile.tagline} onChange={(value) => updateProfile('tagline', value)} />
+            <Field {...liveControlProps} label="About" value={profile.about} onChange={(value) => updateProfile('about', value)} multiline />
+          </div>
+        </section>
+        )}
+
+        {activePanel === 'content' && (
+        <section className="editor-section">
+          <h2>Contact Information</h2>
           <div className="field-grid field-grid--two">
-            <Field
-              label="Email"
-              value={profile.email}
-              onChange={(value) => updateProfile('email', value)}
-              colorControl={(
-                <InlineColorControl
-                  label="Button"
-                  value={profile.theme?.emailButton || profile.theme?.primaryButton || profile.palette.primary}
-                  onChange={(value) => updateTheme('emailButton', value)}
-                />
-              )}
-            />
-            <Field
-              label="Phone"
-              value={profile.phone}
-              onChange={(value) => updateProfile('phone', value)}
-              colorControl={(
-                <InlineColorControl
-                  label="Button"
-                  value={profile.theme?.callButton || profile.theme?.primaryButton || profile.palette.primary}
-                  onChange={(value) => updateTheme('callButton', value)}
-                />
-              )}
-            />
-            <Field
-              label="Website"
-              value={profile.website}
-              onChange={(value) => updateProfile('website', value)}
-              colorControl={(
-                <InlineColorControl
-                  label="Link"
-                  value={profile.theme?.websiteButton || profile.palette.primary}
-                  onChange={(value) => updateTheme('websiteButton', value)}
-                />
-              )}
-            />
-            <Field
-              label="WhatsApp"
-              value={profile.whatsapp}
-              onChange={(value) => updateProfile('whatsapp', value)}
-              colorControl={(
-                <InlineColorControl
-                  label="Button"
-                  value={profile.theme?.whatsappButton || profile.theme?.primaryButton || profile.palette.primary}
-                  onChange={(value) => updateTheme('whatsappButton', value)}
-                />
-              )}
-            />
-          </div>
-          <div className="inline-color-row inline-color-row--section">
-            <InlineColorControl
-              label="Save Contact"
-              value={profile.theme?.saveContactButton || profile.palette.accent}
-              onChange={(value) => updateTheme('saveContactButton', value)}
-            />
+            <Field {...liveControlProps} label="Email" value={profile.email} onChange={(value) => updateProfile('email', value)} />
+            <Field {...liveControlProps} label="Phone" value={profile.phone} onChange={(value) => updateProfile('phone', value)} />
+            <Field {...liveControlProps} label="Website" value={profile.website} onChange={(value) => updateProfile('website', value)} />
+            <Field {...liveControlProps} label="WhatsApp" value={profile.whatsapp} onChange={(value) => updateProfile('whatsapp', value)} />
           </div>
         </section>
+        )}
 
+        {activePanel === 'content' && (
         <section className="editor-section">
-          <h2>Branding</h2>
-          <label className="toggle-row branding-toggle">
-            <div>
-              <strong>Powered by Brillbrains Consultants</strong>
-              <small>Available in Premium Subscription.</small>
-            </div>
-            <div className="branding-color-controls">
-              <InlineColorControl
-                label="Text"
-                value={profile.theme?.footerText || profile.palette.ink}
-                onChange={(value) => updateTheme('footerText', value)}
-              />
-            </div>
-            <span className="switch">
-              <input type="checkbox" checked disabled readOnly />
-              <span />
-            </span>
-          </label>
-        </section>
-
-        <section className="editor-section">
-          <div className="editor-title">
-            <h2>Socials</h2>
-            <select
-              className="social-platform-picker"
-              value=""
-              onChange={(e) => { if (e.target.value) { addSocial(e.target.value); e.target.value = '' } }}
-            >
-              <option value="">+ Add social</option>
-              {SOCIAL_PLATFORMS.filter(
-                (p) => !profile.socials.some((s) => s.platform === p.key)
-              ).map((p) => (
-                <option key={p.key} value={p.key}>{p.label}</option>
-              ))}
-            </select>
+          <h2>Social Links</h2>
+          <div className="social-add-grid">
+            {SOCIAL_PLATFORMS.filter(
+              (p) => !profile.socials.some((s) => s.platform === p.key)
+            ).map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                className="social-add-pill"
+                onClick={() => addSocial(p.key)}
+              >
+                + {p.label}
+              </button>
+            ))}
           </div>
           <div className="links-editor">
             {profile.socials.map((social, index) => (
@@ -650,14 +816,170 @@ export function Studio({
                 social={social}
                 onChange={(values) => updateSocial(index, values)}
                 onRemove={() => removeSocial(index)}
-                colorValue={profile.theme?.[`${social.platform}Button`] || profile.theme?.primaryButton || profile.palette.primary}
-                onColorChange={(value) => updateTheme(`${social.platform}Button`, value)}
               />
             ))}
           </div>
         </section>
+        )}
+
+        {activePanel === 'content' && (
+        <section className="editor-section">
+          <h2>BrillBrains Footer</h2>
+          <label className="toggle-row branding-toggle">
+            <div>
+              <strong>Powered by BrillBrains Consultants</strong>
+              <small>Available in Premium Subscription.</small>
+            </div>
+            <span className="switch">
+              <input type="checkbox" checked disabled readOnly />
+              <span />
+            </span>
+          </label>
+        </section>
+        )}
+
+        {activePanel === 'customize' && (
+        <section className="editor-section customize-panel">
+          <h2>Customize</h2>
+          <div className="customize-color-groups">
+            <div className="customize-color-group">
+              <h3>Card</h3>
+              <div className="theme-color-grid">
+                <InlineColorControl {...liveControlProps} label="Card Background" value={profile.theme?.cardBackground || profile.palette.surface} onChange={(value) => updateTheme('cardBackground', value)} />
+                <InlineColorControl {...liveControlProps} label="Border" value={profile.theme?.borderColor || profile.palette.accent} onChange={(value) => updateTheme('borderColor', value)} />
+              </div>
+            </div>
+            <div className="customize-color-group">
+              <h3>Personal Information</h3>
+              <div className="theme-color-grid">
+                <InlineColorControl {...liveControlProps} label="Person Name" value={profile.theme?.headingText || profile.palette.ink} onChange={(value) => updateTheme('headingText', value)} />
+                <InlineColorControl {...liveControlProps} label="Designation" value={profile.theme?.designationText || profile.theme?.bodyText || profile.palette.ink} onChange={(value) => updateTheme('designationText', value)} />
+                <InlineColorControl {...liveControlProps} label="Company Name" value={profile.theme?.companyNameText || profile.theme?.headingText || profile.palette.ink} onChange={(value) => updateTheme('companyNameText', value)} />
+                <InlineColorControl {...liveControlProps} label="Tagline" value={profile.theme?.taglineText || profile.palette.ink} onChange={(value) => updateTheme('taglineText', value)} />
+                <InlineColorControl {...liveControlProps} label="Location" value={profile.theme?.locationText || profile.palette.ink} onChange={(value) => updateTheme('locationText', value)} />
+                <InlineColorControl {...liveControlProps} label="About" value={profile.theme?.aboutText || profile.palette.ink} onChange={(value) => updateTheme('aboutText', value)} />
+              </div>
+            </div>
+            <div className="customize-color-group">
+              <h3>Action Buttons</h3>
+              <div className="theme-color-grid">
+                <InlineColorControl {...liveControlProps} label="Call Button" value={profile.theme?.callButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('callButton', value)} />
+                <InlineColorControl {...liveControlProps} label="Email Button" value={profile.theme?.emailButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('emailButton', value)} />
+                <InlineColorControl {...liveControlProps} label="WhatsApp Button" value={profile.theme?.whatsappButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('whatsappButton', value)} />
+                <InlineColorControl {...liveControlProps} label="Save Contact Button" value={profile.theme?.saveContactButton || profile.palette.accent} onChange={(value) => updateTheme('saveContactButton', value)} />
+              </div>
+            </div>
+            <div className="customize-color-group">
+              <h3>Social Icons</h3>
+              <div className="theme-color-grid">
+                <InlineColorControl {...liveControlProps} label="Website" value={profile.theme?.websiteButton || profile.palette.primary} onChange={(value) => updateTheme('websiteButton', value)} />
+                {SOCIAL_PLATFORMS.map((platform) => (
+                  <InlineColorControl
+                    key={platform.key}
+                    label={platform.label}
+                    value={profile.theme?.[`${platform.key}Button`] || profile.theme?.primaryButton || profile.palette.primary}
+                    onChange={(value) => updateTheme(`${platform.key}Button`, value)}
+                    {...liveControlProps}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+        )}
+
+        {activePanel === 'typography' && (
+        <section className="editor-section typography-panel">
+          <h2>Typography</h2>
+          <div className="field-grid field-grid--two">
+            <FontSelect {...liveControlProps} label="Person Name" value={profile.typography?.personName || profile.typography?.companyName || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('personName', value)} />
+            <FontSelect {...liveControlProps} label="Designation" value={profile.typography?.designation || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('designation', value)} />
+            <FontSelect {...liveControlProps} label="Company Name" value={profile.typography?.companyName || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('companyName', value)} />
+            <FontSelect {...liveControlProps} label="Tagline" value={profile.typography?.tagline || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('tagline', value)} />
+            <FontSelect {...liveControlProps} label="Location" value={profile.typography?.location || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('location', value)} />
+            <FontSelect {...liveControlProps} label="About" value={profile.typography?.about || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('about', value)} />
+            <FontSelect {...liveControlProps} label="Button Labels" value={profile.typography?.buttonLabels || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('buttonLabels', value)} />
+            <FontSelect {...liveControlProps} label="Footer Text" value={profile.typography?.footerText || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('footerText', value)} />
+            <FontSelect {...liveControlProps} label="Website" value={profile.typography?.website || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('website', value)} />
+          </div>
+        </section>
+        )}
+
+        {activePanel === 'settings' && (
+        <>
+        <PageHeader
+          badge="SETTINGS"
+          title="Manage your preferences"
+          subtitle="Application settings and preferences will be available soon."
+        />
+        <section className="editor-section settings-panel">
+          <h2>Settings</h2>
+          <p className="settings-placeholder">Coming Soon</p>
+        </section>
+        </>
+        )}
+
+        {activePanel === 'analytics' && (
+        <>
+        <PageHeader
+          badge="ANALYTICS"
+          title="Track your card performance"
+          subtitle="Analytics and visitor insights will be available soon."
+        />
+        <section className="editor-section settings-panel">
+          <h2>Analytics</h2>
+          <p className="settings-placeholder">Analytics Coming Soon</p>
+        </section>
+        </>
+        )}
+
+        {activePanel === 'profile' && (
+        <>
+        <PageHeader
+          badge="PROFILE"
+          title="Manage your account"
+          subtitle="View your personal information, business details and account statistics."
+        />
+        <section className="editor-section profile-page">
+          <h2>Profile</h2>
+          <div className="profile-page-grid">
+            <div className="profile-page-section">
+              <h3>Personal Information</h3>
+              <dl>
+                <div><dt>Name</dt><dd>{user?.name || 'User'}</dd></div>
+                <div><dt>Email</dt><dd>{user?.email || '-'}</dd></div>
+                <div><dt>Designation</dt><dd>{profile.designation || '-'}</dd></div>
+              </dl>
+            </div>
+            <div className="profile-page-section">
+              <h3>Business Information</h3>
+              <dl>
+                <div><dt>Business Name</dt><dd>{user?.business_name || '-'}</dd></div>
+              </dl>
+            </div>
+            <div className="profile-page-section">
+              <h3>Statistics</h3>
+              <dl>
+                <div><dt>Total Cards</dt><dd>{cardStats?.total ?? 0}</dd></div>
+                <div><dt>Draft Cards</dt><dd>{cardStats?.draft ?? 0}</dd></div>
+                <div><dt>Published Cards</dt><dd>{cardStats?.published ?? 0}</dd></div>
+                <div><dt>Archived Cards</dt><dd>{cardStats?.archived ?? 0}</dd></div>
+              </dl>
+            </div>
+            <div className="profile-page-section profile-page-actions">
+              <h3>Account</h3>
+              <button className="profile-action-button" type="button" onClick={handleLogout}>Logout</button>
+              <button className="profile-action-button danger-link-button" type="button" onClick={() => setDeleteOpen(true)}>Delete Account</button>
+            </div>
+          </div>
+        </section>
+        </>
+        )}
+        </>
+        )}
       </section>
 
+      {!isFullWidthPanel && (
       <aside className="preview-panel">
         <div className="preview-toolbar">
           <span>{hasUnsavedChanges ? 'Live preview - Unsaved changes' : 'Live preview'}</span>
@@ -667,6 +989,7 @@ export function Studio({
         </div>
         <CardPreview profile={profile} />
       </aside>
+      )}
     </main>
     </>
   )

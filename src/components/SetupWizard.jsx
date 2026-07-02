@@ -12,6 +12,15 @@ const CURATION_MESSAGES = [
   'Finalizing your digital card...',
 ]
 
+const DEFAULT_SOCIALS = [
+  { platform: 'instagram', url: 'https://instagram.com' },
+  { platform: 'facebook', url: 'https://facebook.com' },
+  { platform: 'linkedin', url: 'https://linkedin.com' },
+  { platform: 'youtube', url: 'https://youtube.com' },
+  { platform: 'twitter', url: 'https://x.com' },
+  { platform: 'telegram', url: 'https://telegram.org' },
+]
+
 function readFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -21,18 +30,57 @@ function readFile(file) {
   })
 }
 
-function AssetUpload({ label, required, value, progress, onChange }) {
+function AssetUpload({ label, required, value, progress, error, onChange, onRemove }) {
+  const [dragging, setDragging] = useState(false)
+  const inputId = `upload-${label.toLowerCase().replace(/\s+/g, '-')}`
+  const uploading = progress > 0 && progress < 100
+  const complete = Boolean(value) && progress === 100
+
+  function handleFiles(files) {
+    const file = files?.[0]
+    if (!file) return
+    onChange({ target: { files: [file], value: '' } })
+  }
+
   return (
-    <label className="wizard-upload">
-      <span>{label}{required ? ' *' : ''}</span>
-      <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={onChange} />
-      {value && <img src={value} alt="" />}
-      {progress > 0 && progress < 100 && (
+    <div
+      className={`wizard-upload ${dragging ? 'dragging' : ''} ${value ? 'has-image' : ''} ${error ? 'has-error' : ''}`}
+      onDragOver={(event) => {
+        event.preventDefault()
+        setDragging(true)
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(event) => {
+        event.preventDefault()
+        setDragging(false)
+        handleFiles(event.dataTransfer.files)
+      }}
+    >
+      <input id={inputId} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={onChange} hidden />
+      <label htmlFor={inputId} className="wizard-upload-dropzone">
+        {value ? (
+          <img src={value} alt="" />
+        ) : (
+          <span className="upload-icon">↑</span>
+        )}
+        <strong>{label}{required ? ' *' : ''}</strong>
+        <span>{value ? 'Image uploaded successfully' : 'Drag and drop or click to upload'}</span>
+        <small>PNG, JPG, WEBP or SVG</small>
+      </label>
+      {uploading && (
         <div className="wizard-progress">
           <div style={{ width: `${progress}%` }} />
         </div>
       )}
-    </label>
+      {complete && <p className="upload-success">Uploaded</p>}
+      {error && <p className="upload-error">{error}</p>}
+      {value && (
+        <div className="upload-actions">
+          <label htmlFor={inputId} className="secondary-button">Replace Image</label>
+          <button className="text-button" type="button" onClick={onRemove}>Remove Image</button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -46,6 +94,8 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
     logoPreview: '',
     profilePhoto: '',
     profilePhotoPreview: '',
+    personName: '',
+    designation: '',
     companyName: '',
     tagline: '',
     about: '',
@@ -54,6 +104,7 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
     logoBg: defaultProfile.logoBg,
   })
   const [uploadProgress, setUploadProgress] = useState({ logo: 0, profilePhoto: 0 })
+  const [uploadErrors, setUploadErrors] = useState({ logo: '', profilePhoto: '' })
   const [error, setError] = useState('')
 
   const extractedColors = useMemo(() => [
@@ -75,6 +126,7 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
     const file = event.target.files?.[0]
     if (!file) return
     setError('')
+    setUploadErrors((current) => ({ ...current, [field]: '' }))
     try {
       const preview = await readFile(file)
       if (field === 'logo') {
@@ -103,6 +155,7 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
       }))
     } catch (err) {
       setError(err.message)
+      setUploadErrors((current) => ({ ...current, [field]: err.message }))
       toast.error(err.message)
     } finally {
       event.target.value = ''
@@ -120,8 +173,8 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
       theme: {
         ...current.theme,
         ...(field === 'primary' ? { primaryButton: value, callButton: value, emailButton: value, whatsappButton: value, linkedinButton: value, instagramButton: value, facebookButton: value, twitterButton: value, youtubeButton: value, telegramButton: value } : {}),
-        ...(field === 'surface' ? { pageBackground: value, cardBackground: value, footerBackground: value } : {}),
-        ...(field === 'ink' ? { headingText: value, taglineText: value, locationText: value, aboutText: value, bodyText: value, footerText: value } : {}),
+        ...(field === 'surface' ? { pageBackground: value, cardBackground: value } : {}),
+        ...(field === 'ink' ? { headingText: value, designationText: value, companyNameText: value, taglineText: value, locationText: value, aboutText: value, bodyText: value, footerText: value } : {}),
       },
     }))
   }
@@ -131,7 +184,7 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
       setError('Business Logo is required.')
       return false
     }
-    if (step === 2 && (!form.companyName.trim() || !form.tagline.trim() || !form.about.trim())) {
+    if (step === 2 && (!form.personName.trim() || !form.companyName.trim() || !form.tagline.trim() || !form.about.trim())) {
       setError('Please complete all business details.')
       return false
     }
@@ -152,21 +205,30 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
       await new Promise((resolve) => setTimeout(resolve, 3300))
       const profile = {
         ...defaultProfile,
-        brandName: form.companyName.trim(),
-        handle: form.companyName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+        personName: form.personName.trim(),
+        designation: form.designation.trim(),
+        companyName: form.companyName.trim(),
+        brandName: form.personName.trim(),
+        handle: form.personName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
         tagline: form.tagline.trim(),
         about: form.about.trim(),
+        email: '',
+        phone: '',
+        website: 'https://example.com',
+        whatsapp: '',
+        location: '',
+        socials: DEFAULT_SOCIALS,
         logo: form.logo,
         logoSource: form.logo,
-        coverImage: form.profilePhoto || defaultProfile.coverImage,
+        coverImage: form.profilePhoto || '',
         palette: form.palette,
         theme: form.theme,
         logoBg: form.logoBg,
         branding: { ...defaultProfile.branding, poweredBy: true },
       }
-      const card = await createCard(profile.brandName)
+      const card = await createCard(profile.personName)
       await updateCard(card.id, {
-        title: profile.brandName,
+        title: profile.personName,
         logo_url: profile.logo,
         card_data: profile,
       })
@@ -207,13 +269,17 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
                 required
                 value={form.logoPreview}
                 progress={uploadProgress.logo}
+                error={uploadErrors.logo}
                 onChange={(event) => handleAsset('logo', event)}
+                onRemove={() => setForm((current) => ({ ...current, logo: '', logoPreview: '' }))}
               />
               <AssetUpload
                 label="Profile Photo"
                 value={form.profilePhotoPreview}
                 progress={uploadProgress.profilePhoto}
+                error={uploadErrors.profilePhoto}
                 onChange={(event) => handleAsset('profilePhoto', event)}
+                onRemove={() => setForm((current) => ({ ...current, profilePhoto: '', profilePhotoPreview: '' }))}
               />
             </div>
           </>
@@ -223,6 +289,14 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
             <h1>Business Details</h1>
             <div className="field-grid">
               <label className="field">
+                <span>Person Name</span>
+                <input value={form.personName} onChange={(event) => updateDetails('personName', event.target.value)} />
+              </label>
+              <label className="field">
+                <span>Designation</span>
+                <input value={form.designation} onChange={(event) => updateDetails('designation', event.target.value)} />
+              </label>
+              <label className="field">
                 <span>Company Name</span>
                 <input value={form.companyName} onChange={(event) => updateDetails('companyName', event.target.value)} />
               </label>
@@ -231,7 +305,7 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
                 <input value={form.tagline} onChange={(event) => updateDetails('tagline', event.target.value)} />
               </label>
               <label className="field">
-                <span>About Company</span>
+                <span>About</span>
                 <textarea rows={4} value={form.about} onChange={(event) => updateDetails('about', event.target.value)} />
               </label>
             </div>

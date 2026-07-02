@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { defaultProfile } from '../data'
 import { extractPaletteFromLogo, detectBackdrop, rgbToHex } from '../theme'
-import { fetchCard, updateCard, uploadLogo } from '../api'
+import { fetchCard, fetchCards, updateCard, uploadLogo } from '../api'
 import { useHistory } from '../hooks/useHistory'
 import { useToast } from '../context/ToastContext'
 import { Studio } from './Studio'
@@ -12,11 +12,15 @@ function profileFromCardData(card) {
   return {
     ...defaultProfile,
     ...cd,
-    brandName: cd.brandName || card.title || defaultProfile.brandName,
+    personName: cd.personName || cd.brandName || card.title || defaultProfile.personName,
+    companyName: cd.companyName || cd.brandName || card.title || defaultProfile.companyName,
+    brandName: cd.personName || cd.brandName || card.title || defaultProfile.brandName,
+    designation: cd.designation || '',
     logo: cd.logo || card.logo_url || defaultProfile.logo,
     logoSettings: { ...defaultProfile.logoSettings, ...cd.logoSettings },
     coverSettings: { ...defaultProfile.coverSettings, ...cd.coverSettings },
     theme: { ...defaultProfile.theme, ...cd.theme },
+    typography: { ...defaultProfile.typography, ...cd.typography },
     branding: { ...defaultProfile.branding, ...cd.branding },
     socials: Array.isArray(cd.socials) ? cd.socials : defaultProfile.socials,
   }
@@ -65,13 +69,37 @@ export function StudioPage() {
   const [cardStatus, setCardStatus] = useState('draft')
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [pendingLogoTheme, setPendingLogoTheme] = useState(null)
+  const [cardStats, setCardStats] = useState({ total: 0, draft: 0, published: 0, archived: 0 })
   const initialProfileRef = useRef(null)
   const savedSnapshotRef = useRef('')
+  const liveEditSnapshotRef = useRef(null)
+  const editorProfileRef = useRef(null)
   const history = useHistory(profile)
 
   const editorProfile = history.state
   const setEditorProfile = history.set
   const resetEditorProfile = history.reset
+
+  useEffect(() => {
+    editorProfileRef.current = editorProfile
+  }, [editorProfile])
+
+  const beginLiveEdit = useCallback(() => {
+    if (!liveEditSnapshotRef.current && editorProfile) {
+      liveEditSnapshotRef.current = JSON.stringify(editorProfile)
+    }
+  }, [editorProfile])
+
+  const setEditorProfileLive = useCallback((next) => {
+    history.set(next, { commit: false })
+  }, [history])
+
+  const commitLiveEdit = useCallback(() => {
+    if (!liveEditSnapshotRef.current || !editorProfileRef.current) return
+    const fromSnapshot = liveEditSnapshotRef.current
+    liveEditSnapshotRef.current = null
+    history.set(editorProfileRef.current, { fromSnapshot })
+  }, [history])
 
   useEffect(() => {
     setLoading(true)
@@ -100,6 +128,21 @@ export function StudioPage() {
       .finally(() => setLoading(false))
   }, [cardId])
 
+  useEffect(() => {
+    fetchCards()
+      .then((cards) => {
+        setCardStats({
+          total: cards.length,
+          draft: cards.filter((card) => card.status === 'draft').length,
+          published: cards.filter((card) => card.status === 'published').length,
+          archived: cards.filter((card) => card.status === 'archived').length,
+        })
+      })
+      .catch(() => {
+        setCardStats({ total: 0, draft: 0, published: 0, archived: 0 })
+      })
+  }, [])
+
   const handleSave = useCallback(async () => {
     if (!editorProfile) return
     setSaveStatus({ type: 'saving', text: 'Saving...' })
@@ -112,6 +155,8 @@ export function StudioPage() {
       setCardSlug(updated.slug)
       setCardStatus(updated.status)
       savedSnapshotRef.current = JSON.stringify(editorProfile)
+      liveEditSnapshotRef.current = null
+      history.clear()
       setHasUnsavedChanges(false)
       setSaveStatus({ type: 'saved', text: 'Saved' })
       setTimeout(() => setSaveStatus((s) => s.type === 'saved' ? { type: 'idle', text: '' } : s), 2000)
@@ -186,7 +231,6 @@ export function StudioPage() {
             ...cur.theme,
             pageBackground: palette.surface,
             cardBackground: palette.surface,
-            footerBackground: palette.surface,
             headingText: palette.ink,
             taglineText: palette.ink,
             locationText: palette.ink,
@@ -205,6 +249,8 @@ export function StudioPage() {
             telegramButton: palette.primary,
             accentColor: palette.accent,
             borderColor: palette.accent,
+            designationText: palette.ink,
+            companyNameText: palette.ink,
           },
           logoBg: backdrop ? rgbToHex(backdrop) : null,
         }))
@@ -261,7 +307,6 @@ export function StudioPage() {
             ...(editorProfile?.theme || defaultProfile.theme),
             pageBackground: palette.surface,
             cardBackground: palette.surface,
-            footerBackground: palette.surface,
             headingText: palette.ink,
             taglineText: palette.ink,
             locationText: palette.ink,
@@ -280,6 +325,8 @@ export function StudioPage() {
             telegramButton: palette.primary,
             accentColor: palette.accent,
             borderColor: palette.accent,
+            designationText: palette.ink,
+            companyNameText: palette.ink,
           },
           logoBg: backdrop ? rgbToHex(backdrop) : null,
         })
@@ -303,22 +350,29 @@ export function StudioPage() {
     if (!pendingLogoTheme) return
     const pending = pendingLogoTheme
     setPendingLogoTheme(null)
-    setEditorProfile((cur) => ({
-      ...cur,
-      logo: pending.logo,
-      logoSource: pending.logo,
-      palette: pending.palette,
-      theme: pending.theme,
-      logoBg: pending.logoBg,
-    }))
 
     try {
       setPaletteStatus({ type: 'working', text: 'Uploading logo...' })
       const cloudUrl = await uploadLogo(pending.file)
-      setEditorProfile((cur) => ({ ...cur, logo: cloudUrl, logoSource: cloudUrl }))
+      setEditorProfile((cur) => ({
+        ...cur,
+        logo: cloudUrl,
+        logoSource: cloudUrl,
+        palette: pending.palette,
+        theme: pending.theme,
+        logoBg: pending.logoBg,
+      }))
       setPaletteStatus({ type: 'ready', text: 'Theme applied - Logo uploaded' })
       toast.success('Logo uploaded')
     } catch {
+      setEditorProfile((cur) => ({
+        ...cur,
+        logo: pending.logo,
+        logoSource: pending.logo,
+        palette: pending.palette,
+        theme: pending.theme,
+        logoBg: pending.logoBg,
+      }))
       setPaletteStatus({ type: 'error', text: 'Theme applied - Upload failed' })
       toast.error('Logo upload failed')
     }
@@ -401,7 +455,6 @@ export function StudioPage() {
                 } : {}),
                 ...(key === 'cardBackground' ? {
                   pageBackground: value,
-                  footerBackground: value,
                 } : {}),
                 ...(key === 'headingText' ? {
                   taglineText: value,
@@ -421,8 +474,11 @@ export function StudioPage() {
         />
       )}
       <Studio
-      profile={editorProfile}
-      setProfile={setEditorProfile}
+          profile={editorProfile}
+          setProfile={setEditorProfile}
+          setProfileLive={setEditorProfileLive}
+          beginLiveEdit={beginLiveEdit}
+          commitLiveEdit={commitLiveEdit}
       onLogoUpload={handleLogoUploadWithReview}
       onLogoSettingChange={handleLogoSettingChange}
       onCoverConfirm={handleCoverConfirm}
@@ -440,9 +496,10 @@ export function StudioPage() {
       hasUnsavedChanges={hasUnsavedChanges}
       onUndo={history.undo}
       onRedo={history.redo}
-      canUndo={history.canUndo}
-      canRedo={history.canRedo}
-    />
+          canUndo={history.canUndo}
+          canRedo={history.canRedo}
+          cardStats={cardStats}
+        />
     </>
   )
 }

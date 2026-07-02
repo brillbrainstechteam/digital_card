@@ -14,14 +14,6 @@ function generateSlug(title) {
 }
 
 async function createCard(userId, { title }) {
-  const drafts = await pool.query(
-    "SELECT id FROM cards WHERE user_id = $1 AND status = 'draft'",
-    [userId]
-  )
-  if (drafts.rows.length > 0) {
-    throw new AppError('You already have a draft card. Please publish or delete it before creating a new one.', 409)
-  }
-
   let slug = generateSlug(title)
   let attempts = 0
   while (attempts < 5) {

@@ -19,10 +19,25 @@ function historyReducer(history, action) {
     const next = typeof action.value === 'function' ? action.value(history.present) : action.value
     const currentSnapshot = snapshot(history.present)
     const nextSnapshot = snapshot(next)
-    if (nextSnapshot === currentSnapshot) return history
+    if (nextSnapshot === currentSnapshot) {
+      if (action.fromSnapshot && action.fromSnapshot !== currentSnapshot) {
+        return {
+          present: next,
+          undo: [...history.undo, action.fromSnapshot].slice(-MAX_HISTORY),
+          redo: [],
+        }
+      }
+      return history
+    }
+    if (action.commit === false) {
+      return {
+        ...history,
+        present: next,
+      }
+    }
     return {
       present: next,
-      undo: [...history.undo, currentSnapshot].slice(-MAX_HISTORY),
+      undo: [...history.undo, action.fromSnapshot || currentSnapshot].slice(-MAX_HISTORY),
       redo: [],
     }
   }
@@ -62,13 +77,17 @@ export function useHistory(initialValue, options = {}) {
     onRestoreRef.current = options.onRestore
   }, [options.onRestore])
 
-  const set = useCallback((next) => {
-    dispatch({ type: 'set', value: next })
+  const set = useCallback((next, options = {}) => {
+    dispatch({ type: 'set', value: next, commit: options.commit, fromSnapshot: options.fromSnapshot })
   }, [])
 
   const reset = useCallback((next) => {
     dispatch({ type: 'reset', value: next })
   }, [])
+
+  const clear = useCallback(() => {
+    dispatch({ type: 'reset', value: history.present })
+  }, [history.present])
 
   const undo = useCallback(() => {
     dispatch({ type: 'undo' })
@@ -104,6 +123,7 @@ export function useHistory(initialValue, options = {}) {
     state: history.present,
     set,
     reset,
+    clear,
     undo,
     redo,
     canUndo: history.undo.length > 0,

@@ -19,4 +19,11 @@ export async function fetchMe() {
 
 export function logoutRequest() {
   clearToken()
+  sessionStorage.clear()
+}
+
+export async function deleteAccountRequest() {
+  await client.delete('/auth/me')
+  clearToken()
+  sessionStorage.clear()
 }
