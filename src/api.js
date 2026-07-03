@@ -30,6 +30,29 @@ export async function fetchPublicCard(slug) {
   return data.data.card
 }
 
+export async function trackCardEvent(slug, type, meta) {
+  try {
+    await client.post(`/public/cards/${slug}/events`, { type, meta })
+  } catch {
+    // tracking failures should never disrupt the visitor experience
+  }
+}
+
+export async function submitCardLead(slug, payload) {
+  const { data } = await client.post(`/public/cards/${slug}/leads`, payload)
+  return data.data.lead
+}
+
+export async function fetchAnalyticsSummary(cardId) {
+  const { data } = await client.get('/analytics/summary', { params: { cardId } })
+  return data.data.summary
+}
+
+export async function fetchAnalyticsLeads(cardId, search) {
+  const { data } = await client.get('/analytics/leads', { params: { cardId, search } })
+  return data.data.leads
+}
+
 export async function uploadImage(file, onProgress) {
   const form = new FormData()
   form.append('file', file)

@@ -4,6 +4,7 @@ import { fetchCards, deleteCard } from '../api'
 import { useToast } from '../context/ToastContext'
 import { SetupWizard } from './SetupWizard'
 import { PageHeader } from './PageHeader'
+import { Sidebar } from './Sidebar'
 
 function ConfirmDialog({ title, message, actionLabel, onCancel, onConfirm }) {
   return (
@@ -118,114 +119,117 @@ export function Dashboard() {
   }
 
   return (
-    <main className="dashboard">
-      <PageHeader
-        badge="YOUR CARDS"
-        title="Manage your digital cards"
-        subtitle="Create, edit, publish and organize all your digital cards from one place."
-        actions={(
-          <button className="primary-button" type="button" onClick={handleCreate} disabled={creating}>
-            {creating ? 'Creating...' : '+ Create Card'}
-          </button>
-        )}
-      />
-
-      {error && <p className="dashboard-error">{error}</p>}
-
-      <div className="dashboard-summary-grid">
-        {[
-          ['Total Cards', summary.total],
-          ['Published', summary.published],
-          ['Draft', summary.draft],
-          ['Archived', summary.archived],
-        ].map(([label, value]) => (
-          <div className="dashboard-summary-card" key={label}>
-            <span>{label}</span>
-            <strong>{loading ? '-' : value}</strong>
-          </div>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="card-list">
-          {[1, 2].map((i) => (
-            <div key={i} className="card-list-item skeleton-row">
-              <div className="card-list-info">
-                <div className="skeleton-line skeleton-line--title shimmer" style={{ width: '160px', height: '18px' }} />
-                <div className="skeleton-line shimmer" style={{ width: '120px', height: '14px', marginTop: '8px' }} />
-              </div>
-              <div className="card-list-actions">
-                <div className="skeleton-btn shimmer" style={{ width: '60px' }} />
-                <div className="skeleton-btn shimmer" style={{ width: '60px' }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : cards.length === 0 ? (
-        <div className="dashboard-empty">
-          <div className="empty-icon">📇</div>
-          <h2>No cards yet</h2>
-          <p>Create your first digital card and start sharing your brand.</p>
-          <button className="primary-button" type="button" onClick={handleCreate} disabled={creating}>
-            Create your first card
-          </button>
-        </div>
-      ) : (
-        <div className="card-list">
-          {cards.map((card) => (
-            <div key={card.id} className="card-list-item">
-              <div className="card-list-info">
-                <h3>{card.title}</h3>
-                <div className="card-list-meta">
-                  <span className={`status-badge status-${card.status}`}>{card.status}</span>
-                  <span>{formatDate(card.created_at)}</span>
-                </div>
-              </div>
-              <div className="card-list-actions">
-                {card.status !== 'archived' && (
-                  <button className="secondary-button" type="button" onClick={() => navigate(`/studio/${card.id}`)}>
-                    Edit
-                  </button>
-                )}
-                <div className="share-group">
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    onClick={() => handleShare(card)}
-                    disabled={card.status !== 'published'}
-                    title={card.status !== 'published' ? 'Publish the card first to share' : 'Copy public link'}
-                  >
-                    Copy Link
-                  </button>
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    onClick={() => openInNewTab(card)}
-                    disabled={card.status !== 'published'}
-                    title={card.status !== 'published' ? 'Publish the card first' : 'Open public card'}
-                  >
-                    Open ↗
-                  </button>
-                </div>
-                {card.status !== 'archived' && (
-                  <button className="text-button card-delete-btn" type="button" onClick={() => handleDelete(card)}>
-                    {card.status === 'draft' ? 'Delete' : 'Archive'}
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {pendingConfirm && (
-        <ConfirmDialog
-          title={pendingConfirm.title}
-          message={pendingConfirm.message}
-          actionLabel={pendingConfirm.actionLabel}
-          onCancel={() => setPendingConfirm(null)}
-          onConfirm={() => confirmDelete(pendingConfirm.card)}
+    <main className="studio studio-workspace">
+      <Sidebar mode="app" activeApp="cards" />
+      <section className="editor-panel editor-panel--wide">
+        <PageHeader
+          badge="YOUR CARDS"
+          title="Manage your digital cards"
+          subtitle="Create, edit, publish and organize all your digital cards from one place."
+          actions={(
+            <button className="primary-button" type="button" onClick={handleCreate} disabled={creating}>
+              {creating ? 'Creating...' : '+ Create Card'}
+            </button>
+          )}
         />
-      )}
+
+        {error && <p className="dashboard-error">{error}</p>}
+
+        <div className="dashboard-summary-grid">
+          {[
+            ['Total Cards', summary.total],
+            ['Published', summary.published],
+            ['Draft', summary.draft],
+            ['Archived', summary.archived],
+          ].map(([label, value]) => (
+            <div className="dashboard-summary-card" key={label}>
+              <span>{label}</span>
+              <strong>{loading ? '-' : value}</strong>
+            </div>
+          ))}
+        </div>
+
+        {loading ? (
+          <div className="card-list">
+            {[1, 2].map((i) => (
+              <div key={i} className="card-list-item skeleton-row">
+                <div className="card-list-info">
+                  <div className="skeleton-line skeleton-line--title shimmer" style={{ width: '160px', height: '18px' }} />
+                  <div className="skeleton-line shimmer" style={{ width: '120px', height: '14px', marginTop: '8px' }} />
+                </div>
+                <div className="card-list-actions">
+                  <div className="skeleton-btn shimmer" style={{ width: '60px' }} />
+                  <div className="skeleton-btn shimmer" style={{ width: '60px' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : cards.length === 0 ? (
+          <div className="dashboard-empty">
+            <div className="empty-icon">📇</div>
+            <h2>No cards yet</h2>
+            <p>Create your first digital card and start sharing your brand.</p>
+            <button className="primary-button" type="button" onClick={handleCreate} disabled={creating}>
+              Create your first card
+            </button>
+          </div>
+        ) : (
+          <div className="card-list">
+            {cards.map((card) => (
+              <div key={card.id} className="card-list-item">
+                <div className="card-list-info">
+                  <h3>{card.title}</h3>
+                  <div className="card-list-meta">
+                    <span className={`status-badge status-${card.status}`}>{card.status}</span>
+                    <span>{formatDate(card.created_at)}</span>
+                  </div>
+                </div>
+                <div className="card-list-actions">
+                  {card.status !== 'archived' && (
+                    <button className="secondary-button" type="button" onClick={() => navigate(`/studio/${card.id}`)}>
+                      Edit
+                    </button>
+                  )}
+                  <div className="share-group">
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => handleShare(card)}
+                      disabled={card.status !== 'published'}
+                      title={card.status !== 'published' ? 'Publish the card first to share' : 'Copy public link'}
+                    >
+                      Copy Link
+                    </button>
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => openInNewTab(card)}
+                      disabled={card.status !== 'published'}
+                      title={card.status !== 'published' ? 'Publish the card first' : 'Open public card'}
+                    >
+                      Open ↗
+                    </button>
+                  </div>
+                  {card.status !== 'archived' && (
+                    <button className="text-button card-delete-btn" type="button" onClick={() => handleDelete(card)}>
+                      {card.status === 'draft' ? 'Delete' : 'Archive'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {pendingConfirm && (
+          <ConfirmDialog
+            title={pendingConfirm.title}
+            message={pendingConfirm.message}
+            actionLabel={pendingConfirm.actionLabel}
+            onCancel={() => setPendingConfirm(null)}
+            onConfirm={() => confirmDelete(pendingConfirm.card)}
+          />
+        )}
+      </section>
     </main>
   )
 }

@@ -8,6 +8,7 @@ const healthRoutes = require('./routes/healthRoutes')
 const authRoutes = require('./routes/authRoutes')
 const cardRoutes = require('./routes/cardRoutes')
 const publicCardRoutes = require('./routes/publicCardRoutes')
+const analyticsRoutes = require('./routes/analyticsRoutes')
 
 const app = express()
 
@@ -24,6 +25,7 @@ app.use('/api/health', healthRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api/cards', cardRoutes)
 app.use('/api/public/cards', publicCardRoutes)
+app.use('/api/analytics', analyticsRoutes)
 
 app.use(notFound)
 app.use(errorHandler)

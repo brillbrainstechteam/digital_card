@@ -1,4 +1,63 @@
+export const ABOUT_MAX_LENGTH = 165
+
+export const PRESET_DEFAULTS = {
+  personal: {
+    showLogo: false,
+    showProfilePhoto: true,
+    showPersonName: true,
+    showDesignation: true,
+    showCompanyName: false,
+    showTagline: true,
+    showLocation: true,
+    showAbout: true,
+    showContactButtons: true,
+    showCallButton: true,
+    showEmailButton: true,
+    showWhatsappButton: true,
+    showSocialLinks: true,
+    showWebsite: true,
+  },
+  professional: {
+    showLogo: true,
+    showProfilePhoto: true,
+    showPersonName: true,
+    showDesignation: true,
+    showCompanyName: true,
+    showTagline: true,
+    showLocation: true,
+    showAbout: true,
+    showContactButtons: true,
+    showCallButton: true,
+    showEmailButton: true,
+    showWhatsappButton: true,
+    showSocialLinks: true,
+    showWebsite: true,
+  },
+  business: {
+    showLogo: true,
+    showProfilePhoto: false,
+    showPersonName: false,
+    showDesignation: false,
+    showCompanyName: true,
+    showTagline: true,
+    showLocation: true,
+    showAbout: true,
+    showContactButtons: true,
+    showCallButton: true,
+    showEmailButton: true,
+    showWhatsappButton: true,
+    showSocialLinks: true,
+    showWebsite: true,
+  },
+}
+
+export function getVisibilityFlags(cardType) {
+  return PRESET_DEFAULTS[cardType] || PRESET_DEFAULTS.professional
+}
+
 export const defaultProfile = {
+  cardType: 'professional',
+  ...PRESET_DEFAULTS.professional,
   personName: 'Brillbrains',
   designation: '',
   companyName: 'Brillbrains',

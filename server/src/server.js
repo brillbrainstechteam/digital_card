@@ -1,10 +1,11 @@
 const app = require('./app')
 const env = require('./config/env')
-const { testConnection } = require('./config/database')
+const { testConnection, ensureSchema } = require('./config/database')
 
 async function start() {
   try {
     await testConnection()
+    await ensureSchema()
 
     app.listen(env.port, () => {
       console.log(`Server running in ${env.nodeEnv} mode on port ${env.port}`)

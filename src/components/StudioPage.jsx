@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { defaultProfile } from '../data'
+import { defaultProfile, getVisibilityFlags } from '../data'
 import { extractPaletteFromLogo, detectBackdrop, rgbToHex } from '../theme'
-import { fetchCard, fetchCards, updateCard, uploadLogo } from '../api'
+import { fetchCard, updateCard, uploadLogo } from '../api'
 import { useHistory } from '../hooks/useHistory'
 import { useToast } from '../context/ToastContext'
 import { Studio } from './Studio'
 
 function profileFromCardData(card) {
   const cd = card.card_data || {}
+  const cardType = cd.cardType || 'professional'
   return {
     ...defaultProfile,
+    ...getVisibilityFlags(cardType),
     ...cd,
+    cardType,
     personName: cd.personName || cd.brandName || card.title || defaultProfile.personName,
     companyName: cd.companyName || cd.brandName || card.title || defaultProfile.companyName,
     brandName: cd.personName || cd.brandName || card.title || defaultProfile.brandName,
@@ -69,7 +72,6 @@ export function StudioPage() {
   const [cardStatus, setCardStatus] = useState('draft')
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [pendingLogoTheme, setPendingLogoTheme] = useState(null)
-  const [cardStats, setCardStats] = useState({ total: 0, draft: 0, published: 0, archived: 0 })
   const initialProfileRef = useRef(null)
   const savedSnapshotRef = useRef('')
   const liveEditSnapshotRef = useRef(null)
@@ -128,21 +130,6 @@ export function StudioPage() {
       .finally(() => setLoading(false))
   }, [cardId])
 
-  useEffect(() => {
-    fetchCards()
-      .then((cards) => {
-        setCardStats({
-          total: cards.length,
-          draft: cards.filter((card) => card.status === 'draft').length,
-          published: cards.filter((card) => card.status === 'published').length,
-          archived: cards.filter((card) => card.status === 'archived').length,
-        })
-      })
-      .catch(() => {
-        setCardStats({ total: 0, draft: 0, published: 0, archived: 0 })
-      })
-  }, [])
-
   const handleSave = useCallback(async () => {
     if (!editorProfile) return
     setSaveStatus({ type: 'saving', text: 'Saving...' })
@@ -163,8 +150,17 @@ export function StudioPage() {
     } catch (err) {
       setSaveStatus({ type: 'error', text: err.message })
       toast.error('Save failed: ' + err.message)
+      throw err
     }
   }, [cardId, editorProfile])
+
+  const handleDiscardChanges = useCallback(() => {
+    if (!savedSnapshotRef.current) return
+    const restored = JSON.parse(savedSnapshotRef.current)
+    liveEditSnapshotRef.current = null
+    resetEditorProfile(restored)
+    setHasUnsavedChanges(false)
+  }, [resetEditorProfile])
 
   useEffect(() => {
     if (!editorProfile || !savedSnapshotRef.current) {
@@ -392,13 +388,7 @@ export function StudioPage() {
     setPaletteStatus({ type: 'ready', text: 'Created card restored' })
   }
 
-  function handleShareCard() {
-    if (!cardSlug || cardStatus !== 'published') return
-    const url = `${window.location.origin}/card/${cardSlug}`
-    navigator.clipboard.writeText(url)
-      .then(() => toast.success('Link copied to clipboard!'))
-      .catch(() => toast.error('Failed to copy link'))
-  }
+  const publicUrl = cardSlug ? `${window.location.origin}/card/${cardSlug}` : null
 
   if (loading || !editorProfile) {
     return (
@@ -489,7 +479,8 @@ export function StudioPage() {
         if (cardSlug) window.open(`/card/${cardSlug}`, '_blank')
       }}
       onSave={handleSave}
-      onShare={handleShareCard}
+      onDiscard={handleDiscardChanges}
+      publicUrl={publicUrl}
       saveStatus={saveStatus}
       cardId={cardId}
       cardStatus={cardStatus}
@@ -498,7 +489,6 @@ export function StudioPage() {
       onRedo={history.redo}
           canUndo={history.canUndo}
           canRedo={history.canRedo}
-          cardStats={cardStats}
         />
     </>
   )

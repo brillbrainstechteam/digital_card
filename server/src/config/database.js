@@ -26,4 +26,32 @@ async function testConnection() {
   }
 }
 
-module.exports = { pool, testConnection }
+async function ensureSchema() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS card_events (
+      id BIGSERIAL PRIMARY KEY,
+      card_id UUID NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+      event_type TEXT NOT NULL,
+      meta JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS card_events_card_id_idx ON card_events (card_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS card_events_event_type_idx ON card_events (event_type)')
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS card_leads (
+      id BIGSERIAL PRIMARY KEY,
+      card_id UUID NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+      full_name TEXT NOT NULL,
+      business_name TEXT,
+      email TEXT,
+      phone TEXT NOT NULL,
+      company TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS card_leads_card_id_idx ON card_leads (card_id)')
+}
+
+module.exports = { pool, testConnection, ensureSchema }

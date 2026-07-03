@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createCard, updateCard, uploadImage } from '../api'
-import { defaultProfile } from '../data'
+import { defaultProfile, PRESET_DEFAULTS, getVisibilityFlags, ABOUT_MAX_LENGTH } from '../data'
 import { extractPaletteFromLogo, detectBackdrop, rgbToHex } from '../theme'
 import { themeFromPalette } from '../themeOptions'
 
@@ -14,11 +14,7 @@ const CURATION_MESSAGES = [
 
 const DEFAULT_SOCIALS = [
   { platform: 'instagram', url: 'https://instagram.com' },
-  { platform: 'facebook', url: 'https://facebook.com' },
   { platform: 'linkedin', url: 'https://linkedin.com' },
-  { platform: 'youtube', url: 'https://youtube.com' },
-  { platform: 'twitter', url: 'https://x.com' },
-  { platform: 'telegram', url: 'https://telegram.org' },
 ]
 
 function readFile(file) {
@@ -84,8 +80,21 @@ function AssetUpload({ label, required, value, progress, error, onChange, onRemo
   )
 }
 
+const PRESET_INFO = {
+  personal: { label: 'Personal', desc: 'Photo, name, designation & social links', icon: '👤' },
+  professional: { label: 'Professional', desc: 'Logo, photo, name, company & full details', icon: '💼' },
+  business: { label: 'Business', desc: 'Logo & company branding focused', icon: '🏢' },
+}
+
+function getWizardSteps(cardType) {
+  if (cardType === 'personal') return ['assets_photo', 'details_personal', 'theme']
+  if (cardType === 'business') return ['assets_logo', 'details_business', 'theme']
+  return ['assets_both', 'details_personal', 'details_business', 'theme']
+}
+
 export function SetupWizard({ onCancel, onComplete, toast }) {
-  const [step, setStep] = useState(1)
+  const [cardType, setCardType] = useState(null)
+  const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [curationIndex, setCurationIndex] = useState(0)
   const [curationProgress, setCurationProgress] = useState(8)
@@ -99,10 +108,15 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
     companyName: '',
     tagline: '',
     about: '',
+    location: '',
     palette: defaultProfile.palette,
     theme: defaultProfile.theme,
     logoBg: defaultProfile.logoBg,
   })
+
+  const wizardSteps = cardType ? getWizardSteps(cardType) : []
+  const totalSteps = wizardSteps.length
+  const currentStepId = wizardSteps[step - 1]
   const [uploadProgress, setUploadProgress] = useState({ logo: 0, profilePhoto: 0 })
   const [uploadErrors, setUploadErrors] = useState({ logo: '', profilePhoto: '' })
   const [error, setError] = useState('')
@@ -113,14 +127,15 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
     form.theme.headingText,
   ], [form.theme])
 
+  const curationStep = totalSteps + 1
   useEffect(() => {
-    if (step !== 4) return undefined
+    if (step !== curationStep) return undefined
     const interval = setInterval(() => {
       setCurationIndex((current) => Math.min(current + 1, CURATION_MESSAGES.length - 1))
       setCurationProgress((current) => Math.min(current + 22, 100))
     }, 700)
     return () => clearInterval(interval)
-  }, [step])
+  }, [step, curationStep])
 
   async function handleAsset(field, event) {
     const file = event.target.files?.[0]
@@ -180,12 +195,20 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
   }
 
   function validateStep() {
-    if (step === 1 && !form.logo) {
+    if (currentStepId === 'assets_both' && !form.logo) {
       setError('Business Logo is required.')
       return false
     }
-    if (step === 2 && (!form.personName.trim() || !form.companyName.trim() || !form.tagline.trim() || !form.about.trim())) {
-      setError('Please complete all business details.')
+    if (currentStepId === 'assets_logo' && !form.logo) {
+      setError('Business Logo is required.')
+      return false
+    }
+    if (currentStepId === 'details_personal' && !form.personName.trim()) {
+      setError('Person Name is required.')
+      return false
+    }
+    if (currentStepId === 'details_business' && (!form.companyName.trim() || !form.tagline.trim())) {
+      setError('Company Name and Tagline are required.')
       return false
     }
     setError('')
@@ -198,25 +221,29 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
 
   async function createCuratedCard() {
     if (!validateStep()) return
-    setStep(4)
+    setStep(curationStep)
     setSubmitting(true)
     setError('')
     try {
       await new Promise((resolve) => setTimeout(resolve, 3300))
+      const flags = getVisibilityFlags(cardType)
+      const titleName = form.personName.trim() || form.companyName.trim()
       const profile = {
         ...defaultProfile,
+        ...flags,
+        cardType,
         personName: form.personName.trim(),
         designation: form.designation.trim(),
         companyName: form.companyName.trim(),
-        brandName: form.personName.trim(),
-        handle: form.personName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+        brandName: titleName,
+        handle: titleName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
         tagline: form.tagline.trim(),
         about: form.about.trim(),
         email: '',
         phone: '',
         website: 'https://example.com',
         whatsapp: '',
-        location: '',
+        location: form.location.trim(),
         socials: DEFAULT_SOCIALS,
         logo: form.logo,
         logoSource: form.logo,
@@ -226,22 +253,22 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
         logoBg: form.logoBg,
         branding: { ...defaultProfile.branding, poweredBy: true },
       }
-      const card = await createCard(profile.personName)
+      const card = await createCard(titleName)
       await updateCard(card.id, {
-        title: profile.personName,
+        title: titleName,
         logo_url: profile.logo,
         card_data: profile,
       })
       onComplete(card.id)
     } catch (err) {
       setSubmitting(false)
-      setStep(3)
+      setStep(totalSteps)
       setError(err.message)
       toast.error(err.message)
     }
   }
 
-  if (step === 4) {
+  if (step === curationStep) {
     return (
       <main className="wizard-curation">
         <div className="wizard-curation-box">
@@ -256,11 +283,46 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
     )
   }
 
+  if (step === 0) {
+    return (
+      <main className="setup-wizard">
+        <section className="editor-section setup-wizard-card">
+          <p className="eyebrow">Card Setup</p>
+          <h1>What type of card are you creating?</h1>
+          <div className="preset-selector preset-selector--wizard">
+            {Object.entries(PRESET_INFO).map(([key, info]) => (
+              <button
+                key={key}
+                type="button"
+                className={`preset-card ${cardType === key ? 'preset-card--active' : ''}`}
+                onClick={() => setCardType(key)}
+              >
+                <span className="preset-card-icon">{info.icon}</span>
+                <strong>{info.label}</strong>
+                <span className="preset-card-desc">{info.desc}</span>
+              </button>
+            ))}
+          </div>
+          {error && <p className="dashboard-error">{error}</p>}
+          <div className="wizard-actions">
+            <button className="secondary-button" type="button" onClick={onCancel}>Back</button>
+            <button className="primary-button" type="button" onClick={() => {
+              if (!cardType) { setError('Please select a card type.'); return }
+              setError('')
+              setStep(1)
+            }}>Next</button>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main className="setup-wizard">
       <section className="editor-section setup-wizard-card">
-        <p className="eyebrow">Step {step} of 3</p>
-        {step === 1 && (
+        <p className="eyebrow">Step {step} of {totalSteps}</p>
+
+        {currentStepId === 'assets_both' && (
           <>
             <h1>Upload Assets</h1>
             <div className="wizard-upload-grid">
@@ -284,12 +346,46 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
             </div>
           </>
         )}
-        {step === 2 && (
+
+        {currentStepId === 'assets_photo' && (
           <>
-            <h1>Business Details</h1>
+            <h1>Upload Profile Photo</h1>
+            <div className="wizard-upload-grid">
+              <AssetUpload
+                label="Profile Photo"
+                value={form.profilePhotoPreview}
+                progress={uploadProgress.profilePhoto}
+                error={uploadErrors.profilePhoto}
+                onChange={(event) => handleAsset('profilePhoto', event)}
+                onRemove={() => setForm((current) => ({ ...current, profilePhoto: '', profilePhotoPreview: '' }))}
+              />
+            </div>
+          </>
+        )}
+
+        {currentStepId === 'assets_logo' && (
+          <>
+            <h1>Upload Business Logo</h1>
+            <div className="wizard-upload-grid">
+              <AssetUpload
+                label="Business Logo"
+                required
+                value={form.logoPreview}
+                progress={uploadProgress.logo}
+                error={uploadErrors.logo}
+                onChange={(event) => handleAsset('logo', event)}
+                onRemove={() => setForm((current) => ({ ...current, logo: '', logoPreview: '' }))}
+              />
+            </div>
+          </>
+        )}
+
+        {currentStepId === 'details_personal' && (
+          <>
+            <h1>Personal Details</h1>
             <div className="field-grid">
               <label className="field">
-                <span>Person Name</span>
+                <span>Person Name *</span>
                 <input value={form.personName} onChange={(event) => updateDetails('personName', event.target.value)} />
               </label>
               <label className="field">
@@ -297,21 +393,54 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
                 <input value={form.designation} onChange={(event) => updateDetails('designation', event.target.value)} />
               </label>
               <label className="field">
-                <span>Company Name</span>
+                <span>Location</span>
+                <input value={form.location} onChange={(event) => updateDetails('location', event.target.value)} />
+              </label>
+              {cardType === 'personal' && (
+                <>
+                  <label className="field">
+                    <span>Tagline</span>
+                    <input value={form.tagline} onChange={(event) => updateDetails('tagline', event.target.value)} />
+                  </label>
+                  <label className="field">
+                    <span>About</span>
+                    <textarea rows={4} maxLength={ABOUT_MAX_LENGTH} value={form.about} onChange={(event) => updateDetails('about', event.target.value.slice(0, ABOUT_MAX_LENGTH))} />
+                    <span className="field-char-counter">{form.about.length} / {ABOUT_MAX_LENGTH}</span>
+                  </label>
+                </>
+              )}
+            </div>
+          </>
+        )}
+
+        {currentStepId === 'details_business' && (
+          <>
+            <h1>Business Details</h1>
+            <div className="field-grid">
+              <label className="field">
+                <span>Company Name *</span>
                 <input value={form.companyName} onChange={(event) => updateDetails('companyName', event.target.value)} />
               </label>
               <label className="field">
-                <span>Tagline</span>
+                <span>Tagline *</span>
                 <input value={form.tagline} onChange={(event) => updateDetails('tagline', event.target.value)} />
               </label>
+              {cardType === 'business' && (
+                <label className="field">
+                  <span>Location</span>
+                  <input value={form.location} onChange={(event) => updateDetails('location', event.target.value)} />
+                </label>
+              )}
               <label className="field">
                 <span>About</span>
-                <textarea rows={4} value={form.about} onChange={(event) => updateDetails('about', event.target.value)} />
+                <textarea rows={4} maxLength={ABOUT_MAX_LENGTH} value={form.about} onChange={(event) => updateDetails('about', event.target.value.slice(0, ABOUT_MAX_LENGTH))} />
+                <span className="field-char-counter">{form.about.length} / {ABOUT_MAX_LENGTH}</span>
               </label>
             </div>
           </>
         )}
-        {step === 3 && (
+
+        {currentStepId === 'theme' && (
           <>
             <h1>Theme Selection</h1>
             <div className="wizard-swatches">
@@ -331,12 +460,13 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
             </div>
           </>
         )}
+
         {error && <p className="dashboard-error">{error}</p>}
         <div className="wizard-actions">
-          <button className="secondary-button" type="button" onClick={step === 1 ? onCancel : () => setStep((current) => current - 1)}>
+          <button className="secondary-button" type="button" onClick={step === 1 ? () => setStep(0) : () => setStep((current) => current - 1)}>
             Back
           </button>
-          {step < 3 ? (
+          {step < totalSteps ? (
             <button className="primary-button" type="button" onClick={next}>Next</button>
           ) : (
             <button className="primary-button" type="button" onClick={createCuratedCard} disabled={submitting}>

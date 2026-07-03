@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { fetchPublicCard } from '../api'
+import { fetchPublicCard, trackCardEvent } from '../api'
 import { CardPreview } from './CardPreview'
 import { useAuth } from '../context/AuthContext'
-import { defaultProfile } from '../data'
+import { defaultProfile, getVisibilityFlags } from '../data'
 
 function profileFromCard(card) {
   const cd = card.card_data || {}
+  const cardType = cd.cardType || 'professional'
   return {
     ...defaultProfile,
+    ...getVisibilityFlags(cardType),
     ...cd,
+    cardType,
     brandName: cd.brandName || card.title || defaultProfile.brandName,
     logo: cd.logo || card.logo_url || defaultProfile.logo,
     logoSettings: { ...defaultProfile.logoSettings, ...cd.logoSettings },
@@ -35,6 +38,7 @@ export function PublicCard() {
       .then((card) => {
         setCardId(card.id)
         setProfile(profileFromCard(card))
+        trackCardEvent(slug, 'view')
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
@@ -86,7 +90,7 @@ export function PublicCard() {
         </div>
       )}
       <main className="public-view">
-        <CardPreview profile={profile} immersive />
+        <CardPreview profile={profile} immersive trackingSlug={slug} />
       </main>
     </div>
   )

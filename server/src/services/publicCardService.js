@@ -3,7 +3,7 @@ const AppError = require('../utils/AppError')
 
 async function getPublishedCardBySlug(slug) {
   const result = await pool.query(
-    "SELECT title, slug, logo_url, card_data FROM cards WHERE slug = $1 AND status = 'published'",
+    "SELECT id, title, slug, logo_url, card_data FROM cards WHERE slug = $1 AND status = 'published'",
     [slug]
   )
 
