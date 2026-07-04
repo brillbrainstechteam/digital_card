@@ -3,7 +3,8 @@ import { CardPreview } from './CardPreview'
 import { PageHeader } from './PageHeader'
 import { Sidebar } from './Sidebar'
 import { FONT_OPTIONS } from '../fontOptions'
-import { PRESET_DEFAULTS, getVisibilityFlags, ABOUT_MAX_LENGTH } from '../data'
+import { PRESET_DEFAULTS, getVisibilityFlags, ABOUT_MAX_LENGTH, BUTTON_LABEL_DEFAULTS, BUTTON_LABEL_MAX_LENGTH } from '../data'
+import { autoTextFor } from '../theme'
 
 const CIRCLE = 260
 
@@ -122,6 +123,7 @@ const SOCIAL_PLATFORMS = [
   { key: 'twitch', label: 'Twitch' },
   { key: 'applemusic', label: 'Apple Music' },
   { key: 'reddit', label: 'Reddit' },
+  { key: 'github', label: 'GitHub' },
 ]
 
 const SOCIAL_DEFAULT_URLS = {
@@ -139,6 +141,7 @@ const SOCIAL_DEFAULT_URLS = {
   twitch: 'https://twitch.tv',
   applemusic: 'https://music.apple.com',
   reddit: 'https://reddit.com',
+  github: 'https://github.com',
 }
 
 const COLOR_FIELD_GROUPS = {
@@ -149,17 +152,25 @@ const COLOR_FIELD_GROUPS = {
     { key: 'taglineText', label: 'Tagline' },
     { key: 'locationText', label: 'Location' },
     { key: 'aboutText', label: 'About' },
-    { key: 'websiteButton', label: 'Website' },
   ],
   buttons: [
     { key: 'callButton', label: 'Call Button' },
     { key: 'emailButton', label: 'Email Button' },
     { key: 'whatsappButton', label: 'WhatsApp Button' },
     { key: 'saveContactButton', label: 'Save Contact Button' },
+    { key: 'subscribeButton', label: 'Subscribe Button' },
+    { key: 'websiteButton', label: 'Website Button' },
+  ],
+  buttonsText: [
+    { key: 'callButtonText', label: 'Call Button Text' },
+    { key: 'emailButtonText', label: 'Email Button Text' },
+    { key: 'whatsappButtonText', label: 'WhatsApp Button Text' },
+    { key: 'saveContactButtonText', label: 'Save Contact Button Text' },
+    { key: 'subscribeButtonText', label: 'Subscribe Button Text' },
+    { key: 'websiteButtonText', label: 'Website Button Text' },
   ],
   socials: [
     ...SOCIAL_PLATFORMS.map((p) => ({ key: `${p.key}Button`, label: p.label })),
-    { key: 'websiteButton', label: 'Website Icon' },
   ],
   footer: [
     { key: 'footerText', label: 'Powered by BrillBrains' },
@@ -183,9 +194,10 @@ function ApplyToPopover({ mode, lastTargets, onApply, onClose }) {
   const groups = mode === 'color' ? COLOR_FIELD_GROUPS : TYPOGRAPHY_FIELD_GROUPS
   const allTextKeys = groups.text.map((f) => f.key)
   const allButtonKeys = (groups.buttons || []).map((f) => f.key)
+  const allButtonTextKeys = (groups.buttonsText || []).map((f) => f.key)
   const allSocialKeys = (groups.socials || []).map((f) => f.key)
   const allFooterKeys = (groups.footer || []).map((f) => f.key)
-  const allKeys = [...new Set([...allTextKeys, ...allButtonKeys, ...allSocialKeys, ...allFooterKeys])]
+  const allKeys = [...new Set([...allTextKeys, ...allButtonKeys, ...allButtonTextKeys, ...allSocialKeys, ...allFooterKeys])]
 
   const [selected, setSelected] = useState(() => new Set(lastTargets && lastTargets.length ? lastTargets : []))
   const popoverRef = useRef(null)
@@ -235,6 +247,17 @@ function ApplyToPopover({ mode, lastTargets, onApply, onClose }) {
           <div className="apply-to-group">
             <h4>Buttons</h4>
             {groups.buttons.map((f) => (
+              <label key={f.key} className="apply-to-checkbox">
+                <input type="checkbox" checked={selected.has(f.key)} onChange={() => toggle(f.key)} />
+                <span>{f.label}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        {groups.buttonsText && (
+          <div className="apply-to-group">
+            <h4>Button Text Colors</h4>
+            {groups.buttonsText.map((f) => (
               <label key={f.key} className="apply-to-checkbox">
                 <input type="checkbox" checked={selected.has(f.key)} onChange={() => toggle(f.key)} />
                 <span>{f.label}</span>
@@ -360,6 +383,32 @@ function VisibilityToggle({ checked, onChange, label }) {
       />
       <span className="visibility-toggle-slider" />
     </label>
+  )
+}
+
+function ButtonSettingRow({ title, checked, onToggle, value, onChange, onBegin, onCommit }) {
+  return (
+    <div className="button-setting-row">
+      <label className="button-setting-toggle-row">
+        <span>Show {title} Button</span>
+        <span className="switch">
+          <input type="checkbox" checked={checked} onChange={(event) => onToggle(event.target.checked)} />
+          <span />
+        </span>
+      </label>
+      {checked && (
+        <div className="button-setting-expand">
+          <Field
+            label="Label"
+            value={value}
+            onChange={onChange}
+            onBegin={onBegin}
+            onCommit={onCommit}
+            maxLength={BUTTON_LABEL_MAX_LENGTH}
+          />
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -631,6 +680,27 @@ export function Studio({
       ...(field === 'personName' ? { brandName: value } : {}),
     }))
     scheduleLiveCommit()
+  }
+
+  function updateButtonLabel(key, value) {
+    beginLiveEdit?.()
+    ;(setProfileLive || setProfile)((current) => ({
+      ...current,
+      buttonLabels: { ...(current.buttonLabels || {}), [key]: value },
+    }))
+    scheduleLiveCommit()
+  }
+
+  function commitButtonLabel(key) {
+    (setProfileLive || setProfile)((current) => {
+      const value = (current.buttonLabels || {})[key]
+      if (value && value.trim()) return current
+      return {
+        ...current,
+        buttonLabels: { ...(current.buttonLabels || {}), [key]: BUTTON_LABEL_DEFAULTS[key] },
+      }
+    })
+    commitNow()
   }
 
   function updateTheme(field, value) {
@@ -1081,29 +1151,109 @@ export function Studio({
               label="Email"
               value={profile.email}
               onChange={(value) => updateProfile('email', value)}
-              colorControl={<VisibilityToggle label="Email Button" checked={profile.showEmailButton !== false} onChange={(v) => updateVisibility('showEmailButton', v)} />}
             />
             <Field
               {...liveControlProps}
               label="Phone"
               value={profile.phone}
               onChange={(value) => updateProfile('phone', value)}
-              colorControl={<VisibilityToggle label="Call Button" checked={profile.showCallButton !== false} onChange={(v) => updateVisibility('showCallButton', v)} />}
             />
             <Field
               {...liveControlProps}
               label="Website"
               value={profile.website}
               onChange={(value) => updateProfile('website', value)}
-              colorControl={<VisibilityToggle label="Website" checked={profile.showWebsite !== false} onChange={(v) => updateVisibility('showWebsite', v)} />}
             />
             <Field
               {...liveControlProps}
               label="WhatsApp"
               value={profile.whatsapp}
               onChange={(value) => updateProfile('whatsapp', value)}
-              colorControl={<VisibilityToggle label="WhatsApp Button" checked={profile.showWhatsappButton !== false} onChange={(v) => updateVisibility('showWhatsappButton', v)} />}
             />
+          </div>
+        </section>
+        )}
+
+        {activePanel === 'design' && (
+        <section className="editor-section">
+          <h2>Button Settings</h2>
+          <p className="settings-description">Choose which buttons appear on your card and customize their labels.</p>
+          <div className="button-settings-list">
+            <ButtonSettingRow
+              title="Call"
+              checked={profile.showCallButton !== false}
+              onToggle={(v) => updateVisibility('showCallButton', v)}
+              value={profile.buttonLabels?.call ?? BUTTON_LABEL_DEFAULTS.call}
+              onChange={(value) => updateButtonLabel('call', value)}
+              onBegin={beginLiveEdit}
+              onCommit={() => commitButtonLabel('call')}
+            />
+            <ButtonSettingRow
+              title="Email"
+              checked={profile.showEmailButton !== false}
+              onToggle={(v) => updateVisibility('showEmailButton', v)}
+              value={profile.buttonLabels?.email ?? BUTTON_LABEL_DEFAULTS.email}
+              onChange={(value) => updateButtonLabel('email', value)}
+              onBegin={beginLiveEdit}
+              onCommit={() => commitButtonLabel('email')}
+            />
+            <ButtonSettingRow
+              title="WhatsApp"
+              checked={profile.showWhatsappButton !== false}
+              onToggle={(v) => updateVisibility('showWhatsappButton', v)}
+              value={profile.buttonLabels?.whatsapp ?? BUTTON_LABEL_DEFAULTS.whatsapp}
+              onChange={(value) => updateButtonLabel('whatsapp', value)}
+              onBegin={beginLiveEdit}
+              onCommit={() => commitButtonLabel('whatsapp')}
+            />
+            <ButtonSettingRow
+              title="Website"
+              checked={profile.showWebsite !== false}
+              onToggle={(v) => updateVisibility('showWebsite', v)}
+              value={profile.buttonLabels?.website ?? BUTTON_LABEL_DEFAULTS.website}
+              onChange={(value) => updateButtonLabel('website', value)}
+              onBegin={beginLiveEdit}
+              onCommit={() => commitButtonLabel('website')}
+            />
+            <ButtonSettingRow
+              title="Save Contact"
+              checked={profile.showSaveContactButton !== false}
+              onToggle={(v) => updateVisibility('showSaveContactButton', v)}
+              value={profile.buttonLabels?.saveContact ?? BUTTON_LABEL_DEFAULTS.saveContact}
+              onChange={(value) => updateButtonLabel('saveContact', value)}
+              onBegin={beginLiveEdit}
+              onCommit={() => commitButtonLabel('saveContact')}
+            />
+
+            <div className="button-setting-row">
+              <label className="button-setting-toggle-row">
+                <span>Enable Subscribe</span>
+                <span className="switch">
+                  <input
+                    type="checkbox"
+                    checked={profile.showSubscribe === true}
+                    onChange={(event) => updateVisibility('showSubscribe', event.target.checked)}
+                  />
+                  <span />
+                </span>
+              </label>
+              {profile.showSubscribe === true && (
+                <div className="button-setting-expand">
+                  <Field
+                    {...liveControlProps}
+                    label="Subscribe Label"
+                    value={profile.buttonLabels?.subscribe ?? BUTTON_LABEL_DEFAULTS.subscribe}
+                    onChange={(value) => updateButtonLabel('subscribe', value)}
+                    onCommit={() => commitButtonLabel('subscribe')}
+                    maxLength={BUTTON_LABEL_MAX_LENGTH}
+                  />
+                  <p className="field-hint">
+                    This allows visitors to subscribe using only their email address. Emails will be stored
+                    for future newsletter or update integrations.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </section>
         )}
@@ -1183,12 +1333,24 @@ export function Studio({
                 <ColorField {...liveControlProps} {...applyColorProps} label="Email Button" value={profile.theme?.emailButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('emailButton', value)} />
                 <ColorField {...liveControlProps} {...applyColorProps} label="WhatsApp Button" value={profile.theme?.whatsappButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('whatsappButton', value)} />
                 <ColorField {...liveControlProps} {...applyColorProps} label="Save Contact Button" value={profile.theme?.saveContactButton || profile.palette.accent} onChange={(value) => updateTheme('saveContactButton', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Subscribe Button" value={profile.theme?.subscribeButton || profile.theme?.saveContactButton || profile.palette.accent} onChange={(value) => updateTheme('subscribeButton', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Website Button" value={profile.theme?.websiteButton || profile.palette.primary} onChange={(value) => updateTheme('websiteButton', value)} />
+              </div>
+            </div>
+            <div className="customize-color-group">
+              <h3>Button Text</h3>
+              <div className="theme-color-grid">
+                <ColorField {...liveControlProps} {...applyColorProps} label="Call Button Text" value={profile.theme?.callButtonText || autoTextFor(profile.theme?.callButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('callButtonText', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Email Button Text" value={profile.theme?.emailButtonText || autoTextFor(profile.theme?.emailButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('emailButtonText', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="WhatsApp Button Text" value={profile.theme?.whatsappButtonText || autoTextFor(profile.theme?.whatsappButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('whatsappButtonText', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Save Contact Button Text" value={profile.theme?.saveContactButtonText || autoTextFor(profile.theme?.saveContactButton || profile.palette.accent)} onChange={(value) => updateTheme('saveContactButtonText', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Subscribe Button Text" value={profile.theme?.subscribeButtonText || autoTextFor(profile.theme?.subscribeButton || profile.theme?.saveContactButton || profile.palette.accent)} onChange={(value) => updateTheme('subscribeButtonText', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Website Button Text" value={profile.theme?.websiteButtonText || autoTextFor(profile.theme?.websiteButton || profile.palette.primary)} onChange={(value) => updateTheme('websiteButtonText', value)} />
               </div>
             </div>
             <div className="customize-color-group">
               <h3>Social Icons</h3>
               <div className="theme-color-grid">
-                <ColorField {...liveControlProps} {...applyColorProps} label="Website" value={profile.theme?.websiteButton || profile.palette.primary} onChange={(value) => updateTheme('websiteButton', value)} />
                 {SOCIAL_PLATFORMS.map((platform) => (
                   <ColorField
                     key={platform.key}

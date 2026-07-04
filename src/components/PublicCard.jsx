@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { fetchPublicCard, trackCardView } from '../api'
 import { CardPreview } from './CardPreview'
-import { useAuth } from '../context/AuthContext'
 import { defaultProfile, getVisibilityFlags } from '../data'
+import { pageBackgroundVariables } from '../theme'
 
 function profileFromCard(card) {
   const cd = card.card_data || {}
@@ -25,9 +25,7 @@ function profileFromCard(card) {
 
 export function PublicCard() {
   const { slug } = useParams()
-  const { isAuthenticated } = useAuth()
   const [profile, setProfile] = useState(null)
-  const [cardId, setCardId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -36,7 +34,6 @@ export function PublicCard() {
     setError('')
     fetchPublicCard(slug)
       .then((card) => {
-        setCardId(card.id)
         setProfile(profileFromCard(card))
         trackCardView(slug)
       })
@@ -76,19 +73,7 @@ export function PublicCard() {
   }
 
   return (
-    <div style={{ '--public-background': profile.theme?.pageBackground || profile.palette.surface }}>
-      {isAuthenticated && (
-        <div className="public-card-topbar">
-          <Link to="/" className="product-mark">
-            <img src="/logo.png" alt="BB" className="product-mark-icon" />
-            <strong>Digital Card</strong>
-          </Link>
-          <div className="public-card-topbar-actions">
-            <Link to="/dashboard" className="secondary-button">Dashboard</Link>
-            <Link to={`/studio/${cardId}`} className="secondary-button">Edit this card</Link>
-          </div>
-        </div>
-      )}
+    <div style={pageBackgroundVariables(profile.palette, profile.theme)}>
       <main className="public-view">
         <CardPreview profile={profile} immersive trackingSlug={slug} />
       </main>

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchCards, fetchAnalytics, fetchAnalyticsLeads, fetchAnalyticsActivity } from '../api'
+import { fetchCards, fetchAnalytics, fetchAnalyticsLeads, fetchAnalyticsActivity, fetchAnalyticsSubscribers } from '../api'
 import { PageHeader } from './PageHeader'
 import { Sidebar } from './Sidebar'
 
@@ -68,6 +68,21 @@ function downloadCsv(rows) {
   URL.revokeObjectURL(url)
 }
 
+function downloadSubscribersCsv(rows) {
+  const header = ['Email', 'Subscribed On']
+  const lines = [header.join(',')]
+  for (const sub of rows) {
+    const subscribed = new Date(sub.subscribed_at).toLocaleString()
+    const cells = [sub.email, subscribed].map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`)
+    lines.push(cells.join(','))
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = 'subscribers.csv'; a.click()
+  URL.revokeObjectURL(url)
+}
+
 const DATE_OPTIONS = [
   { value: '', label: 'All Time' },
   { value: 'today', label: 'Today' },
@@ -92,6 +107,8 @@ export function AnalyticsPage() {
   const [selectedCardId, setSelectedCardId] = useState('all')
   const [summary, setSummary] = useState(null)
   const [activity, setActivity] = useState([])
+  const [subscribers, setSubscribers] = useState([])
+  const [exportingSubscribers, setExportingSubscribers] = useState(false)
   const [loading, setLoading] = useState(true)
   const pollRef = useRef(null)
 
@@ -131,17 +148,19 @@ export function AnalyticsPage() {
   const loadAll = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const [summaryData, leadsData, activityData] = await Promise.all([
+      const [summaryData, leadsData, activityData, subscribersData] = await Promise.all([
         fetchAnalytics(selectedCardId),
         fetchAnalyticsLeads(selectedCardId, leadsParamsRef.current),
         fetchAnalyticsActivity(selectedCardId, { limit: 5 }),
+        fetchAnalyticsSubscribers(selectedCardId, { limit: 5 }),
       ])
       setSummary(summaryData)
       setLeads(leadsData.leads)
       setLeadsTotal(leadsData.total)
       setActivity(activityData.events || [])
+      setSubscribers(subscribersData.subscribers || [])
     } catch {
-      if (!silent) { setSummary(null); setLeads([]); setLeadsTotal(0); setActivity([]) }
+      if (!silent) { setSummary(null); setLeads([]); setLeadsTotal(0); setActivity([]); setSubscribers([]) }
     } finally {
       if (!silent) setLoading(false)
     }
@@ -172,6 +191,16 @@ export function AnalyticsPage() {
 
   const totalClicks = summary?.totalButtonClicks || 0
 
+  async function handleExportSubscribers() {
+    setExportingSubscribers(true)
+    try {
+      const res = await fetchAnalyticsSubscribers(selectedCardId, { limit: 10000 })
+      downloadSubscribersCsv(res.subscribers || [])
+    } catch { /* silent */ } finally {
+      setExportingSubscribers(false)
+    }
+  }
+
   return (
     <main className="studio studio-workspace">
       <Sidebar mode="app" activeApp="analytics" />
@@ -198,6 +227,7 @@ export function AnalyticsPage() {
             {[
               ['Total Views', summary.totalViews],
               ['Total Leads', summary.totalLeads],
+              ['Total Subscribers', summary.totalSubscribers],
               ['Button Clicks', summary.totalButtonClicks],
               ['Conversion %', `${summary.conversionRate}%`],
               ['Top Action', summary.topPerformingAction ? (ALL_BUTTON_LABELS[summary.topPerformingAction] || summary.topPerformingAction) : '—'],
@@ -264,6 +294,32 @@ export function AnalyticsPage() {
             <button className="analytics-view-all-btn" type="button" onClick={() => navigate('/activity')}>
               View All Activity →
             </button>
+          </section>
+
+          {/* Recent Subscribers */}
+          <section className="editor-section">
+            <div className="editor-title">
+              <h2>Recent Subscribers</h2>
+              <button className="secondary-button" type="button"
+                onClick={handleExportSubscribers} disabled={exportingSubscribers}>
+                {exportingSubscribers ? 'Exporting...' : 'Export Subscribers CSV'}
+              </button>
+            </div>
+            {subscribers.length === 0 ? (
+              <p className="settings-placeholder">No subscribers yet.</p>
+            ) : (
+              <table className="analytics-leads-table">
+                <thead><tr><th>Email</th><th>Subscribed</th></tr></thead>
+                <tbody>
+                  {subscribers.map((sub) => (
+                    <tr key={sub.id}>
+                      <td>{sub.email}</td>
+                      <td>{timeAgo(sub.subscribed_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </section>
 
           {/* Leads */}

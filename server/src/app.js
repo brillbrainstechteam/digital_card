@@ -9,6 +9,7 @@ const authRoutes = require('./routes/authRoutes')
 const cardRoutes = require('./routes/cardRoutes')
 const publicCardRoutes = require('./routes/publicCardRoutes')
 const analyticsRoutes = require('./routes/analyticsRoutes')
+const webhookRoutes = require('./routes/webhookRoutes')
 
 const app = express()
 
@@ -26,6 +27,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/cards', cardRoutes)
 app.use('/api/public/cards', publicCardRoutes)
 app.use('/api/analytics', analyticsRoutes)
+app.use('/api/webhooks', webhookRoutes)
 
 app.use(notFound)
 app.use(errorHandler)
