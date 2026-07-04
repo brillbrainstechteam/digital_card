@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 const APP_ITEMS = [
   { key: 'cards', label: 'Your Cards', path: '/dashboard' },
   { key: 'analytics', label: 'Analytics', path: '/analytics' },
+  { key: 'activity', label: 'Activity', path: '/activity' },
   { key: 'settings', label: 'Settings', path: '/settings' },
 ]
 

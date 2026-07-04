@@ -401,7 +401,6 @@
   position: relative;
   transition: transform 120ms ease;
   width: 100%;
-  z-index: 1;
 }
 
 .card-header h2 {
@@ -1594,6 +1593,125 @@
   color: #687679;
   font-size: 12px;
   font-weight: 700;
+}
+
+.analytics-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.analytics-activity-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #f7f5f0;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.analytics-activity-label {
+  color: var(--navy);
+  font-weight: 500;
+}
+
+.analytics-activity-time {
+  color: #687679;
+  font-size: 12px;
+  white-space: nowrap;
+  margin-left: 12px;
+}
+
+.analytics-activity-icon {
+  font-size: 15px;
+  margin-right: 4px;
+}
+
+.analytics-view-all-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  background: none;
+  border: 1.5px solid #e8e5df;
+  border-radius: 10px;
+  color: #687679;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.analytics-view-all-btn:hover {
+  border-color: var(--navy);
+  color: var(--navy);
+}
+
+/* Leads filters */
+.leads-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.leads-filters .analytics-lead-search {
+  flex: 1;
+  min-width: 180px;
+  margin-bottom: 0;
+}
+
+.leads-filter-select {
+  padding: 9px 12px;
+  border: 1.5px solid #e8e5df;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+}
+
+.leads-filter-select:focus {
+  border-color: var(--navy);
+}
+
+.leads-filter-select--narrow {
+  max-width: 110px;
+}
+
+.analytics-table-meta {
+  font-size: 12px;
+  color: #687679;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+/* Activity page table */
+.activity-table .activity-icon-cell {
+  font-size: 18px;
+  text-align: center;
+  padding: 12px 8px;
+}
+
+.activity-table .activity-type-cell {
+  font-weight: 600;
+  font-size: 12px;
+  color: #687679;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.activity-table .activity-time-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+  font-size: 12px;
 }
 
 .share-url-row {

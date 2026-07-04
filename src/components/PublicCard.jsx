@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { fetchPublicCard, trackCardEvent } from '../api'
+import { fetchPublicCard, trackCardView } from '../api'
 import { CardPreview } from './CardPreview'
 import { useAuth } from '../context/AuthContext'
 import { defaultProfile, getVisibilityFlags } from '../data'
@@ -38,7 +38,7 @@ export function PublicCard() {
       .then((card) => {
         setCardId(card.id)
         setProfile(profileFromCard(card))
-        trackCardEvent(slug, 'view')
+        trackCardView(slug)
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))

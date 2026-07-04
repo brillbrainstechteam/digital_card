@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { paletteVariables } from '../theme'
-import { trackCardEvent, submitCardLead } from '../api'
+import { trackButtonClick, submitCardLead } from '../api'
 
 function ActionIcon({ type }) {
   const paths = {
@@ -111,7 +111,7 @@ function buildContactFile(profile) {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function SaveContactModal({ profile, onClose, trackingSlug }) {
-  const [form, setForm] = useState({ fullName: '', businessName: '', email: '', phone: '', company: '' })
+  const [form, setForm] = useState({ visitorName: '', businessName: '', email: '', phone: '' })
   const [errors, setErrors] = useState({})
   const [status, setStatus] = useState('idle')
 
@@ -121,7 +121,7 @@ function SaveContactModal({ profile, onClose, trackingSlug }) {
 
   function validate() {
     const nextErrors = {}
-    if (!form.fullName.trim()) nextErrors.fullName = 'Full name is required'
+    if (!form.visitorName.trim()) nextErrors.visitorName = 'Full name is required'
     if (!form.phone.trim()) nextErrors.phone = 'Phone number is required'
     if (form.email.trim() && !EMAIL_PATTERN.test(form.email.trim())) nextErrors.email = 'Enter a valid email address'
     setErrors(nextErrors)
@@ -134,6 +134,7 @@ function SaveContactModal({ profile, onClose, trackingSlug }) {
     setStatus('saving')
     buildContactFile(profile)
     if (trackingSlug) {
+      trackButtonClick(trackingSlug, 'save_contact')
       try {
         await submitCardLead(trackingSlug, form)
       } catch {
@@ -157,10 +158,10 @@ function SaveContactModal({ profile, onClose, trackingSlug }) {
             <input
               type="text"
               placeholder="Full Name *"
-              value={form.fullName}
-              onChange={(e) => updateField('fullName', e.target.value)}
+              value={form.visitorName}
+              onChange={(e) => updateField('visitorName', e.target.value)}
             />
-            {errors.fullName && <span className="save-modal-error">{errors.fullName}</span>}
+            {errors.visitorName && <span className="save-modal-error">{errors.visitorName}</span>}
           </label>
           <label className="save-modal-field">
             <input
@@ -188,14 +189,6 @@ function SaveContactModal({ profile, onClose, trackingSlug }) {
             />
             {errors.phone && <span className="save-modal-error">{errors.phone}</span>}
           </label>
-          <label className="save-modal-field">
-            <input
-              type="text"
-              placeholder="Company (optional)"
-              value={form.company}
-              onChange={(e) => updateField('company', e.target.value)}
-            />
-          </label>
           <div className="save-modal-actions">
             <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
             <button type="submit" className="primary-button" disabled={status === 'saving'}>
@@ -213,8 +206,8 @@ function SaveContactModal({ profile, onClose, trackingSlug }) {
 export function CardPreview({ profile, immersive = false, trackingSlug = null }) {
   const [showSaveModal, setShowSaveModal] = useState(false)
 
-  function track(type, meta) {
-    if (trackingSlug) trackCardEvent(trackingSlug, type, meta)
+  function track(buttonType) {
+    if (trackingSlug) trackButtonClick(trackingSlug, buttonType)
   }
   const typography = profile.typography || {}
   const defaultFont = profile.fontFamily || 'Inter, system-ui, sans-serif'
@@ -305,11 +298,11 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
           aria-label="Contact actions"
           style={{ gridTemplateColumns: `repeat(${contactActionCount}, minmax(0, 1fr))` }}
         >
-          {profile.showCallButton !== false && profile.phone && <a className="quick-action-call" href={`tel:${profile.phone.replaceAll(' ', '')}`} aria-label="Call" onClick={() => track('click_call')}>
+          {profile.showCallButton !== false && profile.phone && <a className="quick-action-call" href={`tel:${profile.phone.replaceAll(' ', '')}`} aria-label="Call" onClick={() => track('call')}>
             <ActionIcon type="call" />
             <span>Call</span>
           </a>}
-          {profile.showEmailButton !== false && profile.email && <a className="quick-action-email" href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(profile.email)}`} target="_blank" rel="noreferrer" aria-label="Email" onClick={() => track('click_email')}>
+          {profile.showEmailButton !== false && profile.email && <a className="quick-action-email" href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(profile.email)}`} target="_blank" rel="noreferrer" aria-label="Email" onClick={() => track('email')}>
             <ActionIcon type="email" />
             <span>Email</span>
           </a>}
@@ -319,7 +312,7 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
             target="_blank"
             rel="noreferrer"
             aria-label="WhatsApp"
-            onClick={() => track('click_whatsapp')}
+            onClick={() => track('whatsapp')}
           >
             <ActionIcon type="whatsapp" />
             <span>WhatsApp</span>
@@ -337,13 +330,13 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
         {profile.showSocialLinks !== false && visibleSocials.length > 0 && (
           <div className="socials">
             {visibleSocials.map(({ platform, url }) => (
-              <a key={platform} className={`social-${platform}`} href={safeLink(url)} target="_blank" rel="noreferrer" aria-label={platform} onClick={() => track('click_social', { platform })}>
+              <a key={platform} className={`social-${platform}`} href={safeLink(url)} target="_blank" rel="noreferrer" aria-label={platform} onClick={() => track(platform)}>
                 <SocialIcon platform={platform} />
               </a>
             ))}
           </div>
         )}
-        {profile.showWebsite !== false && profile.website && <a className="website" href={safeLink(profile.website)} target="_blank" rel="noreferrer" onClick={() => track('click_website')}>
+        {profile.showWebsite !== false && profile.website && <a className="website" href={safeLink(profile.website)} target="_blank" rel="noreferrer" onClick={() => track('website')}>
           {profile.website}
         </a>}
         {profile.branding?.poweredBy !== false && (

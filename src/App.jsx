@@ -7,6 +7,7 @@ import { AuthPage } from './components/AuthPage'
 import { Dashboard } from './components/Dashboard'
 import { StudioPage } from './components/StudioPage'
 import { AnalyticsPage } from './components/AnalyticsPage'
+import { ActivityPage } from './components/ActivityPage'
 import { SettingsPage } from './components/SettingsPage'
 import { PublicCard } from './components/PublicCard'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -30,6 +31,7 @@ function App() {
             <Route path="/signup" element={<GuestRoute><AuthPage mode="signup" /></GuestRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
+            <Route path="/activity" element={<ProtectedRoute><ActivityPage /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="/studio/:cardId" element={<ProtectedRoute><StudioPage /></ProtectedRoute>} />
           </Route>
