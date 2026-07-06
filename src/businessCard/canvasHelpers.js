@@ -2,16 +2,35 @@ import { StaticCanvas } from 'fabric'
 import { getCardDimensions } from './bcTemplates'
 
 /**
- * The installed fabric build renders every object at exactly half its
- * intended size relative to the canvas's own backing store (reproducible
- * with a bare Canvas + full-bleed Rect, independent of devicePixelRatio,
- * retina scaling, or object caching settings). Setting zoom to 2 right
- * after construction cancels that internal factor so logical coordinates
- * (matching CARD_SIZES / getCardDimensions) fill the canvas edge-to-edge
- * again, both for live editing and for toDataURL/thumbnail export.
+ * Every template/editor helper authors `left`/`top` as a top-left anchor —
+ * the convention Fabric used before v6. This installed Fabric build (7.4.0)
+ * defaults new objects to originX/originY 'center', so any object created
+ * without an explicit origin renders shifted by half its own width/height
+ * (usually off-canvas). All current object-creation call sites now pass
+ * originX/originY: 'left'/'top' explicitly, but business cards saved before
+ * that fix have 'center' baked into their stored frontJson. Since the
+ * left/top numbers were always authored assuming a top-left anchor, fixing
+ * old data only requires flipping the origin flag back — the coordinates
+ * themselves are already correct and must NOT be recalculated.
+ *
+ * Polygon (and Path) are the one exception: they're built from an absolute
+ * points array, and Fabric always auto-computes their left/top from those
+ * points to match whatever origin is set, at both construction time and on
+ * every `.set({ originX, originY })` call. So a Polygon's stored
+ * left/top + originX:'center' is already self-consistent — flipping the
+ * origin flag here (as we must for Rect/Textbox/Circle/Image) would corrupt
+ * it, since Fabric would reinterpret the unchanged center-anchored left/top
+ * as a top-left anchor and shift the shape by half its bounding box.
  */
-export function applyRenderScaleFix(canvas) {
-  canvas.setZoom(2)
+export function normalizeLegacyOrigins(canvas) {
+  canvas.getObjects().forEach((obj) => {
+    const type = (obj.type || '').toLowerCase()
+    if (type === 'polygon' || type === 'path') return
+    if (obj.originX !== 'left' || obj.originY !== 'top') {
+      obj.set({ originX: 'left', originY: 'top' })
+      obj.setCoords()
+    }
+  })
 }
 
 /**
@@ -25,7 +44,6 @@ export async function renderTemplateThumbnail(tmpl, profile, palette, size = 'st
 
   const el = document.createElement('canvas')
   const canvas = new StaticCanvas(el, { width: w, height: h })
-  applyRenderScaleFix(canvas)
 
   try {
     await tmpl.load(canvas, profile, palette, w, h)
@@ -37,32 +55,41 @@ export async function renderTemplateThumbnail(tmpl, profile, palette, size = 'st
 }
 
 /**
- * Renders a saved business card's front face straight from its stored Fabric
- * JSON (businessCard.frontJson) rather than trusting a possibly-stale cached
- * `frontImg` snapshot — a card saved before applyRenderScaleFix() existed
- * would have a permanently broken frontImg baked in, even though the JSON
- * itself (and thus the real editor content) is fine. Re-rendering from JSON
- * on every list view guarantees the preview always matches current content.
+ * Renders a single stored Fabric JSON face (front or back) at full
+ * resolution and returns a PNG data URL. Old JSON may still carry the
+ * broken 'center' origin (see normalizeLegacyOrigins above), so it's
+ * patched right after load.
  */
-export async function renderSavedCardThumbnail(businessCard) {
-  const { frontJson, setup } = businessCard || {}
-  if (!frontJson) return null
+export async function renderFaceThumbnail(json, setup, multiplier = 1) {
+  if (!json) return null
 
   const orientation = setup?.orientation === 'vertical' ? 'vertical' : 'horizontal'
   const { w, h } = getCardDimensions(setup?.size || 'standard', orientation)
 
   const el = document.createElement('canvas')
   const canvas = new StaticCanvas(el, { width: w, height: h })
-  applyRenderScaleFix(canvas)
 
   try {
-    const json = typeof frontJson === 'string' ? JSON.parse(frontJson) : frontJson
-    await canvas.loadFromJSON(json)
+    const parsed = typeof json === 'string' ? JSON.parse(json) : json
+    await canvas.loadFromJSON(parsed)
+    normalizeLegacyOrigins(canvas)
     canvas.renderAll()
-    return canvas.toDataURL({ format: 'png', multiplier: 1 })
+    return canvas.toDataURL({ format: 'png', multiplier })
   } catch (_) {
     return null
   } finally {
     canvas.dispose()
   }
+}
+
+/**
+ * Renders a saved business card's front face straight from its stored Fabric
+ * JSON (businessCard.frontJson) rather than trusting a possibly-stale cached
+ * `frontImg` snapshot. Re-rendering from JSON on every list view guarantees
+ * the preview always matches current content.
+ */
+export async function renderSavedCardThumbnail(businessCard) {
+  const { frontJson, setup } = businessCard || {}
+  if (!frontJson) return null
+  return renderFaceThumbnail(frontJson, setup, 1)
 }

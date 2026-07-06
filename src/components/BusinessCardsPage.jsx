@@ -1,11 +1,86 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchCards, createCard, deleteCard } from '../api'
+import { Pencil } from 'lucide-react'
+import { fetchCards, createCard, updateCard, deleteCard } from '../api'
 import { useToast } from '../context/ToastContext'
 import { PageHeader } from './PageHeader'
 import { Sidebar } from './Sidebar'
 import { renderSavedCardThumbnail } from '../businessCard/canvasHelpers'
+import { CardPreviewScreen } from '../businessCard/CardPreviewScreen'
+import { getTemplate } from '../businessCard/bcTemplates'
 import '../businessCard/businessCard.css'
+
+// Cards are created with a generic placeholder title ("Business Card").
+// Until the user renames one, show the template's own name instead so the
+// list is actually distinguishable at a glance.
+const DEFAULT_TITLE = 'Business Card'
+
+function templateLabel(businessCard) {
+  if (businessCard?.templateId === 'blank') return 'Blank Canvas'
+  return getTemplate(businessCard?.templateId)?.label || DEFAULT_TITLE
+}
+
+function displayTitle(card) {
+  return card.title && card.title !== DEFAULT_TITLE
+    ? card.title
+    : templateLabel(card.card_data.businessCard)
+}
+
+function CardTitle({ card, onRenamed }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+  const inputRef = useRef(null)
+
+  const displayName = displayTitle(card)
+
+  function startEditing() {
+    setValue(displayName)
+    setEditing(true)
+  }
+
+  useEffect(() => {
+    if (editing) inputRef.current?.select()
+  }, [editing])
+
+  async function commit() {
+    const trimmed = value.trim()
+    setEditing(false)
+    if (!trimmed || trimmed === card.title) return
+    setSaving(true)
+    try {
+      await updateCard(card.id, { title: trimmed })
+      onRenamed(card.id, trimmed)
+    } catch (_) {
+      // silently keep the old title on failure — no need to disrupt the list
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        className="bc-dash-card-title-input"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); commit() }
+          if (e.key === 'Escape') setEditing(false)
+        }}
+      />
+    )
+  }
+
+  return (
+    <button type="button" className="bc-dash-card-title" onClick={startEditing} disabled={saving} title="Click to rename">
+      <h4>{displayName}</h4>
+      <Pencil size={12} />
+    </button>
+  )
+}
 
 function BusinessCardThumb({ businessCard }) {
   const [liveThumb, setLiveThumb] = useState(null)
@@ -53,6 +128,7 @@ export function BusinessCardsPage() {
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const [pendingConfirm, setPendingConfirm] = useState(null)
+  const [previewCard, setPreviewCard] = useState(null)
 
   async function loadCards() {
     setLoading(true)
@@ -103,9 +179,23 @@ export function BusinessCardsPage() {
     })
   }
 
+  function handleRenamed(cardId, newTitle) {
+    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, title: newTitle } : c)))
+  }
+
+  if (previewCard) {
+    return (
+      <CardPreviewScreen
+        card={previewCard}
+        onClose={() => setPreviewCard(null)}
+        onEdit={() => navigate(`/business-card/${previewCard.id}`)}
+      />
+    )
+  }
+
   return (
     <main className="studio studio-workspace">
-      <Sidebar mode="app" activeApp="business" />
+      <Sidebar mode="app" product="business" activeApp="business" />
       <section className="editor-panel editor-panel--wide">
         <PageHeader
           badge="YOUR BUSINESS CARDS"
@@ -140,18 +230,31 @@ export function BusinessCardsPage() {
         ) : (
           <div className="bc-dash-grid">
             {cards.map((card) => (
-              <div key={card.id} className="bc-dash-card" onClick={() => navigate(`/business-card/${card.id}`)}>
+              <div key={card.id} className="bc-dash-card">
                 <div className="bc-dash-card-thumb">
                   <BusinessCardThumb businessCard={card.card_data.businessCard} />
                 </div>
                 <div className="bc-dash-card-body">
-                  <h4>{card.title}</h4>
-                  <p>Saved · Click to edit</p>
+                  <CardTitle card={card} onRenamed={handleRenamed} />
                   <div className="bc-dash-card-actions">
                     <button
                       type="button"
+                      className="secondary-button"
+                      onClick={() => setPreviewCard({ id: card.id, title: displayTitle(card), businessCard: card.card_data.businessCard })}
+                    >
+                      Preview
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => navigate(`/business-card/${card.id}`)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
                       className="text-button card-delete-btn"
-                      onClick={(e) => { e.stopPropagation(); handleDelete(card) }}
+                      onClick={() => handleDelete(card)}
                     >
                       Delete
                     </button>

@@ -107,6 +107,44 @@
 }
 .bc-dash-card-actions { display: flex; gap: 7px; flex-wrap: wrap; }
 
+.bc-dash-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin-bottom: 3px;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+}
+.bc-dash-card-title h4 { margin-bottom: 0; }
+.bc-dash-card-title svg {
+  color: var(--muted, #657174);
+  opacity: 0;
+  transition: opacity 0.12s;
+  flex-shrink: 0;
+}
+.bc-dash-card-title:hover svg { opacity: 1; }
+.bc-dash-card-title:disabled { cursor: default; }
+
+.bc-dash-card-title-input {
+  display: block;
+  width: 100%;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--navy, #112d37);
+  letter-spacing: -0.02em;
+  margin-bottom: 3px;
+  border: 1.5px solid var(--navy, #112d37);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-family: inherit;
+  outline: none;
+}
+
 /* ════════════════════════════════════════════════════════
    SETUP DIALOG
    ════════════════════════════════════════════════════════ */
@@ -542,7 +580,14 @@
 .bce-root {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  /* AppLayout's sticky 76px header sits above this in normal flow, so a
+     literal 100vh here makes the page 76px taller than the viewport,
+     forcing the whole page to scroll — which pushes the top toolbar out of
+     view behind the sticky header before the bottom bar ever comes into
+     view. Subtracting the header's height makes the editor exactly fill
+     the remaining viewport, so no page-level scroll is ever needed and
+     both toolbars stay reachable at all times. */
+  height: calc(100vh - 76px);
   overflow: hidden;
   background: #ebe9e4;
 }
@@ -610,6 +655,13 @@
   flex: 1;
   display: flex;
   overflow: hidden;
+  /* Flex items default to min-height:auto, which lets a tall child (a
+     vertical-orientation canvas) force this row taller than the viewport,
+     pushing the bottom bar and clipping the rail/side panel under
+     .bce-root's overflow:hidden. min-height:0 lets .bce-canvas-area's own
+     overflow:auto scroll internally instead, so the toolbar, rail and side
+     panel always stay fully visible regardless of canvas size. */
+  min-height: 0;
 }
 
 /* Left icon rail ───────────────────────────────────── */
@@ -754,6 +806,42 @@
 .bce-upload-zone:hover { border-color: var(--navy, #112d37); background: #f8f7f3; }
 .bce-upload-zone p { font-size: 12px; color: var(--muted, #657174); margin-top: 8px; line-height: 1.5; }
 
+/* QR Code placeholder section (UI only — not wired to canvas yet) ─── */
+.bce-qr-placeholder-box {
+  width: 100%;
+  aspect-ratio: 1.6 / 1;
+  border-radius: 10px;
+  border: 1.5px dashed var(--line, #e5e3dd);
+  background: #f4f2ed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bce-qr-target-row { display: flex; gap: 6px; margin-bottom: 12px; }
+.bce-qr-target-btn {
+  flex: 1;
+  padding: 8px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--line, #e5e3dd);
+  background: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--navy, #112d37);
+  cursor: pointer;
+  transition: all 0.12s;
+  font-family: inherit;
+}
+.bce-qr-target-btn.active { border-color: var(--navy, #112d37); background: #eef1f6; }
+.bce-qr-target-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.bce-qr-coming-soon {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted, #657174);
+  text-align: center;
+}
+
 .bce-layer-item {
   display: flex;
   align-items: center;
@@ -796,12 +884,16 @@
   justify-content: center;
   overflow: auto;
   position: relative;
+  min-height: 0;
+  min-width: 0;
 }
 
 .bce-canvas-wrap {
   box-shadow: 0 20px 60px rgba(0,0,0,0.35);
   transform-origin: center center;
   transition: transform 0.15s ease;
+  flex-shrink: 0;
+  margin: auto;
 }
 
 /* Right panel ────────────────────────────────────────── */
@@ -1088,28 +1180,46 @@
   gap: 8px;
 }
 
-/* Preview page ───────────────────────────────────────── */
+/* Preview page ─────────────────────────────────────────
+   Same fixed-viewport pattern as the canvas editor (.bce-root): height is
+   the viewport minus AppLayout's sticky 76px header, not a bare 100vh, so
+   this never grows taller than the screen and needs no page-level scroll.
+   Header and action buttons are flex-shrink:0 so "Close"/"Edit This Card"
+   are always on-screen; only the card image area scrolls if it doesn't fit. */
 .bc-preview-page {
-  min-height: 100vh;
+  height: calc(100vh - 76px);
+  overflow: hidden;
   background: var(--shell, #f8f7f3);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 60px clamp(20px, 5vw, 60px);
+  padding: 20px clamp(20px, 5vw, 60px) 16px;
 }
+.bc-preview-header { flex-shrink: 0; width: 100%; text-align: center; }
 .bc-preview-page h2 {
-  font-size: 30px;
+  font-size: 24px;
   font-weight: 800;
   color: var(--navy, #112d37);
   letter-spacing: -0.05em;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   text-align: center;
 }
-.bc-preview-page > p {
-  font-size: 15px;
+.bc-preview-page > p,
+.bc-preview-header p {
+  font-size: 14px;
   color: var(--muted, #657174);
-  margin-bottom: 36px;
+  margin-bottom: 12px;
   text-align: center;
+}
+.bc-preview-body {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
 }
 .bc-preview-label {
   font-size: 10px;
@@ -1117,19 +1227,34 @@
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--muted, #657174);
-  margin-bottom: 12px;
-  align-self: flex-start;
+  margin-bottom: 10px;
+  flex-shrink: 0;
 }
 .bc-preview-img {
   box-shadow: 0 24px 64px rgba(17,45,55,0.2);
   border-radius: 8px;
   overflow: hidden;
-  margin-bottom: 20px;
-  max-width: 560px;
+  max-width: 480px;
   width: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0ede8;
+  flex-shrink: 0;
+  margin: auto;
 }
-.bc-preview-img img { display: block; width: 100%; }
+.bc-preview-img img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
 .bc-preview-actions {
   display: flex; gap: 12px; flex-wrap: wrap;
-  justify-content: center; margin-top: 14px;
+  justify-content: center;
+  flex-shrink: 0;
+  padding-top: 14px;
 }

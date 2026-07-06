@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
-  Canvas, Textbox, Rect, Circle, Triangle, Line, FabricImage,
+  Canvas, Textbox, Rect, Circle, Triangle, Line, FabricImage, Group,
   loadSVGFromString, util,
 } from 'fabric'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -9,10 +9,10 @@ import {
   Layers, Sliders, Grid2X2, Type, Image, QrCode,
   Square, Star, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Eye, EyeOff, Lock, Unlock, ChevronUp, ChevronDown,
-  Minus, Plus, Download, Printer, Save,
+  Minus, Plus, Download, Printer, Save, X,
 } from 'lucide-react'
 import { TEMPLATES, getPalette, getCardDimensions, getTemplate } from './bcTemplates'
-import { applyRenderScaleFix } from './canvasHelpers'
+import { normalizeLegacyOrigins, renderFaceThumbnail } from './canvasHelpers'
 
 // ── Fonts available ──────────────────────────────────────────
 const FONTS = [
@@ -41,8 +41,18 @@ function objLabel(obj) {
   if (obj.type === 'triangle') return 'Triangle'
   if (obj.type === 'line') return 'Line'
   if (obj.type === 'image') return 'Image'
-  if (obj.type === 'group') return 'Group'
+  if (obj.type === 'group') return isQRPlaceholderObj(obj) ? 'QR Placeholder' : 'Group'
   return obj.type || 'Object'
+}
+
+// Detected by content (a group containing a Textbox reading "QR"), not a
+// custom flag — custom properties aren't preserved by the default
+// canvas.toJSON()/loadFromJSON() round-trip used everywhere else in this
+// editor (undo/redo, face switching, save), but standard object types and
+// their built-in properties always are.
+function isQRPlaceholderObj(obj) {
+  return obj?.type === 'group' && Array.isArray(obj._objects) &&
+    obj._objects.some((o) => (o.type === 'textbox' || o.type === 'i-text' || o.type === 'text') && o.text === 'QR')
 }
 
 const LEFT_PANELS = [
@@ -54,16 +64,17 @@ const LEFT_PANELS = [
   { key: 'layers',    label: 'Layers',    Icon: Layers },
 ]
 
-export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
-  const { templateId, setup } = selection
+export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit }) {
+  const { templateId, setup, savedFront, savedBack } = selection
   const { w, h } = getCardDimensions(setup.size, setup.orientation)
 
   const canvasElRef = useRef(null)
   const fabricRef   = useRef(null)
 
   const [activeFace, setActiveFace] = useState('front')
-  const [hasBack]                   = useState(setup.includeBack || false)
-  const [faceData, setFaceData]     = useState({ front: null, back: null })
+  const [hasBack, setHasBack]       = useState(!!savedBack || setup.includeBack || false)
+  const [faceData, setFaceData]     = useState({ front: null, back: savedBack || null })
+  const [removeBackConfirm, setRemoveBackConfirm] = useState(false)
 
   const [activePanel, setActivePanel]   = useState(null)
   const [selectedObj, setSelectedObj]   = useState(null)
@@ -106,21 +117,27 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
       height: h,
       preserveObjectStacking: true,
     })
-    applyRenderScaleFix(cv)
     fabricRef.current = cv
 
-    // Load template (blank/Customise mode has no template)
-    const tmpl = templateId === 'blank' ? null : getTemplate(templateId)
-    if (tmpl) {
-      await tmpl.load(cv, profile, palette, w, h)
+    if (savedFront) {
+      // Reopening an existing card — restore exactly what was last saved
+      // instead of regenerating from the template (which would discard edits).
+      await cv.loadFromJSON(JSON.parse(savedFront))
+      normalizeLegacyOrigins(cv)
     } else {
-      cv.backgroundColor = '#ffffff'
-    }
+      // Load template (blank/Customise mode has no template)
+      const tmpl = templateId === 'blank' ? null : getTemplate(templateId)
+      if (tmpl) {
+        await tmpl.load(cv, profile, palette, w, h)
+      } else {
+        cv.backgroundColor = '#ffffff'
+      }
 
-    // Add QR if enabled
-    if (setup.includeQR) {
-      const qrSrc = profile.website || profile.slug || 'https://example.com'
-      await addQRToCanvas(cv, qrSrc, w, h)
+      // Add QR if enabled
+      if (setup.includeQR) {
+        const qrSrc = profile.website || profile.slug || 'https://example.com'
+        await addQRToCanvas(cv, qrSrc, w, h)
+      }
     }
 
     cv.renderAll()
@@ -153,7 +170,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
     try {
       const qrImg = await FabricImage.fromURL(getQRUrl(url), { crossOrigin: 'anonymous' })
       qrImg.scaleToWidth(80)
-      qrImg.set({ left: cw - 96, top: ch - 96, selectable: true })
+      qrImg.set({ left: cw - 96, top: ch - 96, selectable: true, originX: 'left', originY: 'top' })
       cv.add(qrImg)
     } catch (_) {}
   }
@@ -228,6 +245,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
     if (savedJson) {
       setIsRestoring(true)
       await fabricRef.current.loadFromJSON(JSON.parse(savedJson))
+      normalizeLegacyOrigins(fabricRef.current)
       fabricRef.current.renderAll()
       setIsRestoring(false)
     } else {
@@ -239,6 +257,32 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
     setActiveFace(newFace)
     setSelectedObj(null)
     syncLayers(fabricRef.current)
+  }
+
+  // ── Back side management ───────────────────────────────────
+  // Works for every card, template-based or blank — back side is purely an
+  // editor-session concept, independent of how the front was created.
+  function addBackSide() {
+    setHasBack(true)
+    switchFace('back')
+  }
+
+  function removeBackSide() {
+    setFaceData((prev) => ({ ...prev, back: null }))
+    setHistory((prev) => ({ ...prev, back: [] }))
+    setHistIdx((prev) => ({ ...prev, back: -1 }))
+    setHasBack(false)
+    if (activeFace === 'back') {
+      setActiveFace('front')
+      if (fabricRef.current && faceData.front) {
+        fabricRef.current.loadFromJSON(JSON.parse(faceData.front)).then(() => {
+          normalizeLegacyOrigins(fabricRef.current)
+          fabricRef.current.renderAll()
+          syncLayers(fabricRef.current)
+        })
+      }
+    }
+    setRemoveBackConfirm(false)
   }
 
   // ── Undo / Redo ────────────────────────────────────────────
@@ -393,6 +437,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
       fontFamily: 'Inter, sans-serif',
       fill: palette.textDark || '#1a1a1a',
       width: 200,
+      originX: 'left', originY: 'top',
     })
     fabricRef.current.add(t)
     fabricRef.current.setActiveObject(t)
@@ -409,6 +454,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
       fontFamily: 'Inter, sans-serif',
       fill: palette.textDark || '#1a1a1a',
       width: 220,
+      originX: 'left', originY: 'top',
     })
     fabricRef.current.add(t)
     fabricRef.current.setActiveObject(t)
@@ -421,11 +467,12 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
     if (!fabricRef.current) return
     const fill = palette.primary
     let shape
-    if (type === 'rect')    shape = new Rect({ left: 60, top: 60, width: 120, height: 80, fill, rx: 0 })
-    if (type === 'rounded') shape = new Rect({ left: 60, top: 60, width: 120, height: 80, fill, rx: 12 })
-    if (type === 'circle')  shape = new Circle({ left: 60, top: 60, radius: 50, fill })
-    if (type === 'tri')     shape = new Triangle({ left: 60, top: 60, width: 100, height: 90, fill })
-    if (type === 'line')    shape = new Line([0, 0, 160, 0], { left: 40, top: 80, stroke: fill, strokeWidth: 3 })
+    const origin = { originX: 'left', originY: 'top' }
+    if (type === 'rect')    shape = new Rect({ left: 60, top: 60, width: 120, height: 80, fill, rx: 0, ...origin })
+    if (type === 'rounded') shape = new Rect({ left: 60, top: 60, width: 120, height: 80, fill, rx: 12, ...origin })
+    if (type === 'circle')  shape = new Circle({ left: 60, top: 60, radius: 50, fill, ...origin })
+    if (type === 'tri')     shape = new Triangle({ left: 60, top: 60, width: 100, height: 90, fill, ...origin })
+    if (type === 'line')    shape = new Line([0, 0, 160, 0], { left: 40, top: 80, stroke: fill, strokeWidth: 3, ...origin })
     if (shape) {
       fabricRef.current.add(shape)
       fabricRef.current.setActiveObject(shape)
@@ -440,17 +487,9 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
     const url = URL.createObjectURL(file)
     const img  = await FabricImage.fromURL(url)
     img.scaleToWidth(Math.min(120, w / 3))
-    img.set({ left: 40, top: 40 })
+    img.set({ left: 40, top: 40, originX: 'left', originY: 'top' })
     fabricRef.current.add(img)
     fabricRef.current.setActiveObject(img)
-    fabricRef.current.renderAll()
-    snapshot(activeFace, fabricRef.current)
-  }
-
-  // ── Add QR ────────────────────────────────────────────────
-  async function addQR() {
-    if (!fabricRef.current) return
-    await addQRToCanvas(fabricRef.current, profile.website || 'https://example.com', w, h)
     fabricRef.current.renderAll()
     snapshot(activeFace, fabricRef.current)
   }
@@ -482,23 +521,70 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
     onObjSelect(obj)
   }
 
+  // ── QR placeholder (visual only — no real QR generation yet) ──────
+  // Same insertion pattern as addShape/uploadImage: create a standard
+  // Fabric object, add it, select it, render, snapshot. Fully draggable,
+  // resizable and deletable via the existing canvas controls — nothing
+  // QR-specific about how Fabric treats it.
+  function addQRPlaceholder() {
+    if (!fabricRef.current) return
+    const size = 80
+    const box = new Rect({
+      width: size, height: size, fill: '#ffffff',
+      stroke: '#c9c5bb', strokeWidth: 1.5,
+      originX: 'left', originY: 'top',
+    })
+    const label = new Textbox('QR', {
+      width: size, top: size / 2 - 9,
+      fontSize: 13, fontWeight: '700', fill: '#9a968d',
+      textAlign: 'center', fontFamily: 'Inter, sans-serif',
+      originX: 'left', originY: 'top',
+    })
+    const group = new Group([box, label], {
+      left: w / 2 - size / 2, top: h / 2 - size / 2,
+      originX: 'left', originY: 'top',
+    })
+    fabricRef.current.add(group)
+    fabricRef.current.setActiveObject(group)
+    fabricRef.current.renderAll()
+    snapshot(activeFace, fabricRef.current)
+  }
+
+  function removeQRPlaceholder() {
+    if (!fabricRef.current) return
+    const obj = fabricRef.current.getObjects().find(isQRPlaceholderObj)
+    if (!obj) return
+    fabricRef.current.remove(obj)
+    fabricRef.current.discardActiveObject()
+    fabricRef.current.renderAll()
+    setSelectedObj(null)
+    snapshot(activeFace, fabricRef.current)
+  }
+
+  function toggleQRPlaceholder() {
+    if (qrExists) removeQRPlaceholder()
+    else addQRPlaceholder()
+  }
+
   // ── Save ──────────────────────────────────────────────────
   async function handleSave() {
     if (!fabricRef.current) return
     // Save current face
     const currentJson = JSON.stringify(fabricRef.current.toJSON())
     const updatedFaceData = { ...faceData, [activeFace]: currentJson }
+    const finalFront = updatedFaceData.front || currentJson
+    const finalBack  = hasBack ? (updatedFaceData.back || null) : null
 
     const frontImg = activeFace === 'front'
       ? fabricRef.current.toDataURL({ format: 'png', multiplier: 3 })
-      : null
+      : await renderFaceThumbnail(finalFront, setup, 3)
 
     onSave({
       templateId,
-      setup,
-      frontJson: updatedFaceData.front || currentJson,
-      backJson:  updatedFaceData.back  || null,
-      frontImg:  frontImg || fabricRef.current.toDataURL({ format: 'png', multiplier: 3 }),
+      setup: { ...setup, includeBack: hasBack },
+      frontJson: finalFront,
+      backJson:  finalBack,
+      frontImg,
     })
   }
 
@@ -518,6 +604,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
 
   const canUndo = histIdx[activeFace] > 0
   const canRedo = histIdx[activeFace] < (history[activeFace]?.length || 0) - 1
+  const qrExists = layers.some(isQRPlaceholderObj)
 
   // ════════════════════════════════════════════════════════
   // RENDER
@@ -582,7 +669,18 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
 
         <div className="bce-topbar-space" />
 
-        {/* Right: save / back */}
+        {/* Right: exit / back / save */}
+        {onExit && (
+          <button
+            type="button"
+            className="secondary-button"
+            style={{ padding: '7px 14px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+            onClick={onExit}
+            title="Exit without saving — back to your business cards"
+          >
+            <X size={14} /> Exit
+          </button>
+        )}
         <button type="button" className="secondary-button" style={{ padding: '7px 14px', fontSize: 13 }} onClick={onBack}>
           ← Gallery
         </button>
@@ -737,16 +835,25 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
                 </div>
               )}
 
-              {/* QR */}
+              {/* QR — visual placeholder only, no real QR generation yet */}
               {activePanel === 'qr' && (
                 <div className="bce-lsec">
                   <div className="bce-lsec-label">QR Code</div>
-                  <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 }}>
-                    Links to: <strong>{profile.website || 'your website'}</strong>
+                  <div className="bce-qr-placeholder-box">
+                    <QrCode size={26} color="var(--muted)" />
+                  </div>
+                  <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, margin: '10px 0 14px' }}>
+                    QR code will link to your digital card
                   </p>
-                  <button type="button" className="primary-button" style={{ width: '100%', fontSize: 13 }} onClick={addQR}>
-                    + Add QR Code
+                  <button
+                    type="button"
+                    className={qrExists ? 'secondary-button' : 'primary-button'}
+                    style={{ width: '100%', fontSize: 13, marginBottom: 10 }}
+                    onClick={toggleQRPlaceholder}
+                  >
+                    {qrExists ? 'Remove QR' : `Add to ${activeFace === 'back' ? 'Back' : 'Front'}`}
                   </button>
+                  <p className="bce-qr-coming-soon">Placeholder only — no QR generated yet</p>
                 </div>
               )}
 
@@ -1080,7 +1187,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
           >
             Front Side
           </button>
-          {hasBack ? (
+          {hasBack && (
             <button
               type="button"
               className={`bce-face-tab${activeFace === 'back' ? ' active' : ''}`}
@@ -1088,18 +1195,28 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
             >
               Back Side
             </button>
-          ) : (
-            <button
-              type="button"
-              className="bce-face-tab"
-              style={{ opacity: 0.55 }}
-              title="Enable back side in setup"
-              disabled
-            >
-              + Add Reverse Side
-            </button>
           )}
         </div>
+
+        {hasBack ? (
+          <button
+            type="button"
+            className="secondary-button"
+            style={{ padding: '7px 14px', fontSize: 13 }}
+            onClick={() => setRemoveBackConfirm(true)}
+          >
+            Remove Back Side
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="secondary-button"
+            style={{ padding: '7px 14px', fontSize: 13 }}
+            onClick={addBackSide}
+          >
+            + Add Back Side
+          </button>
+        )}
 
         <div className="bce-bottombar-space" />
 
@@ -1110,6 +1227,23 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave }) {
           <button type="button" className="bce-zoom-btn" onClick={zoomIn}>+</button>
         </div>
       </div>
+
+      {removeBackConfirm && (
+        <div className="bc-confirm-overlay">
+          <div className="bc-confirm-box">
+            <h3>Remove Back Side?</h3>
+            <p>This will permanently delete everything on the back of this card.</p>
+            <div className="bc-confirm-actions">
+              <button type="button" className="secondary-button" onClick={() => setRemoveBackConfirm(false)}>
+                Cancel
+              </button>
+              <button type="button" className="primary-button danger-button" onClick={removeBackSide}>
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

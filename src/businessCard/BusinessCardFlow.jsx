@@ -31,7 +31,12 @@ export function BusinessCardFlow() {
         const bc = card.card_data?.businessCard
         if (bc?.setup && bc?.templateId) {
           setProfile(bc.profile || baseProfile)
-          setSelection({ templateId: bc.templateId, setup: bc.setup })
+          setSelection({
+            templateId: bc.templateId,
+            setup: bc.setup,
+            savedFront: bc.frontJson || null,
+            savedBack: bc.backJson || null,
+          })
           setStep('editor')
         } else {
           setProfile(baseProfile)
@@ -138,6 +143,7 @@ export function BusinessCardFlow() {
           selection={selection}
           profile={profile}
           onBack={() => setStep('gallery')}
+          onExit={() => navigate('/business-cards')}
           onSave={handleSave}
         />
       )}

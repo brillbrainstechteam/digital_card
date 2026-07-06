@@ -1,11 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-const APP_ITEMS = [
+// Each product gets its own dedicated nav — Digital Card and Business Card
+// are separate products and should never mix items in the same sidebar.
+const DIGITAL_ITEMS = [
   { key: 'cards', label: 'Your Cards', path: '/dashboard' },
-  { key: 'business', label: 'Business Cards', path: '/business-cards' },
   { key: 'analytics', label: 'Analytics', path: '/analytics' },
   { key: 'activity', label: 'Activity', path: '/activity' },
+  { key: 'settings', label: 'Settings', path: '/settings' },
+]
+
+const BUSINESS_ITEMS = [
+  { key: 'business', label: 'Your Business Cards', path: '/business-cards' },
+  { key: 'templates', label: 'Templates', path: '/business-cards/templates' },
   { key: 'settings', label: 'Settings', path: '/settings' },
 ]
 
@@ -35,6 +42,7 @@ function UnsavedChangesModal({ onSave, onDiscard, onCancel, busy }) {
 
 export function Sidebar({
   mode,
+  product = 'digital',
   activeApp,
   activeEditor,
   onEditorNav,
@@ -45,6 +53,8 @@ export function Sidebar({
   const navigate = useNavigate()
   const [pendingPath, setPendingPath] = useState(null)
   const [busy, setBusy] = useState(false)
+  const appItems = product === 'business' ? BUSINESS_ITEMS : DIGITAL_ITEMS
+  const appGroupLabel = product === 'business' ? 'Business Card' : 'Digital Card'
 
   function handleAppNav(item) {
     if (item.key === activeApp && mode === 'app') return
@@ -89,8 +99,8 @@ export function Sidebar({
       )}
       <aside className="editor-sidebar">
         <div className="editor-sidebar-nav">
-          <span className="sidebar-group-label">Application</span>
-          {APP_ITEMS.map((item) => (
+          <span className="sidebar-group-label">{appGroupLabel}</span>
+          {appItems.map((item) => (
             <button
               key={item.key}
               type="button"

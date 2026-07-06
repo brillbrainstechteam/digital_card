@@ -12,7 +12,14 @@ const FIELDS = [
   { key: 'location',    label: 'City / Location', placeholder: 'Your City' },
 ]
 
-export function DetailsForm({ initialProfile, onBack, onContinue }) {
+export function DetailsForm({
+  initialProfile,
+  onBack,
+  onContinue,
+  title = 'Your Business Card Details',
+  message = 'Enter the information you want on your card. You can pick a template next, and everything will already be filled in.',
+  submitLabel = 'Choose a Template',
+}) {
   const [values, setValues]   = useState({
     personName:  initialProfile?.personName  || '',
     designation: initialProfile?.designation || '',
@@ -63,11 +70,8 @@ export function DetailsForm({ initialProfile, onBack, onContinue }) {
   return (
     <div className="bc-details-overlay">
       <form className="bc-details-card" onSubmit={handleSubmit}>
-        <h2>Your Business Card Details</h2>
-        <p className="bc-dialog-sub">
-          Enter the information you want on your card. You can pick a template next, and everything
-          will already be filled in.
-        </p>
+        <h2>{title}</h2>
+        <p className="bc-dialog-sub">{message}</p>
 
         <div className="bc-details-logo-row">
           <label className="bc-details-logo-upload">
@@ -104,7 +108,7 @@ export function DetailsForm({ initialProfile, onBack, onContinue }) {
             Cancel
           </button>
           <button type="submit" className="primary-button" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            Choose a Template <ArrowRight size={15} />
+            {submitLabel} <ArrowRight size={15} />
           </button>
         </div>
       </form>
