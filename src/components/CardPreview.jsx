@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { paletteVariables } from '../theme'
-import { trackCardEvent, submitCardLead } from '../api'
+import { trackButtonClick, submitCardLead, submitSubscriber } from '../api'
+import { BUTTON_LABEL_DEFAULTS } from '../data'
 
 function ActionIcon({ type }) {
   const paths = {
@@ -66,6 +67,9 @@ function SocialIcon({ platform }) {
     reddit: (
       <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
     ),
+    github: (
+      <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+    ),
   }
 
   return (
@@ -111,7 +115,7 @@ function buildContactFile(profile) {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function SaveContactModal({ profile, onClose, trackingSlug }) {
-  const [form, setForm] = useState({ fullName: '', businessName: '', email: '', phone: '', company: '' })
+  const [form, setForm] = useState({ visitorName: '', businessName: '', email: '', phone: '' })
   const [errors, setErrors] = useState({})
   const [status, setStatus] = useState('idle')
 
@@ -121,7 +125,7 @@ function SaveContactModal({ profile, onClose, trackingSlug }) {
 
   function validate() {
     const nextErrors = {}
-    if (!form.fullName.trim()) nextErrors.fullName = 'Full name is required'
+    if (!form.visitorName.trim()) nextErrors.visitorName = 'Full name is required'
     if (!form.phone.trim()) nextErrors.phone = 'Phone number is required'
     if (form.email.trim() && !EMAIL_PATTERN.test(form.email.trim())) nextErrors.email = 'Enter a valid email address'
     setErrors(nextErrors)
@@ -134,6 +138,7 @@ function SaveContactModal({ profile, onClose, trackingSlug }) {
     setStatus('saving')
     buildContactFile(profile)
     if (trackingSlug) {
+      trackButtonClick(trackingSlug, 'save_contact')
       try {
         await submitCardLead(trackingSlug, form)
       } catch {
@@ -157,10 +162,10 @@ function SaveContactModal({ profile, onClose, trackingSlug }) {
             <input
               type="text"
               placeholder="Full Name *"
-              value={form.fullName}
-              onChange={(e) => updateField('fullName', e.target.value)}
+              value={form.visitorName}
+              onChange={(e) => updateField('visitorName', e.target.value)}
             />
-            {errors.fullName && <span className="save-modal-error">{errors.fullName}</span>}
+            {errors.visitorName && <span className="save-modal-error">{errors.visitorName}</span>}
           </label>
           <label className="save-modal-field">
             <input
@@ -188,14 +193,6 @@ function SaveContactModal({ profile, onClose, trackingSlug }) {
             />
             {errors.phone && <span className="save-modal-error">{errors.phone}</span>}
           </label>
-          <label className="save-modal-field">
-            <input
-              type="text"
-              placeholder="Company (optional)"
-              value={form.company}
-              onChange={(e) => updateField('company', e.target.value)}
-            />
-          </label>
           <div className="save-modal-actions">
             <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
             <button type="submit" className="primary-button" disabled={status === 'saving'}>
@@ -210,11 +207,67 @@ function SaveContactModal({ profile, onClose, trackingSlug }) {
   )
 }
 
+function SubscribeModal({ onClose, trackingSlug }) {
+  const [email, setEmail] = useState('')
+  const [error, setError] = useState('')
+  const [status, setStatus] = useState('idle')
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!EMAIL_PATTERN.test(email.trim())) {
+      setError('Enter a valid email address')
+      return
+    }
+    setError('')
+    setStatus('saving')
+    try {
+      if (trackingSlug) await submitSubscriber(trackingSlug, email.trim())
+      setStatus('sent')
+      setTimeout(onClose, 1500)
+    } catch (err) {
+      setStatus('idle')
+      setError(err.message || 'Something went wrong')
+    }
+  }
+
+  return createPortal(
+    <div className="save-modal-overlay" onClick={onClose}>
+      <div className="save-modal" onClick={(e) => e.stopPropagation()}>
+        <h3>Subscribe</h3>
+        <p className="save-modal-hint">Enter your email to receive future updates.</p>
+        {status === 'sent' ? (
+          <p className="save-modal-success">Subscribed! &#10003;</p>
+        ) : (
+          <form onSubmit={handleSubmit} noValidate>
+            <label className="save-modal-field">
+              <input
+                type="email"
+                placeholder="Email Address *"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); if (error) setError('') }}
+              />
+              {error && <span className="save-modal-error">{error}</span>}
+            </label>
+            <div className="save-modal-actions">
+              <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
+              <button type="submit" className="primary-button" disabled={status === 'saving'}>
+                {status === 'saving' ? 'Subscribing...' : 'Subscribe'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 export function CardPreview({ profile, immersive = false, trackingSlug = null }) {
   const [showSaveModal, setShowSaveModal] = useState(false)
+  const [showSubscribeModal, setShowSubscribeModal] = useState(false)
 
-  function track(type, meta) {
-    if (trackingSlug) trackCardEvent(trackingSlug, type, meta)
+  function track(buttonType) {
+    if (trackingSlug) trackButtonClick(trackingSlug, buttonType)
   }
   const typography = profile.typography || {}
   const defaultFont = profile.fontFamily || 'Inter, system-ui, sans-serif'
@@ -225,6 +278,11 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
     profile.showEmailButton !== false && profile.email,
     profile.showWhatsappButton !== false && profile.whatsapp,
   ].filter(Boolean).length || 1
+  const hasAnyQuickAction = (profile.showCallButton !== false && profile.phone)
+    || (profile.showEmailButton !== false && profile.email)
+    || (profile.showWhatsappButton !== false && profile.whatsapp)
+    || profile.showSaveContactButton !== false
+  const buttonLabels = { ...BUTTON_LABEL_DEFAULTS, ...(profile.buttonLabels || {}) }
   const visibleSocials = (profile.socials || []).filter((s) => s.enabled !== false)
   const logoSettings = profile.logoSettings ?? {
     width: 108,
@@ -299,19 +357,19 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
         {profile.showLocation !== false && profile.location && <p className="card-location">{profile.location}</p>}
       </header>
 
-      {profile.showContactButtons !== false && (
+      {profile.showContactButtons !== false && hasAnyQuickAction && (
         <div
           className="quick-actions"
           aria-label="Contact actions"
           style={{ gridTemplateColumns: `repeat(${contactActionCount}, minmax(0, 1fr))` }}
         >
-          {profile.showCallButton !== false && profile.phone && <a className="quick-action-call" href={`tel:${profile.phone.replaceAll(' ', '')}`} aria-label="Call" onClick={() => track('click_call')}>
+          {profile.showCallButton !== false && profile.phone && <a className="quick-action-call" href={`tel:${profile.phone.replaceAll(' ', '')}`} aria-label="Call" onClick={() => track('call')}>
             <ActionIcon type="call" />
-            <span>Call</span>
+            <span>{buttonLabels.call}</span>
           </a>}
-          {profile.showEmailButton !== false && profile.email && <a className="quick-action-email" href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(profile.email)}`} target="_blank" rel="noreferrer" aria-label="Email" onClick={() => track('click_email')}>
+          {profile.showEmailButton !== false && profile.email && <a className="quick-action-email" href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(profile.email)}`} target="_blank" rel="noreferrer" aria-label="Email" onClick={() => track('email')}>
             <ActionIcon type="email" />
-            <span>Email</span>
+            <span>{buttonLabels.email}</span>
           </a>}
           {profile.showWhatsappButton !== false && profile.whatsapp && <a
             className="quick-action-whatsapp"
@@ -319,15 +377,17 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
             target="_blank"
             rel="noreferrer"
             aria-label="WhatsApp"
-            onClick={() => track('click_whatsapp')}
+            onClick={() => track('whatsapp')}
           >
             <ActionIcon type="whatsapp" />
-            <span>WhatsApp</span>
+            <span>{buttonLabels.whatsapp}</span>
           </a>}
-          <button className="save-contact" type="button" onClick={() => setShowSaveModal(true)}>
-            <ActionIcon type="save" />
-            Save Contact
-          </button>
+          {profile.showSaveContactButton !== false && (
+            <button className="save-contact" type="button" onClick={() => setShowSaveModal(true)}>
+              <ActionIcon type="save" />
+              {buttonLabels.saveContact}
+            </button>
+          )}
         </div>
       )}
 
@@ -337,15 +397,28 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
         {profile.showSocialLinks !== false && visibleSocials.length > 0 && (
           <div className="socials">
             {visibleSocials.map(({ platform, url }) => (
-              <a key={platform} className={`social-${platform}`} href={safeLink(url)} target="_blank" rel="noreferrer" aria-label={platform} onClick={() => track('click_social', { platform })}>
+              <a key={platform} className={`social-${platform}`} href={safeLink(url)} target="_blank" rel="noreferrer" aria-label={platform} onClick={() => track(platform)}>
                 <SocialIcon platform={platform} />
               </a>
             ))}
           </div>
         )}
-        {profile.showWebsite !== false && profile.website && <a className="website" href={safeLink(profile.website)} target="_blank" rel="noreferrer" onClick={() => track('click_website')}>
-          {profile.website}
-        </a>}
+
+        {(profile.showSubscribe || (profile.showWebsite !== false && profile.website)) && (
+          <div className="footer-cta-group">
+            {profile.showSubscribe && (
+              <button type="button" className="footer-cta-btn subscribe-btn" onClick={() => setShowSubscribeModal(true)}>
+                {buttonLabels.subscribe}
+              </button>
+            )}
+            {profile.showWebsite !== false && profile.website && (
+              <a className="footer-cta-btn website-btn" href={safeLink(profile.website)} target="_blank" rel="noreferrer" onClick={() => track('website')}>
+                {buttonLabels.website}
+              </a>
+            )}
+          </div>
+        )}
+
         {profile.branding?.poweredBy !== false && (
           <a
             className="powered-by"
@@ -358,6 +431,7 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
         )}
       </footer>
       {showSaveModal && <SaveContactModal profile={profile} trackingSlug={trackingSlug} onClose={() => setShowSaveModal(false)} />}
+      {showSubscribeModal && <SubscribeModal trackingSlug={trackingSlug} onClose={() => setShowSubscribeModal(false)} />}
     </article>
   )
 }

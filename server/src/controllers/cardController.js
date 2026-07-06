@@ -64,4 +64,17 @@ async function deleteCard(req, res, next) {
   }
 }
 
-module.exports = { createCard, getCards, getCard, updateCard, deleteCard }
+async function unarchiveCard(req, res, next) {
+  try {
+    const card = await cardService.unarchiveCard(req.params.id, req.user.id)
+    res.json({
+      success: true,
+      message: 'Card restored to draft',
+      data: { card },
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+module.exports = { createCard, getCards, getCard, updateCard, deleteCard, unarchiveCard }

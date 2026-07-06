@@ -1,5 +1,16 @@
 export const ABOUT_MAX_LENGTH = 165
 
+export const BUTTON_LABEL_MAX_LENGTH = 20
+
+export const BUTTON_LABEL_DEFAULTS = {
+  call: 'Call',
+  email: 'Email',
+  whatsapp: 'WhatsApp',
+  website: 'Website',
+  saveContact: 'Save Contact',
+  subscribe: 'Subscribe',
+}
+
 export const PRESET_DEFAULTS = {
   personal: {
     showLogo: false,
@@ -14,8 +25,10 @@ export const PRESET_DEFAULTS = {
     showCallButton: true,
     showEmailButton: true,
     showWhatsappButton: true,
+    showSaveContactButton: true,
     showSocialLinks: true,
     showWebsite: true,
+    showSubscribe: false,
   },
   professional: {
     showLogo: true,
@@ -30,8 +43,10 @@ export const PRESET_DEFAULTS = {
     showCallButton: true,
     showEmailButton: true,
     showWhatsappButton: true,
+    showSaveContactButton: true,
     showSocialLinks: true,
     showWebsite: true,
+    showSubscribe: false,
   },
   business: {
     showLogo: true,
@@ -46,8 +61,10 @@ export const PRESET_DEFAULTS = {
     showCallButton: true,
     showEmailButton: true,
     showWhatsappButton: true,
+    showSaveContactButton: true,
     showSocialLinks: true,
     showWebsite: true,
+    showSubscribe: false,
   },
 }
 
@@ -71,6 +88,14 @@ export const defaultProfile = {
   website: 'brillbrainsconsultants.com',
   whatsapp: '+918104258910',
   location: 'India',
+  buttonLabels: {
+    call: 'Call',
+    email: 'Email',
+    whatsapp: 'WhatsApp',
+    website: 'Website',
+    saveContact: 'Save Contact',
+    subscribe: 'Subscribe',
+  },
   fontFamily: 'Inter, system-ui, sans-serif',
   typography: {
     personName: 'Inter, system-ui, sans-serif',

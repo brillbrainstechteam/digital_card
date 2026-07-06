@@ -25,16 +25,29 @@ export async function deleteCard(id) {
   return data
 }
 
+export async function unarchiveCard(id) {
+  const { data } = await client.patch(`/cards/${id}/unarchive`)
+  return data.data.card
+}
+
 export async function fetchPublicCard(slug) {
   const { data } = await client.get(`/public/cards/${slug}`)
   return data.data.card
 }
 
-export async function trackCardEvent(slug, type, meta) {
+export async function trackCardView(slug) {
   try {
-    await client.post(`/public/cards/${slug}/events`, { type, meta })
+    await client.post(`/public/cards/${slug}/view`)
   } catch {
-    // tracking failures should never disrupt the visitor experience
+    // tracking failures should never disrupt the visitor
+  }
+}
+
+export async function trackButtonClick(slug, button) {
+  try {
+    await client.post(`/public/cards/${slug}/click`, { button })
+  } catch {
+    // tracking failures should never disrupt the visitor
   }
 }
 
@@ -43,14 +56,35 @@ export async function submitCardLead(slug, payload) {
   return data.data.lead
 }
 
-export async function fetchAnalyticsSummary(cardId) {
-  const { data } = await client.get('/analytics/summary', { params: { cardId } })
-  return data.data.summary
+export async function submitSubscriber(slug, email) {
+  const { data } = await client.post(`/public/cards/${slug}/subscribe`, { email })
+  return data.data.subscriber
 }
 
-export async function fetchAnalyticsLeads(cardId, search) {
-  const { data } = await client.get('/analytics/leads', { params: { cardId, search } })
-  return data.data.leads
+export async function fetchAnalytics(cardId) {
+  const { data } = await client.get(`/analytics/${cardId}`)
+  return data.data
+}
+
+export async function fetchAnalyticsLeads(cardId, { search = '', page = 1, limit = 10, dateRange = '', dateFrom = '', dateTo = '', sortBy = 'newest' } = {}) {
+  const { data } = await client.get(`/analytics/${cardId}/leads`, {
+    params: { search, page, limit, dateRange, dateFrom, dateTo, sortBy },
+  })
+  return data.data
+}
+
+export async function fetchAnalyticsActivity(cardId, { search = '', page = 1, limit = 20, dateRange = '', dateFrom = '', dateTo = '', eventType = '' } = {}) {
+  const { data } = await client.get(`/analytics/${cardId}/activity`, {
+    params: { search, page, limit, dateRange, dateFrom, dateTo, eventType },
+  })
+  return data.data
+}
+
+export async function fetchAnalyticsSubscribers(cardId, { search = '', page = 1, limit = 10 } = {}) {
+  const { data } = await client.get(`/analytics/${cardId}/subscribers`, {
+    params: { search, page, limit },
+  })
+  return data.data
 }
 
 export async function uploadImage(file, onProgress) {
@@ -86,7 +120,6 @@ export async function uploadImage(file, onProgress) {
   }
 
   const res = await fetch(url, { method: 'POST', body: form })
-
   const json = await res.json()
   if (!res.ok) throw new Error(json.error?.message || 'Image upload failed')
   return json.secure_url

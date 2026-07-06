@@ -122,4 +122,18 @@ async function deleteCard(cardId, userId) {
   return { action: 'archived', message: 'Published card has been archived' }
 }
 
-module.exports = { createCard, getCardsByUser, getCardById, updateCard, deleteCard }
+async function unarchiveCard(cardId, userId) {
+  const card = await getCardById(cardId, userId)
+
+  if (card.status !== 'archived') {
+    throw new AppError('Card is not archived', 400)
+  }
+
+  const result = await pool.query(
+    "UPDATE cards SET status = 'draft', updated_at = NOW() WHERE id = $1 RETURNING *",
+    [cardId]
+  )
+  return result.rows[0]
+}
+
+module.exports = { createCard, getCardsByUser, getCardById, updateCard, deleteCard, unarchiveCard }

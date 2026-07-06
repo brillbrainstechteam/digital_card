@@ -30,5 +30,6 @@ router.put(
 )
 
 router.delete('/:id', authenticate, cardController.deleteCard)
+router.patch('/:id/unarchive', authenticate, cardController.unarchiveCard)
 
 module.exports = router

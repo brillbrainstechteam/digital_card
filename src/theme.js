@@ -91,11 +91,22 @@ function derivePalette(primary, accent, detectedSurface) {
   }
 }
 
+export function autoTextFor(hex) {
+  return textColorFor(hexToRgb(hex))
+}
+
 export function paletteVariables(palette, theme = {}) {
   const primary = hexToRgb(palette.primary)
   const accent = hexToRgb(palette.accent)
   const surface = hexToRgb(palette.surface)
   const panel = palette.panel ? hexToRgb(palette.panel) : panelColorFor(surface)
+
+  const callBg = theme.callButton || theme.primaryButton || palette.primary
+  const emailBg = theme.emailButton || theme.primaryButton || palette.primary
+  const whatsappBg = theme.whatsappButton || theme.primaryButton || palette.primary
+  const saveContactBg = theme.saveContactButton || palette.accent
+  const subscribeBg = theme.subscribeButton || theme.saveContactButton || palette.accent
+  const websiteBg = theme.websiteButton || palette.primary
 
   // Use user's ink color only when it meets WCAG AA contrast (4.5:1) against the surface.
   // Buttons always use auto-derived text so they stay legible regardless.
@@ -130,11 +141,18 @@ export function paletteVariables(palette, theme = {}) {
     '--theme-body-text': theme.bodyText || surfaceText,
     '--theme-primary-button': theme.primaryButton || palette.primary,
     '--theme-secondary-button': theme.secondaryButton || palette.accent,
-    '--theme-save-contact-button': theme.saveContactButton || palette.accent,
-    '--theme-call-button': theme.callButton || theme.primaryButton || palette.primary,
-    '--theme-whatsapp-button': theme.whatsappButton || theme.primaryButton || palette.primary,
-    '--theme-email-button': theme.emailButton || theme.primaryButton || palette.primary,
-    '--theme-website-button': theme.websiteButton || palette.primary,
+    '--theme-save-contact-button': saveContactBg,
+    '--theme-call-button': callBg,
+    '--theme-whatsapp-button': whatsappBg,
+    '--theme-email-button': emailBg,
+    '--theme-website-button': websiteBg,
+    '--theme-subscribe-button': subscribeBg,
+    '--theme-call-button-text': theme.callButtonText || autoTextFor(callBg),
+    '--theme-email-button-text': theme.emailButtonText || autoTextFor(emailBg),
+    '--theme-whatsapp-button-text': theme.whatsappButtonText || autoTextFor(whatsappBg),
+    '--theme-save-contact-button-text': theme.saveContactButtonText || autoTextFor(saveContactBg),
+    '--theme-subscribe-button-text': theme.subscribeButtonText || autoTextFor(subscribeBg),
+    '--theme-website-button-text': theme.websiteButtonText || autoTextFor(websiteBg),
     '--theme-linkedin-button': theme.linkedinButton || theme.primaryButton || palette.primary,
     '--theme-instagram-button': theme.instagramButton || theme.primaryButton || palette.primary,
     '--theme-facebook-button': theme.facebookButton || theme.primaryButton || palette.primary,
@@ -149,9 +167,36 @@ export function paletteVariables(palette, theme = {}) {
     '--theme-twitch-button': theme.twitchButton || theme.primaryButton || palette.primary,
     '--theme-applemusic-button': theme.applemusicButton || theme.primaryButton || palette.primary,
     '--theme-reddit-button': theme.redditButton || theme.primaryButton || palette.primary,
+    '--theme-github-button': theme.githubButton || theme.primaryButton || palette.primary,
     '--theme-footer-text': theme.footerText || surfaceText,
     '--theme-border-color': theme.borderColor || palette.accent,
     '--theme-accent-color': theme.accentColor || palette.accent,
+  }
+}
+
+// Derives an adaptive page background (for the public card view) from the
+// card's own theme: a subtle same-family gradient plus a low-opacity ambient
+// glow in the primary color, so the page never competes with the card.
+export function pageBackgroundVariables(palette, theme = {}) {
+  const surface = hexToRgb(theme.pageBackground || palette.surface)
+  const primary = hexToRgb(palette.primary)
+  const isDark = luminance(surface) < 0.45
+
+  const near = { r: 8, g: 12, b: 18 }
+  const paper = { r: 246, g: 246, b: 249 }
+
+  // Same-family contrast: darken a dark card's surface, or move a light
+  // card's surface toward a soft neutral paper tone.
+  const base = isDark
+    ? mix(surface, near, 0.55)
+    : mix(paper, surface, 0.12)
+  const baseSoft = mix(base, primary, isDark ? 0.07 : 0.05)
+
+  return {
+    '--public-bg-start': rgbToHex(baseSoft),
+    '--public-bg-end': rgbToHex(base),
+    '--public-glow-color': `rgba(${Math.round(primary.r)}, ${Math.round(primary.g)}, ${Math.round(primary.b)}, ${isDark ? 0.1 : 0.08})`,
+    '--public-glow-fade': `rgba(${Math.round(primary.r)}, ${Math.round(primary.g)}, ${Math.round(primary.b)}, 0)`,
   }
 }
 

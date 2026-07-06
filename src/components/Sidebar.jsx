@@ -5,6 +5,7 @@ const APP_ITEMS = [
   { key: 'cards', label: 'Your Cards', path: '/dashboard' },
   { key: 'business', label: 'Business Cards', path: '/business-cards' },
   { key: 'analytics', label: 'Analytics', path: '/analytics' },
+  { key: 'activity', label: 'Activity', path: '/activity' },
   { key: 'settings', label: 'Settings', path: '/settings' },
 ]
 

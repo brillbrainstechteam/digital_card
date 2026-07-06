@@ -1,44 +1,87 @@
 const analyticsService = require('../services/analyticsService')
 
-async function trackEvent(req, res, next) {
+async function trackView(req, res, next) {
   try {
-    const { type, meta } = req.body
-    const result = await analyticsService.logEvent(req.params.slug, type, meta)
+    const result = await analyticsService.trackView(req.params.slug)
     res.status(201).json({ success: true, data: result })
-  } catch (err) {
-    next(err)
-  }
+  } catch (err) { next(err) }
+}
+
+async function trackButtonClick(req, res, next) {
+  try {
+    const { button } = req.body
+    const result = await analyticsService.trackButtonClick(req.params.slug, button)
+    res.status(201).json({ success: true, data: result })
+  } catch (err) { next(err) }
 }
 
 async function submitLead(req, res, next) {
   try {
     const lead = await analyticsService.createLead(req.params.slug, req.body)
-    res.status(201).json({
-      success: true,
-      message: 'Contact saved',
-      data: { lead },
+    res.status(201).json({ success: true, message: 'Contact saved', data: { lead } })
+  } catch (err) { next(err) }
+}
+
+async function submitSubscriber(req, res, next) {
+  try {
+    const { email } = req.body
+    const subscriber = await analyticsService.addSubscriber(req.params.slug, email)
+    res.status(201).json({ success: true, message: 'Subscribed successfully', data: { subscriber } })
+  } catch (err) { next(err) }
+}
+
+async function getSubscribers(req, res, next) {
+  try {
+    const { search = '', page = 1, limit = 10 } = req.query
+    const result = await analyticsService.getSubscribers(req.user.id, req.params.cardId, {
+      search,
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
     })
-  } catch (err) {
-    next(err)
-  }
+    res.json({ success: true, data: result })
+  } catch (err) { next(err) }
 }
 
 async function getSummary(req, res, next) {
   try {
-    const summary = await analyticsService.getSummary(req.user.id, req.query.cardId)
-    res.json({ success: true, data: { summary } })
-  } catch (err) {
-    next(err)
-  }
+    const summary = await analyticsService.getSummary(req.user.id, req.params.cardId)
+    res.json({ success: true, data: summary })
+  } catch (err) { next(err) }
 }
 
 async function getLeads(req, res, next) {
   try {
-    const leads = await analyticsService.getLeads(req.user.id, req.query.cardId, { search: req.query.search })
-    res.json({ success: true, data: { leads } })
-  } catch (err) {
-    next(err)
-  }
+    const { search = '', page = 1, limit = 10, dateRange = '', dateFrom = '', dateTo = '', sortBy = 'newest' } = req.query
+    const result = await analyticsService.getLeads(req.user.id, req.params.cardId, {
+      search,
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      dateRange,
+      dateFrom,
+      dateTo,
+      sortBy,
+    })
+    res.json({ success: true, data: result })
+  } catch (err) { next(err) }
 }
 
-module.exports = { trackEvent, submitLead, getSummary, getLeads }
+async function getActivity(req, res, next) {
+  try {
+    const { search = '', page = 1, limit = 20, dateRange = '', dateFrom = '', dateTo = '', eventType = '' } = req.query
+    const result = await analyticsService.getActivity(req.user.id, req.params.cardId, {
+      search,
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      dateRange,
+      dateFrom,
+      dateTo,
+      eventType,
+    })
+    res.json({ success: true, data: result })
+  } catch (err) { next(err) }
+}
+
+module.exports = {
+  trackView, trackButtonClick, submitLead, getSummary, getLeads, getActivity,
+  submitSubscriber, getSubscribers,
+}
