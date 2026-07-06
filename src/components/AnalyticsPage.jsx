@@ -101,6 +101,77 @@ const SORT_OPTIONS = [
 
 const LIMIT_OPTIONS = [10, 25, 50, 100]
 
+const LEADS_COLUMNS = [
+  { key: 'visitor_name', label: 'Visitor Name' },
+  { key: 'business_name', label: 'Business Name' },
+  { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'created_at', label: 'Submitted on' },
+]
+
+const LEADS_COLUMNS_STORAGE_KEY = 'bb_leads_visible_columns'
+
+function loadVisibleColumns() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(LEADS_COLUMNS_STORAGE_KEY))
+    if (Array.isArray(stored) && stored.length > 0) {
+      const valid = stored.filter((key) => LEADS_COLUMNS.some((c) => c.key === key))
+      if (valid.length > 0) return valid
+    }
+  } catch { /* ignore malformed storage */ }
+  return LEADS_COLUMNS.map((c) => c.key)
+}
+
+function ColumnsFilter({ visibleColumns, onToggle }) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return undefined
+    function handleClickOutside(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open])
+
+  return (
+    <div className="apply-to-trigger-wrap" ref={wrapRef}>
+      <button
+        type="button"
+        className="secondary-button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        Columns
+      </button>
+      {open && (
+        <div className="apply-to-popover">
+          <div className="apply-to-groups">
+            <div className="apply-to-group">
+              {LEADS_COLUMNS.map((col) => {
+                const checked = visibleColumns.includes(col.key)
+                const isLastChecked = checked && visibleColumns.length === 1
+                return (
+                  <label key={col.key} className="apply-to-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={isLastChecked}
+                      onChange={() => onToggle(col.key)}
+                    />
+                    {col.label}
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function AnalyticsPage() {
   const navigate = useNavigate()
   const [cards, setCards] = useState([])
@@ -123,6 +194,21 @@ export function AnalyticsPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [sortBy, setSortBy] = useState('newest')
+  const [visibleColumns, setVisibleColumns] = useState(loadVisibleColumns)
+
+  useEffect(() => {
+    try { localStorage.setItem(LEADS_COLUMNS_STORAGE_KEY, JSON.stringify(visibleColumns)) } catch { /* ignore */ }
+  }, [visibleColumns])
+
+  function toggleColumn(key) {
+    setVisibleColumns((cur) => {
+      if (cur.includes(key)) {
+        if (cur.length === 1) return cur
+        return cur.filter((k) => k !== key)
+      }
+      return [...cur, key]
+    })
+  }
 
   // Debounce search
   useEffect(() => {
@@ -326,10 +412,13 @@ export function AnalyticsPage() {
           <section className="editor-section">
             <div className="editor-title">
               <h2>Leads</h2>
-              <button className="secondary-button" type="button"
-                onClick={() => downloadCsv(leads)} disabled={leads.length === 0}>
-                Export CSV
-              </button>
+              <div className="leads-header-actions">
+                <ColumnsFilter visibleColumns={visibleColumns} onToggle={toggleColumn} />
+                <button className="secondary-button" type="button"
+                  onClick={() => downloadCsv(leads)} disabled={leads.length === 0}>
+                  Export CSV
+                </button>
+              </div>
             </div>
 
             {/* Filters */}
@@ -373,18 +462,21 @@ export function AnalyticsPage() {
                 <table className="analytics-leads-table">
                   <thead>
                     <tr>
-                      <th>Visitor Name</th><th>Business Name</th>
-                      <th>Email</th><th>Phone</th><th>Submitted On</th>
+                      {LEADS_COLUMNS.filter((c) => visibleColumns.includes(c.key)).map((c) => (
+                        <th key={c.key}>{c.label}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {leads.map((lead) => (
                       <tr key={lead.id}>
-                        <td>{lead.visitor_name}</td>
-                        <td>{lead.business_name || '—'}</td>
-                        <td>{lead.email || '—'}</td>
-                        <td>{lead.phone}</td>
-                        <td>{new Date(lead.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                        {visibleColumns.includes('visitor_name') && <td>{lead.visitor_name}</td>}
+                        {visibleColumns.includes('business_name') && <td>{lead.business_name || '—'}</td>}
+                        {visibleColumns.includes('email') && <td>{lead.email || '—'}</td>}
+                        {visibleColumns.includes('phone') && <td>{lead.phone}</td>}
+                        {visibleColumns.includes('created_at') && (
+                          <td>{new Date(lead.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

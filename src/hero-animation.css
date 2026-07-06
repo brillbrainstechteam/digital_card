@@ -1,0 +1,5 @@
+/* Tailwind utilities only, scoped to the hero animation — deliberately
+   excludes tailwindcss/preflight.css so it doesn't reset global styles
+   used by the rest of the (plain-CSS) app. */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);

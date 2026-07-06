@@ -112,6 +112,7 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
     palette: defaultProfile.palette,
     theme: defaultProfile.theme,
     logoBg: defaultProfile.logoBg,
+    logoSettings: defaultProfile.logoSettings,
   })
 
   const wizardSteps = cardType ? getWizardSteps(cardType) : []
@@ -144,6 +145,7 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
     setUploadErrors((current) => ({ ...current, [field]: '' }))
     try {
       const preview = await readFile(file)
+      let uploadSource = file
       if (field === 'logo') {
         setForm((current) => ({ ...current, logoPreview: preview, logo: preview }))
         const [palette, backdrop] = await Promise.all([
@@ -152,6 +154,8 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
         ])
         setForm((current) => ({
           ...current,
+          logo: preview,
+          logoPreview: preview,
           palette,
           theme: { ...current.theme, ...themeFromPalette(palette) },
           logoBg: backdrop ? rgbToHex(backdrop) : current.logoBg,
@@ -160,7 +164,7 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
         setForm((current) => ({ ...current, profilePhotoPreview: preview, profilePhoto: preview }))
       }
 
-      const cloudUrl = await uploadImage(file, (progress) => {
+      const cloudUrl = await uploadImage(uploadSource, (progress) => {
         setUploadProgress((current) => ({ ...current, [field]: progress }))
       })
       setForm((current) => ({
@@ -251,6 +255,7 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
         palette: form.palette,
         theme: form.theme,
         logoBg: form.logoBg,
+        logoSettings: form.logoSettings,
         branding: { ...defaultProfile.branding, poweredBy: true },
       }
       const card = await createCard(titleName)

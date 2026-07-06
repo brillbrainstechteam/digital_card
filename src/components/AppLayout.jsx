@@ -1,12 +1,31 @@
-import { Outlet, Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export function AppLayout() {
   const { isAuthenticated, user } = useAuth()
+  const location = useLocation()
+  const isHomePage = location.pathname === '/'
+  const [homeScrolled, setHomeScrolled] = useState(() => typeof window !== 'undefined' && window.scrollY > 12)
+
+  useEffect(() => {
+    if (!isHomePage) {
+      setHomeScrolled(true)
+      return undefined
+    }
+
+    function handleScroll() {
+      setHomeScrolled(window.scrollY > 12)
+    }
+
+    handleScroll()
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [isHomePage])
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
+    <div className={`app-shell${isHomePage ? ' app-shell--home' : ''}`}>
+      <header className={`topbar${isHomePage && !homeScrolled ? ' topbar--home-hidden' : ''}`}>
         <Link to="/" className="product-mark">
           <img src="/logo.png" alt="BB" className="product-mark-icon" />
           <strong>Digital Card</strong>

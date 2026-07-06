@@ -2,6 +2,10 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { defaultProfile } from '../data'
 import { CardPreview } from './CardPreview'
+import HeroAnimation from './HeroAnimation'
+
+// Flip to false to switch the hero preview back to the static CardPreview sample card.
+const USE_HERO_ANIMATION = true
 
 export function Landing() {
   const { isAuthenticated } = useAuth()
@@ -36,7 +40,7 @@ export function Landing() {
         </div>
       </section>
       <div className="hero-preview">
-        <CardPreview profile={defaultProfile} />
+        {USE_HERO_ANIMATION ? <HeroAnimation /> : <CardPreview profile={defaultProfile} />}
       </div>
     </main>
   )

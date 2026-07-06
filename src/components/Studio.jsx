@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react'
 import { CardPreview } from './CardPreview'
 import { PageHeader } from './PageHeader'
 import { Sidebar } from './Sidebar'
@@ -7,6 +7,51 @@ import { PRESET_DEFAULTS, getVisibilityFlags, ABOUT_MAX_LENGTH, BUTTON_LABEL_DEF
 import { autoTextFor } from '../theme'
 
 const CIRCLE = 260
+
+const PREVIEW_MIN_SCALE = 0.55
+
+// Shrinks the live card preview to fit the available viewport space so most
+// cards are visible without scrolling, while still allowing the panel to
+// scroll once content is tall enough that PREVIEW_MIN_SCALE isn't enough.
+function ScaledCardPreview({ profile }) {
+  const outerRef = useRef(null)
+  const cardRef = useRef(null)
+  const [scale, setScale] = useState(1)
+  const [naturalHeight, setNaturalHeight] = useState(0)
+
+  useLayoutEffect(() => {
+    const outerEl = outerRef.current
+    const cardEl = cardRef.current
+    if (!outerEl || !cardEl) return undefined
+
+    function recompute() {
+      const naturalH = cardEl.scrollHeight
+      const availableH = outerEl.clientHeight
+      if (!naturalH || !availableH) return
+      setNaturalHeight(naturalH)
+      setScale(Math.min(1, Math.max(PREVIEW_MIN_SCALE, availableH / naturalH)))
+    }
+
+    recompute()
+    const resizeObserver = new ResizeObserver(recompute)
+    resizeObserver.observe(outerEl)
+    resizeObserver.observe(cardEl)
+    return () => resizeObserver.disconnect()
+  }, [])
+
+  return (
+    <div className="preview-canvas" ref={outerRef}>
+      <div
+        className="preview-canvas-inner"
+        style={{ transform: `scale(${scale})`, height: naturalHeight ? naturalHeight * scale : undefined }}
+      >
+        <div ref={cardRef} className="preview-canvas-card">
+          <CardPreview profile={profile} />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function PhotoCropper({ src, onConfirm, onCancel }) {
   const [imgSize, setImgSize] = useState(null)
@@ -158,7 +203,6 @@ const COLOR_FIELD_GROUPS = {
     { key: 'emailButton', label: 'Email Button' },
     { key: 'whatsappButton', label: 'WhatsApp Button' },
     { key: 'saveContactButton', label: 'Save Contact Button' },
-    { key: 'subscribeButton', label: 'Subscribe Button' },
     { key: 'websiteButton', label: 'Website Button' },
   ],
   buttonsText: [
@@ -166,7 +210,7 @@ const COLOR_FIELD_GROUPS = {
     { key: 'emailButtonText', label: 'Email Button Text' },
     { key: 'whatsappButtonText', label: 'WhatsApp Button Text' },
     { key: 'saveContactButtonText', label: 'Save Contact Button Text' },
-    { key: 'subscribeButtonText', label: 'Subscribe Button Text' },
+    { key: 'subscribeButtonText', label: 'Subscribe Text' },
     { key: 'websiteButtonText', label: 'Website Button Text' },
   ],
   socials: [
@@ -174,6 +218,10 @@ const COLOR_FIELD_GROUPS = {
   ],
   footer: [
     { key: 'footerText', label: 'Powered by BrillBrains' },
+  ],
+  card: [
+    { key: 'borderColor', label: 'Border' },
+    { key: 'buttonBorder', label: 'Button Border' },
   ],
 }
 
@@ -197,7 +245,8 @@ function ApplyToPopover({ mode, lastTargets, onApply, onClose }) {
   const allButtonTextKeys = (groups.buttonsText || []).map((f) => f.key)
   const allSocialKeys = (groups.socials || []).map((f) => f.key)
   const allFooterKeys = (groups.footer || []).map((f) => f.key)
-  const allKeys = [...new Set([...allTextKeys, ...allButtonKeys, ...allButtonTextKeys, ...allSocialKeys, ...allFooterKeys])]
+  const allCardKeys = (groups.card || []).map((f) => f.key)
+  const allKeys = [...new Set([...allTextKeys, ...allButtonKeys, ...allButtonTextKeys, ...allSocialKeys, ...allFooterKeys, ...allCardKeys])]
 
   const [selected, setSelected] = useState(() => new Set(lastTargets && lastTargets.length ? lastTargets : []))
   const popoverRef = useRef(null)
@@ -280,6 +329,17 @@ function ApplyToPopover({ mode, lastTargets, onApply, onClose }) {
           <div className="apply-to-group">
             <h4>Footer</h4>
             {groups.footer.map((f) => (
+              <label key={f.key} className="apply-to-checkbox">
+                <input type="checkbox" checked={selected.has(f.key)} onChange={() => toggle(f.key)} />
+                <span>{f.label}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        {groups.card && (
+          <div className="apply-to-group">
+            <h4>Card</h4>
+            {groups.card.map((f) => (
               <label key={f.key} className="apply-to-checkbox">
                 <input type="checkbox" checked={selected.has(f.key)} onChange={() => toggle(f.key)} />
                 <span>{f.label}</span>
@@ -1239,17 +1299,9 @@ export function Studio({
               </label>
               {profile.showSubscribe === true && (
                 <div className="button-setting-expand">
-                  <Field
-                    {...liveControlProps}
-                    label="Subscribe Label"
-                    value={profile.buttonLabels?.subscribe ?? BUTTON_LABEL_DEFAULTS.subscribe}
-                    onChange={(value) => updateButtonLabel('subscribe', value)}
-                    onCommit={() => commitButtonLabel('subscribe')}
-                    maxLength={BUTTON_LABEL_MAX_LENGTH}
-                  />
                   <p className="field-hint">
-                    This allows visitors to subscribe using only their email address. Emails will be stored
-                    for future newsletter or update integrations.
+                    This displays Subscribe as fixed text and lets visitors join using only their email
+                    address.
                   </p>
                 </div>
               )}
@@ -1312,15 +1364,16 @@ export function Studio({
               <h3>Card</h3>
               <div className="theme-color-grid">
                 <InlineColorControl {...liveControlProps} label="Card Background" value={profile.theme?.cardBackground || profile.palette.surface} onChange={(value) => updateTheme('cardBackground', value)} />
-                <InlineColorControl {...liveControlProps} label="Border" value={profile.theme?.borderColor || profile.palette.accent} onChange={(value) => updateTheme('borderColor', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Border" value={profile.theme?.borderColor || profile.palette.accent} onChange={(value) => updateTheme('borderColor', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Button Border" value={profile.theme?.buttonBorder || '#00000000'} onChange={(value) => updateTheme('buttonBorder', value)} />
               </div>
             </div>
             <div className="customize-color-group">
               <h3>Personal Information</h3>
               <div className="theme-color-grid">
                 <ColorField {...liveControlProps} {...applyColorProps} label="Person Name" value={profile.theme?.headingText || profile.palette.ink} onChange={(value) => updateTheme('headingText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Designation" value={profile.theme?.designationText || profile.theme?.bodyText || profile.palette.ink} onChange={(value) => updateTheme('designationText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Company Name" value={profile.theme?.companyNameText || profile.theme?.headingText || profile.palette.ink} onChange={(value) => updateTheme('companyNameText', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Designation" value={profile.theme?.designationText || profile.palette.ink} onChange={(value) => updateTheme('designationText', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Company Name" value={profile.theme?.companyNameText || profile.palette.ink} onChange={(value) => updateTheme('companyNameText', value)} />
                 <ColorField {...liveControlProps} {...applyColorProps} label="Tagline" value={profile.theme?.taglineText || profile.palette.ink} onChange={(value) => updateTheme('taglineText', value)} />
                 <ColorField {...liveControlProps} {...applyColorProps} label="Location" value={profile.theme?.locationText || profile.palette.ink} onChange={(value) => updateTheme('locationText', value)} />
                 <ColorField {...liveControlProps} {...applyColorProps} label="About" value={profile.theme?.aboutText || profile.palette.ink} onChange={(value) => updateTheme('aboutText', value)} />
@@ -1333,8 +1386,7 @@ export function Studio({
                 <ColorField {...liveControlProps} {...applyColorProps} label="Email Button" value={profile.theme?.emailButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('emailButton', value)} />
                 <ColorField {...liveControlProps} {...applyColorProps} label="WhatsApp Button" value={profile.theme?.whatsappButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('whatsappButton', value)} />
                 <ColorField {...liveControlProps} {...applyColorProps} label="Save Contact Button" value={profile.theme?.saveContactButton || profile.palette.accent} onChange={(value) => updateTheme('saveContactButton', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Subscribe Button" value={profile.theme?.subscribeButton || profile.theme?.saveContactButton || profile.palette.accent} onChange={(value) => updateTheme('subscribeButton', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Website Button" value={profile.theme?.websiteButton || profile.palette.primary} onChange={(value) => updateTheme('websiteButton', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Website Button" value={profile.theme?.websiteButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('websiteButton', value)} />
               </div>
             </div>
             <div className="customize-color-group">
@@ -1344,8 +1396,8 @@ export function Studio({
                 <ColorField {...liveControlProps} {...applyColorProps} label="Email Button Text" value={profile.theme?.emailButtonText || autoTextFor(profile.theme?.emailButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('emailButtonText', value)} />
                 <ColorField {...liveControlProps} {...applyColorProps} label="WhatsApp Button Text" value={profile.theme?.whatsappButtonText || autoTextFor(profile.theme?.whatsappButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('whatsappButtonText', value)} />
                 <ColorField {...liveControlProps} {...applyColorProps} label="Save Contact Button Text" value={profile.theme?.saveContactButtonText || autoTextFor(profile.theme?.saveContactButton || profile.palette.accent)} onChange={(value) => updateTheme('saveContactButtonText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Subscribe Button Text" value={profile.theme?.subscribeButtonText || autoTextFor(profile.theme?.subscribeButton || profile.theme?.saveContactButton || profile.palette.accent)} onChange={(value) => updateTheme('subscribeButtonText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Website Button Text" value={profile.theme?.websiteButtonText || autoTextFor(profile.theme?.websiteButton || profile.palette.primary)} onChange={(value) => updateTheme('websiteButtonText', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Subscribe Text" value={profile.theme?.subscribeButtonText || profile.theme?.websiteButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('subscribeButtonText', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Website Button Text" value={profile.theme?.websiteButtonText || autoTextFor(profile.theme?.websiteButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('websiteButtonText', value)} />
               </div>
             </div>
             <div className="customize-color-group">
@@ -1393,7 +1445,7 @@ export function Studio({
             Open public view
           </button>
         </div>
-        <CardPreview profile={profile} />
+        <ScaledCardPreview profile={profile} />
       </aside>
     </main>
     </>

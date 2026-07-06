@@ -17,7 +17,21 @@
   padding: 0 clamp(20px, 5vw, 56px);
   position: sticky;
   top: 0;
+  transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
   z-index: 20;
+}
+
+.app-shell--home .topbar {
+  left: 0;
+  position: fixed;
+  right: 0;
+}
+
+.topbar--home-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-100%);
+  visibility: hidden;
 }
 
 .product-mark {
@@ -228,13 +242,19 @@
 
 .landing {
   align-items: center;
+  box-sizing: border-box;
   display: grid;
   gap: clamp(42px, 7vw, 90px);
   grid-template-columns: minmax(390px, 1fr) minmax(360px, 470px);
   margin: 0 auto;
   max-width: 1250px;
-  min-height: calc(100vh - 76px);
+  min-height: 100vh;
   padding: clamp(42px, 7vh, 84px) clamp(24px, 5vw, 58px);
+}
+
+.hero-copy {
+  align-self: center;
+  max-width: 720px;
 }
 
 .eyebrow {
@@ -267,7 +287,7 @@
 .hero-buttons {
   display: flex;
   gap: 14px;
-  margin-bottom: 52px;
+  margin-bottom: 28px;
 }
 
 .hero-buttons button {
@@ -356,18 +376,6 @@
   z-index: 1;
 }
 
-.card-top-band::after {
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), var(--theme-card-background) 88%);
-  bottom: -1px;
-  content: '';
-  height: 74px;
-  left: 0;
-  pointer-events: none;
-  position: absolute;
-  right: 0;
-  z-index: 2;
-}
-
 .card-header {
   align-items: center;
   display: flex;
@@ -401,6 +409,7 @@
   position: relative;
   transition: transform 120ms ease;
   width: 100%;
+  z-index: 1;
 }
 
 .card-header h2 {
@@ -481,7 +490,7 @@
 .quick-actions button {
   align-items: center;
   background: var(--theme-primary-button);
-  border: 0;
+  border: 1.5px solid var(--theme-button-border);
   border-radius: 14px;
   color: var(--brand-primary-text);
   display: inline-flex;
@@ -498,6 +507,29 @@
   color: var(--theme-save-contact-button-text);
   grid-column: 1 / -1;
   margin-top: 2px;
+}
+
+.quick-actions .website-action {
+  background: var(--theme-website-button);
+  color: var(--theme-website-button-text);
+  grid-column: 1 / -1;
+}
+
+.subscribe-text-action {
+  background: transparent;
+  border: 0;
+  color: var(--theme-subscribe-button-text);
+  cursor: pointer;
+  font-family: var(--font-button-labels);
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 28px;
+  padding: 2px 0;
+  text-decoration: none;
+}
+
+.subscribe-text-action:hover {
+  background: transparent;
 }
 
 .quick-actions .quick-action-call {
@@ -542,7 +574,7 @@
 
 .footer-cta-btn {
   align-items: center;
-  border: 0;
+  border: 1.5px solid var(--theme-button-border);
   border-radius: 14px;
   box-sizing: border-box;
   cursor: pointer;
@@ -1585,6 +1617,12 @@
   font-weight: 800;
 }
 
+.leads-header-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
 .analytics-lead-search {
   background: #fbfaf8;
   border: 1px solid #e8e5df;
@@ -2066,6 +2104,8 @@
 
 .preview-panel {
   align-self: start;
+  display: flex;
+  flex-direction: column;
   height: calc(100vh - 104px);
   overflow-y: auto;
   padding-bottom: 32px;
@@ -2077,10 +2117,29 @@
   align-items: center;
   color: #687679;
   display: flex;
+  flex: none;
   font-size: 13px;
   font-weight: 700;
   justify-content: space-between;
   margin-bottom: 14px;
+}
+
+.preview-canvas {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  min-height: 0;
+  width: 100%;
+}
+
+.preview-canvas-inner {
+  max-width: 100%;
+  transform-origin: top center;
+  width: 410px;
+}
+
+.preview-canvas-card {
+  width: 100%;
 }
 
 .public-view {
