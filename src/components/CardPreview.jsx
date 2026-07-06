@@ -178,7 +178,7 @@ function SaveContactModal({ profile, onClose, trackingSlug }) {
           <label className="save-modal-field">
             <input
               type="email"
-              placeholder="Email Address"
+              placeholder="Email Address (optional)"
               value={form.email}
               onChange={(e) => updateField('email', e.target.value)}
             />
@@ -321,7 +321,7 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
           className="card-top-band"
           style={{
             height: `${logoSettings.bandHeight ?? 130}px`,
-            backgroundColor: profile.logoBg || 'transparent',
+            backgroundColor: profile.logoBg || undefined,
           }}
         >
           <img
@@ -388,6 +388,11 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
               {buttonLabels.saveContact}
             </button>
           )}
+          {profile.showWebsite !== false && profile.website && (
+            <a className="website-action" href={safeLink(profile.website)} target="_blank" rel="noreferrer" onClick={() => track('website')}>
+              {buttonLabels.website}
+            </a>
+          )}
         </div>
       )}
 
@@ -404,19 +409,10 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
           </div>
         )}
 
-        {(profile.showSubscribe || (profile.showWebsite !== false && profile.website)) && (
-          <div className="footer-cta-group">
-            {profile.showSubscribe && (
-              <button type="button" className="footer-cta-btn subscribe-btn" onClick={() => setShowSubscribeModal(true)}>
-                {buttonLabels.subscribe}
-              </button>
-            )}
-            {profile.showWebsite !== false && profile.website && (
-              <a className="footer-cta-btn website-btn" href={safeLink(profile.website)} target="_blank" rel="noreferrer" onClick={() => track('website')}>
-                {buttonLabels.website}
-              </a>
-            )}
-          </div>
+        {profile.showSubscribe && (
+          <button type="button" className="subscribe-text-action" onClick={() => setShowSubscribeModal(true)}>
+            Subscribe
+          </button>
         )}
 
         {profile.branding?.poweredBy !== false && (

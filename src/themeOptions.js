@@ -25,6 +25,8 @@ export function themeFromPalette(palette) {
     pageBackground: palette.surface,
     cardBackground: palette.surface,
     headingText: palette.ink,
+    designationText: palette.ink,
+    companyNameText: palette.ink,
     taglineText: palette.ink,
     locationText: palette.ink,
     aboutText: palette.ink,

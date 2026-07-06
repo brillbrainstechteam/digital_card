@@ -7,6 +7,20 @@ import { useHistory } from '../hooks/useHistory'
 import { useToast } from '../context/ToastContext'
 import { Studio } from './Studio'
 
+function ConfirmModal({ message, confirmLabel = 'OK', cancelLabel = 'Cancel', onConfirm, onCancel }) {
+  return (
+    <div className="confirm-overlay" onClick={onCancel}>
+      <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+        <p>{message}</p>
+        <div className="confirm-actions">
+          <button className="secondary-button" type="button" onClick={onCancel}>{cancelLabel}</button>
+          <button className="primary-button" type="button" onClick={onConfirm}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function profileFromCardData(card) {
   const cd = card.card_data || {}
   const cardType = cd.cardType || 'professional'
@@ -72,6 +86,7 @@ export function StudioPage() {
   const [cardStatus, setCardStatus] = useState('draft')
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [pendingLogoTheme, setPendingLogoTheme] = useState(null)
+  const [confirmModal, setConfirmModal] = useState(null)
   const initialProfileRef = useRef(null)
   const savedSnapshotRef = useRef('')
   const liveEditSnapshotRef = useRef(null)
@@ -189,8 +204,12 @@ export function StudioPage() {
       const url = new URL(anchor.href, window.location.href)
       if (url.origin !== window.location.origin) return
       if (url.pathname === window.location.pathname) return
-      const ok = window.confirm('You have unsaved changes. Save your card before leaving?')
-      if (!ok) event.preventDefault()
+      event.preventDefault()
+      setConfirmModal({
+        message: 'You have unsaved changes. Save your card before leaving?',
+        onConfirm: () => { setConfirmModal(null); window.location.href = anchor.href },
+        onCancel: () => setConfirmModal(null),
+      })
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload)
@@ -298,6 +317,7 @@ export function StudioPage() {
         setPendingLogoTheme({
           file,
           logo: localDataUrl,
+          logoSource: localDataUrl,
           palette,
           theme: {
             ...(editorProfile?.theme || defaultProfile.theme),
@@ -331,6 +351,7 @@ export function StudioPage() {
         setPendingLogoTheme({
           file,
           logo: localDataUrl,
+          logoSource: localDataUrl,
           palette: editorProfile?.palette || defaultProfile.palette,
           theme: editorProfile?.theme || defaultProfile.theme,
           logoBg: editorProfile?.logoBg || null,
@@ -383,9 +404,16 @@ export function StudioPage() {
   }
 
   function resetSample() {
-    if (!window.confirm('Reset this card to the original setup details? Unsaved changes will be lost.')) return
-    setEditorProfile(initialProfileRef.current || defaultProfile)
-    setPaletteStatus({ type: 'ready', text: 'Created card restored' })
+    setConfirmModal({
+      message: 'Reset this card to the original setup details? Unsaved changes will be lost.',
+      confirmLabel: 'Reset',
+      onConfirm: () => {
+        setConfirmModal(null)
+        setEditorProfile(initialProfileRef.current || defaultProfile)
+        setPaletteStatus({ type: 'ready', text: 'Created card restored' })
+      },
+      onCancel: () => setConfirmModal(null),
+    })
   }
 
   const publicUrl = cardSlug ? `${window.location.origin}/card/${cardSlug}` : null
@@ -447,6 +475,8 @@ export function StudioPage() {
                   pageBackground: value,
                 } : {}),
                 ...(key === 'headingText' ? {
+                  designationText: value,
+                  companyNameText: value,
                   taglineText: value,
                   locationText: value,
                   aboutText: value,
@@ -463,6 +493,14 @@ export function StudioPage() {
           onConfirm={applyPendingLogoTheme}
         />
       )}
+      {confirmModal && (
+        <ConfirmModal
+          message={confirmModal.message}
+          confirmLabel={confirmModal.confirmLabel}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={confirmModal.onCancel}
+        />
+      )}
       <Studio
           profile={editorProfile}
           setProfile={setEditorProfile}
@@ -475,8 +513,15 @@ export function StudioPage() {
       paletteStatus={paletteStatus}
       onReset={resetSample}
       onPublicView={() => {
-        if (hasUnsavedChanges && !window.confirm('You have unsaved changes. Save your card before leaving?')) return
-        if (cardSlug) window.open(`/card/${cardSlug}`, '_blank')
+        if (hasUnsavedChanges) {
+          setConfirmModal({
+            message: 'You have unsaved changes. Save your card before leaving?',
+            onConfirm: () => { setConfirmModal(null); if (cardSlug) window.open(`/card/${cardSlug}`, '_blank') },
+            onCancel: () => setConfirmModal(null),
+          })
+        } else if (cardSlug) {
+          window.open(`/card/${cardSlug}`, '_blank')
+        }
       }}
       onSave={handleSave}
       onDiscard={handleDiscardChanges}

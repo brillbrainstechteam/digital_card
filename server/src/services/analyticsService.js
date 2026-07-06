@@ -146,7 +146,7 @@ async function getSummary(userId, cardId) {
     if (row.count > topCount) { topCount = row.count; topPerformingAction = row.button_type }
   }
 
-  const conversionRate = totalViews > 0 ? Number(((totalLeads / totalViews) * 100).toFixed(1)) : 0
+  const conversionRate = totalViews > 0 ? Number((((totalLeads + totalSubscribers) / totalViews) * 100).toFixed(1)) : 0
 
   return {
     totalViews, totalLeads, totalButtonClicks, totalSubscribers, conversionRate,

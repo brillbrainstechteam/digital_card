@@ -105,8 +105,8 @@ export function paletteVariables(palette, theme = {}) {
   const emailBg = theme.emailButton || theme.primaryButton || palette.primary
   const whatsappBg = theme.whatsappButton || theme.primaryButton || palette.primary
   const saveContactBg = theme.saveContactButton || palette.accent
-  const subscribeBg = theme.subscribeButton || theme.saveContactButton || palette.accent
-  const websiteBg = theme.websiteButton || palette.primary
+  const subscribeBg = theme.subscribeButton || theme.primaryButton || palette.primary
+  const websiteBg = theme.websiteButton || theme.primaryButton || palette.primary
 
   // Use user's ink color only when it meets WCAG AA contrast (4.5:1) against the surface.
   // Buttons always use auto-derived text so they stay legible regardless.
@@ -133,8 +133,8 @@ export function paletteVariables(palette, theme = {}) {
     '--theme-page-background': theme.pageBackground || palette.surface,
     '--theme-card-background': theme.cardBackground || palette.surface,
     '--theme-heading-text': theme.headingText || surfaceText,
-    '--theme-designation-text': theme.designationText || theme.bodyText || surfaceText,
-    '--theme-company-name-text': theme.companyNameText || theme.headingText || surfaceText,
+    '--theme-designation-text': theme.designationText || surfaceText,
+    '--theme-company-name-text': theme.companyNameText || surfaceText,
     '--theme-tagline-text': theme.taglineText || theme.bodyText || surfaceText,
     '--theme-location-text': theme.locationText || theme.bodyText || surfaceText,
     '--theme-about-text': theme.aboutText || theme.bodyText || surfaceText,
@@ -170,6 +170,7 @@ export function paletteVariables(palette, theme = {}) {
     '--theme-github-button': theme.githubButton || theme.primaryButton || palette.primary,
     '--theme-footer-text': theme.footerText || surfaceText,
     '--theme-border-color': theme.borderColor || palette.accent,
+    '--theme-button-border': theme.buttonBorder || 'transparent',
     '--theme-accent-color': theme.accentColor || palette.accent,
   }
 }
@@ -406,3 +407,4 @@ function loadImage(source) {
     image.src = source
   })
 }
+
