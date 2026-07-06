@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 const APP_ITEMS = [
   { key: 'cards', label: 'Your Cards', path: '/dashboard' },
+  { key: 'business', label: 'Business Cards', path: '/business-cards' },
   { key: 'analytics', label: 'Analytics', path: '/analytics' },
   { key: 'settings', label: 'Settings', path: '/settings' },
 ]

@@ -11,6 +11,8 @@ import { SettingsPage } from './components/SettingsPage'
 import { PublicCard } from './components/PublicCard'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AppLayout } from './components/AppLayout'
+import { BusinessCardsPage } from './components/BusinessCardsPage'
+import { BusinessCardFlow } from './businessCard/BusinessCardFlow'
 
 function GuestRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
@@ -32,6 +34,8 @@ function App() {
             <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="/studio/:cardId" element={<ProtectedRoute><StudioPage /></ProtectedRoute>} />
+            <Route path="/business-cards" element={<ProtectedRoute><BusinessCardsPage /></ProtectedRoute>} />
+            <Route path="/business-card/:cardId" element={<ProtectedRoute><BusinessCardFlow /></ProtectedRoute>} />
           </Route>
           <Route path="/card/:slug" element={<PublicCard />} />
           <Route path="*" element={<Navigate to="/" replace />} />
