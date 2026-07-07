@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createCard, updateCard } from '../api'
+import { createCard, updateCard, fetchCard } from '../api'
 import { TemplateGallery } from './TemplateGallery'
 import { SetupDialog } from './SetupDialog'
 import { DetailsForm } from './DetailsForm'
@@ -37,9 +37,10 @@ export function BusinessCardTemplatesPage() {
   async function handleDetailsSubmit(formProfile) {
     setSaving(true)
     try {
-      const card = await createCard('Business Card')
+      const card = await createCard('Business Card', { productType: 'business' })
       await updateCard(card.id, {
         card_data: {
+          productType: 'business',
           businessCard: {
             templateId: pendingSelection.templateId,
             setup: pendingSelection.setup,
@@ -62,6 +63,7 @@ export function BusinessCardTemplatesPage() {
     try {
       await updateCard(cardId, {
         card_data: {
+          productType: 'business',
           businessCard: {
             ...editorSnapshot,
             profile,
@@ -76,6 +78,22 @@ export function BusinessCardTemplatesPage() {
     }
   }
 
+  async function handleExport() {
+    try {
+      const card = await fetchCard(cardId)
+      const existing = card.card_data || {}
+      await updateCard(cardId, {
+        card_data: {
+          ...existing,
+          productType: 'business',
+          businessCard: { ...existing.businessCard, status: 'completed' },
+        },
+      })
+    } catch (err) {
+      console.error('Failed to mark business card as completed', err)
+    }
+  }
+
   if (step === 'editor' && pendingSelection && profile) {
     return (
       <BusinessCardEditor
@@ -85,6 +103,7 @@ export function BusinessCardTemplatesPage() {
         onBack={() => setStep('gallery')}
         onExit={() => navigate('/business-cards')}
         onSave={handleSave}
+        onExport={handleExport}
       />
     )
   }

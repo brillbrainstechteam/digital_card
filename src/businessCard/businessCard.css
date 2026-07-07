@@ -75,7 +75,16 @@
   justify-content: center;
   overflow: hidden;
 }
-.bc-dash-card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bc-dash-card-thumb img {
+  /* contain (not cover) so the full card is always visible — vertical
+     cards were getting cropped to a horizontal sliver otherwise. */
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
 
 .bc-dash-card-thumb-empty {
   height: 140px;
@@ -460,6 +469,19 @@
   width: 100%;
   aspect-ratio: 7/4;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0ede8;
+}
+.bc-tmpl-preview img {
+  /* contain, not cover — a vertical-orientation card forced to cover a
+     7:4 box was getting cropped down to a thin horizontal strip. */
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
   display: block;
 }
 
@@ -522,6 +544,10 @@
   z-index: 250;
   padding: 24px;
   animation: bcFadeIn 0.2s ease;
+  /* Ultimate fallback: if the dialog is still too tall for a very short
+     viewport even after capping below, let the overlay itself scroll
+     rather than clipping the action buttons with no way to reach them. */
+  overflow-y: auto;
 }
 .bc-lightbox {
   background: #fff;
@@ -531,6 +557,15 @@
   width: 100%;
   padding: 32px;
   animation: bcSlideUp 0.22s ease;
+  /* A vertical-orientation card (aspect ~1:1.75) rendered at max-width:640px
+     used to come out ~1120px tall with no cap, pushing Cancel/"Use This
+     Template" far below the fold. Capping the dialog itself and letting the
+     preview image shrink (not the buttons) keeps both actions reachable
+     regardless of card orientation. */
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  margin: auto;
 }
 .bc-lightbox h3 {
   font-size: 20px;
@@ -538,6 +573,7 @@
   color: var(--navy, #112d37);
   letter-spacing: -0.03em;
   margin-bottom: 4px;
+  flex-shrink: 0;
 }
 .bc-lightbox-tag {
   font-size: 11px;
@@ -547,6 +583,7 @@
   letter-spacing: 0.08em;
   margin-bottom: 20px;
   display: block;
+  flex-shrink: 0;
 }
 .bc-lightbox-preview {
   width: 100%;
@@ -555,12 +592,25 @@
   box-shadow: 0 12px 36px rgba(17,45,55,0.18);
   margin-bottom: 26px;
   background: #f0ede8;
+  flex-shrink: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.bc-lightbox-preview img { display: block; width: 100%; }
+.bc-lightbox-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 50vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
 .bc-lightbox-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .bc-gallery-footer {

@@ -77,7 +77,9 @@ export function BusinessCardFlow() {
       await updateCard(cardId, {
         card_data: {
           ...existing,
+          productType: 'business',
           businessCard: {
+            ...existing.businessCard,
             ...editorSnapshot,
             profile,
             savedAt: new Date().toISOString(),
@@ -88,6 +90,22 @@ export function BusinessCardFlow() {
     } catch (e) {
       console.error('Failed to save business card', e)
       alert('Save failed. Please try again.')
+    }
+  }
+
+  async function handleExport() {
+    try {
+      const card = await fetchCard(cardId)
+      const existing = card.card_data || {}
+      await updateCard(cardId, {
+        card_data: {
+          ...existing,
+          productType: 'business',
+          businessCard: { ...existing.businessCard, status: 'completed' },
+        },
+      })
+    } catch (e) {
+      console.error('Failed to mark business card as completed', e)
     }
   }
 
@@ -145,6 +163,7 @@ export function BusinessCardFlow() {
           onBack={() => setStep('gallery')}
           onExit={() => navigate('/business-cards')}
           onSave={handleSave}
+          onExport={handleExport}
         />
       )}
     </>

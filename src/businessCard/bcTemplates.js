@@ -47,7 +47,24 @@ function isPlaceholder(profile, key) {
 }
 
 // ── Palette helpers ──────────────────────────────────────────────
+// Every template's load()/svgPreview() already resolves its colors through
+// this single function, so preferring a logo-extracted palette here (see
+// DetailsForm.jsx, which mirrors SetupWizard.jsx's extractPaletteFromLogo
+// flow) automatically applies it everywhere — the gallery thumbnails, the
+// preview lightbox, and the Fabric canvas editor — with no other file
+// needing to know about it. When no palette was extracted (e.g. the
+// Templates browse page, entered without a logo), this falls back to
+// profile.themeColors / the same hardcoded defaults as before.
 export function getPalette(profile) {
+  const extracted = profile.palette
+  if (extracted?.primary) {
+    return {
+      primary: extracted.primary,
+      accent:  extracted.accent || '#c9a24b',
+      text:    '#ffffff',
+      textDark:'#1a1a1a',
+    }
+  }
   const tc = profile.themeColors || []
   return {
     primary: tc[0] || '#1f2d3d',
@@ -657,13 +674,16 @@ export const TEMPLATES = [
         fontFamily: 'Inter, sans-serif', width: w - 20,
       })
       addLine(canvas, [w * 0.22, h * 0.44, w * 0.78, h * 0.44], { stroke: palette.accent, strokeWidth: 0.8, opacity: 0.4, selectable: false, evented: false })
-      // Contact block tightened into ~0.065h steps (was ~0.12h apart,
-      // scattering the lines across mostly-empty space) so it reads as one
-      // cohesive group rather than isolated fragments.
-      addText(canvas, f(profile, 'companyName'), { left: 10, top: h * 0.52, fontSize: 9, fill: 'rgba(255,255,255,0.7)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20 })
-      addText(canvas, f(profile, 'phone'), { left: 10, top: h * 0.585, fontSize: 8.5, fill: 'rgba(255,255,255,0.6)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20 })
-      addText(canvas, f(profile, 'email'), { left: 10, top: h * 0.65, fontSize: 8.5, fill: 'rgba(255,255,255,0.6)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20 })
-      addText(canvas, f(profile, 'website'), { left: 10, top: h * 0.715, fontSize: 8.5, fill: 'rgba(255,255,255,0.6)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20 })
+      // The footer band runs from 0.42h to 1.0h. Packing the four contact
+      // lines into a tight cluster right under the divider (as a previous
+      // pass did, ~0.065h apart starting at 0.52h) leaves a large dead zone
+      // between the last line and the bottom edge. Spacing them out across
+      // the actual footer band — not just tightening the gaps — keeps them
+      // readable as one group while using the space the band implies.
+      addText(canvas, f(profile, 'companyName'), { left: 10, top: h * 0.50, fontSize: 9, fill: 'rgba(255,255,255,0.7)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20 })
+      addText(canvas, f(profile, 'phone'), { left: 10, top: h * 0.60, fontSize: 8.5, fill: 'rgba(255,255,255,0.6)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20 })
+      addText(canvas, f(profile, 'email'), { left: 10, top: h * 0.70, fontSize: 8.5, fill: 'rgba(255,255,255,0.6)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20 })
+      addText(canvas, f(profile, 'website'), { left: 10, top: h * 0.80, fontSize: 8.5, fill: 'rgba(255,255,255,0.6)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20 })
     },
   },
 

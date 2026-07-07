@@ -108,7 +108,7 @@ export function TemplateGallery({ profile, onBack, onCustomise, onSelectTemplate
               >
                 <div className="bc-tmpl-preview">
                   {thumbs[tmpl.id]
-                    ? <img src={thumbs[tmpl.id]} alt={tmpl.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    ? <img src={thumbs[tmpl.id]} alt={tmpl.label} />
                     : <div dangerouslySetInnerHTML={{ __html: tmpl.svgPreview(palette) }} />}
                 </div>
                 <div className="bc-tmpl-info">

@@ -64,7 +64,7 @@ const LEFT_PANELS = [
   { key: 'layers',    label: 'Layers',    Icon: Layers },
 ]
 
-export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit }) {
+export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit, onExport }) {
   const { templateId, setup, savedFront, savedBack } = selection
   const { w, h } = getCardDimensions(setup.size, setup.orientation)
 
@@ -596,6 +596,10 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit 
     a.href = url
     a.download = `business-card-${activeFace}.png`
     a.click()
+    // A successful download marks the card 'completed' — Business Cards
+    // aren't published to a URL like Digital Cards, so export is the
+    // equivalent finish line.
+    onExport?.()
   }
 
   // ── Zoom ──────────────────────────────────────────────────

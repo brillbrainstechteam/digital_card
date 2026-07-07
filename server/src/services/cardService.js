@@ -13,7 +13,7 @@ function generateSlug(title) {
   return `${base}-${suffix}`
 }
 
-async function createCard(userId, { title }) {
+async function createCard(userId, { title, card_data }) {
   let slug = generateSlug(title)
   let attempts = 0
   while (attempts < 5) {
@@ -26,11 +26,13 @@ async function createCard(userId, { title }) {
     throw new AppError('Could not generate a unique slug. Please try again.', 500)
   }
 
+  const initialData = card_data && typeof card_data === 'object' ? card_data : {}
+
   const result = await pool.query(
     `INSERT INTO cards (user_id, title, slug, logo_url, status, card_data)
-     VALUES ($1, $2, $3, NULL, 'draft', '{}')
+     VALUES ($1, $2, $3, NULL, 'draft', $4)
      RETURNING *`,
-    [userId, title, slug]
+    [userId, title, slug, JSON.stringify(initialData)]
   )
 
   return result.rows[0]

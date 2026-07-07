@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Pencil } from 'lucide-react'
 import { fetchCards, createCard, updateCard, deleteCard } from '../api'
 import { useToast } from '../context/ToastContext'
+import { isBusinessCard } from '../cardTypeUtils'
 import { PageHeader } from './PageHeader'
 import { Sidebar } from './Sidebar'
 import { renderSavedCardThumbnail } from '../businessCard/canvasHelpers'
@@ -15,6 +16,8 @@ import '../businessCard/businessCard.css'
 // list is actually distinguishable at a glance.
 const DEFAULT_TITLE = 'Business Card'
 
+const FILTERS = ['all', 'draft', 'completed']
+
 function templateLabel(businessCard) {
   if (businessCard?.templateId === 'blank') return 'Blank Canvas'
   return getTemplate(businessCard?.templateId)?.label || DEFAULT_TITLE
@@ -24,6 +27,20 @@ function displayTitle(card) {
   return card.title && card.title !== DEFAULT_TITLE
     ? card.title
     : templateLabel(card.card_data.businessCard)
+}
+
+// Business Cards aren't "published" like Digital Cards — they're designed
+// and then exported for printing. A card is 'completed' once the user has
+// downloaded it at least once (see BusinessCardEditor's onExport); until
+// then it's a 'draft'.
+function cardStatus(card) {
+  return card.card_data?.businessCard?.status === 'completed' ? 'completed' : 'draft'
+}
+
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString('en-IN', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  })
 }
 
 function CardTitle({ card, onRenamed }) {
@@ -99,7 +116,7 @@ function BusinessCardThumb({ businessCard }) {
   // Prefer a freshly re-rendered thumbnail (always matches current saved
   // content); fall back to the cached snapshot only if re-render fails or
   // there's no frontJson (older saves), and finally to a placeholder icon.
-  const src = liveThumb || (tried ? businessCard.frontImg : null)
+  const src = liveThumb || (tried ? businessCard?.frontImg : null)
 
   if (src) return <img src={src} alt="Business card preview" />
   return <span style={{ fontSize: 28 }}>🪪</span>
@@ -129,13 +146,14 @@ export function BusinessCardsPage() {
   const [creating, setCreating] = useState(false)
   const [pendingConfirm, setPendingConfirm] = useState(null)
   const [previewCard, setPreviewCard] = useState(null)
+  const [activeFilter, setActiveFilter] = useState('all')
 
   async function loadCards() {
     setLoading(true)
     setError('')
     try {
       const all = await fetchCards()
-      setCards(all.filter((c) => c.card_data?.businessCard))
+      setCards(all.filter(isBusinessCard))
     } catch (err) {
       setError(err.message)
     } finally {
@@ -149,7 +167,7 @@ export function BusinessCardsPage() {
     setCreating(true)
     setError('')
     try {
-      const card = await createCard('Business Card')
+      const card = await createCard('Business Card', { productType: 'business' })
       navigate(`/business-card/${card.id}`)
     } catch (err) {
       toast.error(err.message)
@@ -179,9 +197,55 @@ export function BusinessCardsPage() {
     })
   }
 
+  async function handleShare(card) {
+    const img = card.card_data?.businessCard?.frontImg
+    if (img) {
+      try {
+        await navigator.clipboard.writeText(img)
+        toast.success('Card image link copied to clipboard')
+      } catch (err) {
+        toast.error('Could not copy to clipboard')
+      }
+      return
+    }
+    toast.info('Sharing is coming soon!')
+  }
+
+  async function handleMakeCopy(card) {
+    try {
+      const original = card.card_data?.businessCard || {}
+      const newTitle = `Copy of ${displayTitle(card)}`
+      const newCard = await createCard(newTitle, { productType: 'business' })
+      await updateCard(newCard.id, {
+        card_data: {
+          productType: 'business',
+          businessCard: {
+            ...original,
+            status: 'draft',
+            savedAt: new Date().toISOString(),
+          },
+        },
+      })
+      toast.success('Copy created — you can now edit it')
+      await loadCards()
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
   function handleRenamed(cardId, newTitle) {
     setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, title: newTitle } : c)))
   }
+
+  const counts = {
+    all: cards.length,
+    draft: cards.filter((c) => cardStatus(c) === 'draft').length,
+    completed: cards.filter((c) => cardStatus(c) === 'completed').length,
+  }
+
+  const filteredCards = activeFilter === 'all'
+    ? cards
+    : cards.filter((c) => cardStatus(c) === activeFilter)
 
   if (previewCard) {
     return (
@@ -210,6 +274,33 @@ export function BusinessCardsPage() {
 
         {error && <p className="dashboard-error">{error}</p>}
 
+        <div className="dashboard-summary-grid">
+          {[
+            ['Total Cards', counts.all],
+            ['Draft', counts.draft],
+            ['Completed', counts.completed],
+          ].map(([label, value]) => (
+            <div className="dashboard-summary-card" key={label}>
+              <span>{label}</span>
+              <strong>{loading ? '-' : value}</strong>
+            </div>
+          ))}
+        </div>
+
+        <div className="dashboard-filter-chips">
+          {FILTERS.map((f) => (
+            <button
+              key={f}
+              type="button"
+              className={`dashboard-filter-chip${activeFilter === f ? ' dashboard-filter-chip--active' : ''}`}
+              onClick={() => setActiveFilter(f)}
+            >
+              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+              <span className="chip-count">{loading ? '–' : counts[f]}</span>
+            </button>
+          ))}
+        </div>
+
         {loading ? (
           <div className="bc-dash-grid">
             {[1, 2].map((i) => (
@@ -227,41 +318,74 @@ export function BusinessCardsPage() {
               Create your first business card
             </button>
           </div>
+        ) : filteredCards.length === 0 ? (
+          <div className="dashboard-empty">
+            <div className="empty-icon">🔍</div>
+            <h2>No {activeFilter} cards</h2>
+            <p>You don't have any {activeFilter} business cards yet.</p>
+          </div>
         ) : (
           <div className="bc-dash-grid">
-            {cards.map((card) => (
-              <div key={card.id} className="bc-dash-card">
-                <div className="bc-dash-card-thumb">
-                  <BusinessCardThumb businessCard={card.card_data.businessCard} />
-                </div>
-                <div className="bc-dash-card-body">
-                  <CardTitle card={card} onRenamed={handleRenamed} />
-                  <div className="bc-dash-card-actions">
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => setPreviewCard({ id: card.id, title: displayTitle(card), businessCard: card.card_data.businessCard })}
-                    >
-                      Preview
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => navigate(`/business-card/${card.id}`)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="text-button card-delete-btn"
-                      onClick={() => handleDelete(card)}
-                    >
-                      Delete
-                    </button>
+            {filteredCards.map((card) => {
+              const status = cardStatus(card)
+              const isCompleted = status === 'completed'
+              return (
+                <div key={card.id} className="bc-dash-card">
+                  <div className="bc-dash-card-thumb">
+                    <BusinessCardThumb businessCard={card.card_data.businessCard} />
+                  </div>
+                  <div className="bc-dash-card-body">
+                    <div className="card-list-meta" style={{ marginBottom: 6 }}>
+                      <span className={`status-badge status-${status}`}>{status}</span>
+                      <span>{formatDate(card.created_at)}</span>
+                    </div>
+                    <CardTitle card={card} onRenamed={handleRenamed} />
+                    <div className="bc-dash-card-actions">
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => setPreviewCard({ id: card.id, title: displayTitle(card), businessCard: card.card_data.businessCard })}
+                      >
+                        Preview
+                      </button>
+                      {isCompleted ? (
+                        <>
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={() => handleShare(card)}
+                          >
+                            Share
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={() => handleMakeCopy(card)}
+                          >
+                            Make a Copy
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => navigate(`/business-card/${card.id}`)}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="text-button card-delete-btn"
+                        onClick={() => handleDelete(card)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 

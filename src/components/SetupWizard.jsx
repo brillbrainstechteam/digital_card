@@ -262,7 +262,13 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
       await updateCard(card.id, {
         title: titleName,
         logo_url: profile.logo,
-        card_data: profile,
+        // productType distinguishes Digital Cards from Business Cards (which
+        // share the same `cards` table) so each product's dashboard only
+        // ever lists its own cards. NOTE: this is deliberately NOT named
+        // `cardType` — that key already exists on the digital-card profile
+        // itself (professional/creative style selector) and must not be
+        // overwritten.
+        card_data: { ...profile, productType: 'digital' },
       })
       onComplete(card.id)
     } catch (err) {

@@ -1,6 +1,20 @@
 import { useState } from 'react'
 import { ArrowRight, Upload } from 'lucide-react'
 import { uploadImage } from '../api'
+import { extractPaletteFromLogo, detectBackdrop, rgbToHex } from '../theme'
+import { themeFromPalette } from '../themeOptions'
+
+// Same FileReader-based preview pattern SetupWizard.jsx uses — palette
+// extraction runs against this local data URL (not the eventual Cloudinary
+// URL) so it never has to worry about cross-origin canvas tainting.
+function readFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('Could not read this image.'))
+    reader.readAsDataURL(file)
+  })
+}
 
 const FIELDS = [
   { key: 'personName',  label: 'Full Name',      placeholder: 'Your Name',           required: true },
@@ -32,6 +46,9 @@ export function DetailsForm({
   const [logo, setLogo]           = useState(initialProfile?.logo || '')
   const [uploading, setUploading] = useState(false)
   const [error, setError]         = useState('')
+  const [palette, setPalette]     = useState(initialProfile?.palette || null)
+  const [theme, setTheme]         = useState(initialProfile?.theme || null)
+  const [logoBg, setLogoBg]       = useState(initialProfile?.logoBg || '')
 
   function update(key, val) {
     setValues((v) => ({ ...v, [key]: val }))
@@ -43,6 +60,23 @@ export function DetailsForm({
     setUploading(true)
     setError('')
     try {
+      // Same pattern as SetupWizard.jsx: extract brand colors from a local
+      // preview immediately, then swap the URL over to the Cloudinary
+      // upload once it finishes. Extraction never touches the cloud URL.
+      const preview = await readFile(file)
+      setLogo(preview)
+      try {
+        const [extractedPalette, backdrop] = await Promise.all([
+          extractPaletteFromLogo(preview),
+          detectBackdrop(preview),
+        ])
+        setPalette(extractedPalette)
+        setTheme((current) => ({ ...current, ...themeFromPalette(extractedPalette) }))
+        if (backdrop) setLogoBg(rgbToHex(backdrop))
+      } catch (_) {
+        // Logo too plain/light to detect brand colors — keep template defaults.
+      }
+
       const url = await uploadImage(file)
       setLogo(url)
     } catch (err) {
@@ -64,6 +98,9 @@ export function DetailsForm({
       ...values,
       logo,
       logoSource: logo,
+      ...(palette ? { palette } : {}),
+      ...(theme ? { theme } : {}),
+      ...(logoBg ? { logoBg } : {}),
     })
   }
 
