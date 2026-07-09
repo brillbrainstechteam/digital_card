@@ -8,17 +8,13 @@ import {
   RotateCcw, Undo2, Redo2, Trash2, Copy, FlipHorizontal,
   Layers, Sliders, Grid2X2, Type, Image, QrCode,
   Square, Star, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  Eye, EyeOff, Lock, Unlock, ChevronUp, ChevronDown,
+  ChevronUp, ChevronDown, Bold, Italic,
   Minus, Plus, Download, Printer, Save, X,
+  Heart, Award, Briefcase, Globe, Camera, Coffee, Zap, Shield, Smile, MapPin, Sparkles,
 } from 'lucide-react'
-import { TEMPLATES, getPalette, getCardDimensions, getTemplate } from './bcTemplates'
+import { TEMPLATES, getPalette, getCardDimensions, getTemplate, CUSTOM_FABRIC_PROPS, PLACEHOLDER_TEXT, addMotifIcon } from './bcTemplates'
 import { normalizeLegacyOrigins, renderFaceThumbnail } from './canvasHelpers'
-
-// ── Fonts available ──────────────────────────────────────────
-const FONTS = [
-  'Inter', 'Georgia', 'Poppins', 'Playfair Display',
-  'Roboto', 'Montserrat', 'Lato', 'Open Sans', 'Raleway', 'Oswald',
-]
+import { FONT_OPTIONS } from '../fontOptions'
 
 // ── Solid palette for background ─────────────────────────────
 const BG_COLORS = [
@@ -32,27 +28,45 @@ function getQRUrl(text) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(text || 'https://example.com')}&format=png&margin=4`
 }
 
-// ── Label from object ─────────────────────────────────────────
-function objLabel(obj) {
-  if (!obj) return 'Object'
-  if (obj.type === 'textbox' || obj.type === 'i-text' || obj.type === 'text') return `Text: ${String(obj.text || '').slice(0, 16)}`
-  if (obj.type === 'rect') return 'Rectangle'
-  if (obj.type === 'circle') return 'Circle'
-  if (obj.type === 'triangle') return 'Triangle'
-  if (obj.type === 'line') return 'Line'
-  if (obj.type === 'image') return 'Image'
-  if (obj.type === 'group') return isQRPlaceholderObj(obj) ? 'QR Placeholder' : 'Group'
-  return obj.type || 'Object'
+// Detected by content (a group containing a Textbox reading "QR"), not a
+// custom flag. Works on both live Fabric objects (children under `_objects`)
+// and plain serialized JSON (children under `objects`) so it can be reused
+// for the inactive face's Elements list, which only has parsed JSON to read.
+function isQRPlaceholderObj(obj) {
+  const children = obj?._objects || obj?.objects
+  return obj?.type === 'group' && Array.isArray(children) &&
+    children.some((o) => (o.type === 'textbox' || o.type === 'i-text' || o.type === 'text') && o.text === 'QR')
 }
 
-// Detected by content (a group containing a Textbox reading "QR"), not a
-// custom flag — custom properties aren't preserved by the default
-// canvas.toJSON()/loadFromJSON() round-trip used everywhere else in this
-// editor (undo/redo, face switching, save), but standard object types and
-// their built-in properties always are.
-function isQRPlaceholderObj(obj) {
-  return obj?.type === 'group' && Array.isArray(obj._objects) &&
-    obj._objects.some((o) => (o.type === 'textbox' || o.type === 'i-text' || o.type === 'text') && o.text === 'QR')
+const isTextType = (t) => t === 'textbox' || t === 'i-text' || t === 'text'
+
+// Infers the elementType of an UNTAGGED object by matching its rendered
+// content against the profile values / placeholder strings the templates
+// draw from. Needed for cards saved before elementType tagging existed
+// (their JSON has no custom props), so the Elements panel can still map
+// "the textbox that says email@example.com" to the Email toggle no matter
+// which of the 10 templates produced it, or how that template combined /
+// uppercased the fields. Reads only plain props (type, text), so it works
+// on live Fabric objects and parsed JSON alike.
+function inferElementType(obj, profile) {
+  if (obj.elementType) return obj.elementType
+  if (isQRPlaceholderObj(obj)) return 'qr'
+  // Legacy template-loaded images were only ever the profile logo — any
+  // image the user adds today gets tagged 'customImage' at creation.
+  if (obj.type === 'image') return 'logo'
+  if (!isTextType(obj.type)) return null
+  const text = String(obj.text || '').trim().toLowerCase()
+  if (!text) return null
+  const val = (key) => String(profile?.[key] || PLACEHOLDER_TEXT[key] || '').trim().toLowerCase()
+  const has = (key) => { const v = val(key); return !!v && text.includes(v) }
+  // Combined lines first (e.g. Dark Premium's "TITLE · COMPANY" and
+  // "phone · email"), then exact single-field matches, then containment.
+  if (has('designation') && has('companyName')) return 'designationCompany'
+  if (has('phone') && has('email')) return 'phoneEmail'
+  const singles = ['personName', 'designation', 'companyName', 'phone', 'email', 'website', 'location', 'tagline']
+  for (const key of singles) if (text === val(key)) return key
+  for (const key of singles) if (has(key)) return key
+  return null
 }
 
 const LEFT_PANELS = [
@@ -61,22 +75,110 @@ const LEFT_PANELS = [
   { key: 'shapes',    label: 'Shapes',    Icon: Square },
   { key: 'images',    label: 'Images',    Icon: Image },
   { key: 'qr',        label: 'QR Code',   Icon: QrCode },
-  { key: 'layers',    label: 'Layers',    Icon: Layers },
+  { key: 'elements',  label: 'Elements',  Icon: Layers },
 ]
 
-export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit, onExport }) {
+// Canonical field rows shown in the Elements panel — a fixed checklist of
+// standard business-card fields rather than a raw object dump, so a toggle
+// always means the same thing regardless of which template built the card.
+// `match` lists every elementType tag that satisfies the row; some templates
+// combine two fields into one tagged object (e.g. designation + company name
+// sharing a single 'designationCompany' textbox), so toggling either row
+// then toggles that same shared object. No "Motif Icon" row — that system
+// doesn't exist yet (no industry field, no per-template icon), deferred by
+// user decision rather than built as a stub.
+const FRONT_ELEMENT_ROWS = [
+  { key: 'personName',  label: 'Name',          match: ['personName'] },
+  { key: 'designation',  label: 'Designation',   match: ['designation', 'designationCompany'], profileKey: 'designation' },
+  { key: 'companyName',  label: 'Company Name',  match: ['companyName', 'designationCompany'], profileKey: 'companyName' },
+  { key: 'phone',        label: 'Phone',         match: ['phone', 'phoneEmail'], profileKey: 'phone' },
+  { key: 'email',        label: 'Email',         match: ['email', 'phoneEmail'], profileKey: 'email' },
+  { key: 'website',      label: 'Website',       match: ['website'], profileKey: 'website' },
+  { key: 'logo',         label: 'Logo',          match: ['logo'] },
+  { key: 'qr',           label: 'QR Code',       match: ['qr'] },
+]
+const BACK_ELEMENT_ROWS = [
+  { key: 'tagline',      label: 'Tagline',       match: ['tagline'] },
+  { key: 'companyName',  label: 'Company Name',  match: ['companyName'], profileKey: 'companyName' },
+  { key: 'qr',           label: 'QR Code',       match: ['qr'] },
+]
+
+// elementTypes created via the "+ Add Element" menu (Issue 4) — not part of
+// the fixed canonical checklist above (those are singular business-card
+// fields), so they're surfaced as their own extra rows, one per object,
+// below the canonical list.
+const CUSTOM_ELEMENT_LABELS = {
+  customText:   'Text Block',
+  socialHandle: 'Social Handle',
+  divider:      'Divider Line',
+  customImage:  'Image',
+  sticker:      'Icon/Sticker',
+  decorativeShape: 'Decorative Shape',
+  motifIcon:    'Motif Icon',
+}
+
+const STICKER_ICONS = [
+  { key: 'star', Icon: Star },
+  { key: 'heart', Icon: Heart },
+  { key: 'award', Icon: Award },
+  { key: 'briefcase', Icon: Briefcase },
+  { key: 'globe', Icon: Globe },
+  { key: 'camera', Icon: Camera },
+  { key: 'coffee', Icon: Coffee },
+  { key: 'zap', Icon: Zap },
+  { key: 'shield', Icon: Shield },
+  { key: 'smile', Icon: Smile },
+  { key: 'mapPin', Icon: MapPin },
+  { key: 'sparkles', Icon: Sparkles },
+]
+
+export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit, onExport, onDiscardNew }) {
   const { templateId, setup, savedFront, savedBack } = selection
   const { w, h } = getCardDimensions(setup.size, setup.orientation)
 
   const canvasElRef = useRef(null)
+  const canvasAreaRef = useRef(null)
   const fabricRef   = useRef(null)
+  // View Both mode: a second, genuinely live Fabric canvas for whichever
+  // face `fabricRef` isn't currently showing, so both sides are truly
+  // interactive at once (not static thumbnails). `fabricRef` always
+  // represents `activeFace`; this one always represents the other face.
+  const secondaryCanvasElRef = useRef(null)
+  const secondaryFabricRef   = useRef(null)
+  // Mirrors `activeFace` into a ref so Fabric event handlers registered
+  // once at canvas-creation time (closures) can read the *current* value
+  // instead of whatever it was when the listener was attached.
+  const activeFaceRef = useRef('front')
+  // True while the canvas is being set programmatically (initial load, face
+  // switch to an already-saved face) — object:added/removed events during
+  // that window must NOT count as "the user made an unsaved edit". Uses a
+  // ref rather than state so the always-current value is visible inside
+  // Fabric event handlers, which close over state from whenever cv.on(...)
+  // was registered and would otherwise see a stale value forever.
+  const suppressDirtyRef = useRef(true)
 
   const [activeFace, setActiveFace] = useState('front')
   const [hasBack, setHasBack]       = useState(!!savedBack || setup.includeBack || false)
   const [faceData, setFaceData]     = useState({ front: null, back: savedBack || null })
   const [removeBackConfirm, setRemoveBackConfirm] = useState(false)
+  const [viewingBoth, setViewingBoth] = useState(false)
+  // Which face currently has the active selection while in View Both —
+  // null when nothing is selected on either card. Drives the Properties
+  // panel's "Front · X" / "Back · X" title, the Elements panel's
+  // FRONT/BACK highlight, and the active-card border.
+  const [viewBothSelectedFace, setViewBothSelectedFace] = useState(null)
+
+  // ── Save / exit tracking (manual save only — no auto-save) ─
+  // hasBeenSaved: whether this card has ever been written to the DB, from
+  // this session or a previous one (savedFront present on mount means it
+  // was already saved before we got here).
+  const [hasBeenSaved, setHasBeenSaved]         = useState(!!savedFront)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [exitDialog, setExitDialog]             = useState(null) // { scenario: 'new'|'existing', pendingAction: fn } | null
 
   const [activePanel, setActivePanel]   = useState(null)
+  const [addMenuFace, setAddMenuFace]   = useState(null) // 'front' | 'back' | null — which section's "+ Add Element" popover is open
+  const [iconGridFace, setIconGridFace] = useState(null) // 'front' | 'back' | null — icon/sticker sub-picker
   const [selectedObj, setSelectedObj]   = useState(null)
   const [zoom, setZoom]                 = useState(1)
   const [showOpacity, setShowOpacity]   = useState(false)
@@ -91,7 +193,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
 
   // Text props (synced from selected object)
   const [textProps, setTextProps] = useState({
-    fontFamily: 'Inter', fontSize: 16, fontWeight: 'normal',
+    fontFamily: 'Inter', fontSize: 16, fontWeight: 'normal', fontStyle: 'normal',
     fill: '#000000', textAlign: 'left', charSpacing: 0, lineHeight: 1.2,
     underline: false, shadow: false, outline: false,
   })
@@ -116,7 +218,21 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       width: w,
       height: h,
       preserveObjectStacking: true,
+      enableRetinaScaling: true,
     })
+    // Fabric's own retina scaling only matches the screen's DPR (often 1x,
+    // or as low as ~1.25x here) — sharp for a canvas shown at its native
+    // logical size, but the card is then enlarged further on top via the
+    // .bce-canvas-wrap CSS `transform: scale(zoom)` control (the deliberate
+    // "make the card bigger on screen" zoom feature, not a bug to remove).
+    // CSS-scaling a texture beyond the pixel density it was rasterized at
+    // always blurs, backing-store resolution notwithstanding, so the
+    // backing store needs headroom beyond the raw DPR to stay sharp once
+    // that zoom is applied. Re-run Fabric's own backing-store sizing
+    // (setDimensions reads getRetinaScaling() fresh) with a boosted floor
+    // instead of trying to resize on every zoom-slider tick.
+    cv.getRetinaScaling = () => Math.max(window.devicePixelRatio || 1, 2)
+    cv.setDimensions({ width: w, height: h })
     fabricRef.current = cv
 
     if (savedFront) {
@@ -124,6 +240,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       // instead of regenerating from the template (which would discard edits).
       await cv.loadFromJSON(JSON.parse(savedFront))
       normalizeLegacyOrigins(cv)
+      retagUntaggedObjects(cv)
     } else {
       // Load template (blank/Customise mode has no template)
       const tmpl = templateId === 'blank' ? null : getTemplate(templateId)
@@ -144,18 +261,59 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     snapshot('front', cv)
     syncLayers(cv)
 
-    // Events
-    cv.on('selection:created', (e) => onObjSelect(e.selected?.[0]))
-    cv.on('selection:updated', (e) => onObjSelect(e.selected?.[0]))
+    // Events — this canvas always represents `activeFaceRef.current`
+    // (read via ref, not the closed-over `activeFace`, since this handler
+    // is registered once at creation time and must stay correct across
+    // later face switches).
+    cv.on('selection:created', (e) => { setViewBothSelectedFace(activeFaceRef.current); onObjSelect(e.selected?.[0]) })
+    cv.on('selection:updated', (e) => { setViewBothSelectedFace(activeFaceRef.current); onObjSelect(e.selected?.[0]) })
     cv.on('selection:cleared',  () => setSelectedObj(null))
     cv.on('object:modified',    () => {
-      if (!isRestoring) { snapshot(activeFace, cv); syncLayers(cv) }
+      if (!isRestoring) { snapshot(activeFaceRef.current, cv); syncLayers(cv) }
       const obj = cv.getActiveObject()
       if (obj) readProps(obj)
+      markDirty()
     })
-    cv.on('object:added',   () => syncLayers(cv))
-    cv.on('object:removed', () => syncLayers(cv))
+    cv.on('object:added',   () => { syncLayers(cv); markDirty() })
+    cv.on('object:removed', () => { syncLayers(cv); markDirty() })
+
+    // Fit the card to ~72% of the available canvas area instead of always
+    // opening at 100% (actual pixel size), which left the card looking tiny
+    // in a sea of grey — especially on standard-size horizontal cards.
+    const area = canvasAreaRef.current
+    if (area) {
+      const fitByHeight = (area.clientHeight * 0.72) / h
+      const fitByWidth  = (area.clientWidth * 0.72) / w
+      const fitZoom = Math.min(fitByHeight, fitByWidth, 2)
+      if (fitZoom > 0) setZoom(Math.max(0.3, parseFloat(fitZoom.toFixed(2))))
+    }
+
+    // Everything above (template load / restore of a saved card) doesn't
+    // count as a user edit — only start tracking dirt from here on.
+    suppressDirtyRef.current = false
   }, []) // eslint-disable-line
+
+  function markDirty() {
+    if (suppressDirtyRef.current) return
+    setHasUnsavedChanges(true)
+  }
+
+  useEffect(() => { activeFaceRef.current = activeFace }, [activeFace])
+
+  // Which canvas / face an editing action should target: normally always
+  // `fabricRef`/`activeFace`, but in View Both mode it follows whichever
+  // card the user actually selected something on — so the toolbar
+  // (Delete/Opacity/Layer/Flip/Duplicate) and the Properties panel act on
+  // the right side regardless of which one is "the" active face.
+  function getActiveCanvas() {
+    if (viewingBoth && viewBothSelectedFace && viewBothSelectedFace !== activeFace) {
+      return secondaryFabricRef.current
+    }
+    return fabricRef.current
+  }
+  function getActiveEditFace() {
+    return (viewingBoth && viewBothSelectedFace) || activeFace
+  }
 
   useEffect(() => {
     initCanvas()
@@ -165,12 +323,48 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     }
   }, [initCanvas])
 
+  // Guards actual tab close/refresh (native browser dialog) and same-app
+  // link clicks (sidebar nav etc.) — same pattern StudioPage.jsx uses for
+  // the Digital Card editor's unsaved-changes guard, reused here for
+  // consistency rather than introducing a different mechanism (e.g.
+  // React Router's useBlocker, which nothing else in the app uses yet).
+  useEffect(() => {
+    const needsConfirm = () => !hasBeenSaved || hasUnsavedChanges
+
+    function handleBeforeUnload(event) {
+      if (!needsConfirm()) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    function handleDocumentClick(event) {
+      if (!needsConfirm()) return
+      const anchor = event.target.closest?.('a[href]')
+      if (!anchor) return
+      const url = new URL(anchor.href, window.location.href)
+      if (url.origin !== window.location.origin) return
+      if (url.pathname === window.location.pathname) return
+      event.preventDefault()
+      requestExit(() => { window.location.href = anchor.href })
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('click', handleDocumentClick, true)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      document.removeEventListener('click', handleDocumentClick, true)
+    }
+  }, [hasBeenSaved, hasUnsavedChanges])
+
   // ── Helpers ────────────────────────────────────────────────
   async function addQRToCanvas(cv, url, cw, ch) {
     try {
       const qrImg = await FabricImage.fromURL(getQRUrl(url), { crossOrigin: 'anonymous' })
-      qrImg.scaleToWidth(80)
-      qrImg.set({ left: cw - 96, top: ch - 96, selectable: true, originX: 'left', originY: 'top' })
+      qrImg.scaleToWidth(60)
+      // Same bottom-right placement as addQRPlaceholder — 20px margin off
+      // both edges, computed from the canvas dimensions.
+      qrImg.set({ left: cw - 80, top: ch - 80, selectable: true, originX: 'left', originY: 'top' })
+      qrImg.elementType = 'qr'
       cv.add(qrImg)
     } catch (_) {}
   }
@@ -184,7 +378,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
 
   function snapshot(face, canvas) {
     if (!canvas || isRestoring) return
-    const json = JSON.stringify(canvas.toJSON())
+    const json = JSON.stringify(canvas.toObject(CUSTOM_FABRIC_PROPS))
     setHistory((prev) => {
       const arr = [...prev[face].slice(0, histIdx[face] + 1), json].slice(-50)
       return { ...prev, [face]: arr }
@@ -212,6 +406,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
         fontFamily:  obj.fontFamily  || 'Inter',
         fontSize:    obj.fontSize    || 16,
         fontWeight:  obj.fontWeight  || 'normal',
+        fontStyle:   obj.fontStyle   || 'normal',
         fill:        typeof obj.fill === 'string' ? obj.fill : '#000000',
         textAlign:   obj.textAlign   || 'left',
         charSpacing: obj.charSpacing || 0,
@@ -219,6 +414,12 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
         underline:   obj.underline   || false,
         shadow:      !!obj.shadow,
         outline:     !!obj.stroke,
+      })
+    } else if (obj.type === 'image') {
+      setShapeProps({
+        fill: '', stroke: '', strokeWidth: 0,
+        opacity: obj.opacity ?? 1,
+        rx: obj.clipPath?.rx || 0,
       })
     } else {
       setShapeProps({
@@ -234,20 +435,41 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   const isText = selectedObj &&
     (selectedObj.type === 'textbox' || selectedObj.type === 'i-text' || selectedObj.type === 'text')
 
+  // Change 5 — which property controls to show for the selected object.
+  const elementKind = !selectedObj ? null
+    : isText ? 'text'
+    : selectedObj.type === 'image' ? 'image'
+    : selectedObj.type === 'group' ? (isQRPlaceholderObj(selectedObj) ? 'qr' : 'group')
+    : 'shape'
+
   // ── Switch face ────────────────────────────────────────────
   async function switchFace(newFace) {
     if (newFace === activeFace || !fabricRef.current) return
-    // Save current face JSON
-    const currentJson = JSON.stringify(fabricRef.current.toJSON())
+    // Capture the front's look before we touch anything — needed both to
+    // persist the current face and (when creating a fresh back) to carry
+    // the background/heading font over to the new back face.
+    const outgoingBg = getEffectiveBackground(fabricRef.current)
+    const outgoingFont = findObjectByElementType(fabricRef.current, 'personName')?.fontFamily
+    const currentJson = JSON.stringify(fabricRef.current.toObject(CUSTOM_FABRIC_PROPS))
     setFaceData((prev) => ({ ...prev, [activeFace]: currentJson }))
     // Load new face
     const savedJson = faceData[newFace]
     if (savedJson) {
+      // Re-displaying a face that was already built earlier in this
+      // session (not a new edit) — object:added events during the reload
+      // shouldn't flip hasUnsavedChanges.
+      suppressDirtyRef.current = true
       setIsRestoring(true)
       await fabricRef.current.loadFromJSON(JSON.parse(savedJson))
       normalizeLegacyOrigins(fabricRef.current)
+      retagUntaggedObjects(fabricRef.current)
       fabricRef.current.renderAll()
       setIsRestoring(false)
+      suppressDirtyRef.current = false
+    } else if (newFace === 'back') {
+      populateBackSide(fabricRef.current, outgoingBg, outgoingFont)
+      fabricRef.current.renderAll()
+      snapshot(newFace, fabricRef.current)
     } else {
       fabricRef.current.clear()
       fabricRef.current.backgroundColor = '#ffffff'
@@ -259,6 +481,213 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     syncLayers(fabricRef.current)
   }
 
+  // Stamps inferred elementType tags onto untagged objects right after a
+  // canvas loads from saved JSON, so legacy cards (saved before tagging
+  // existed) behave identically to new ones from here on — the Elements
+  // panel matches them, and the next save persists the tags for good.
+  function retagUntaggedObjects(canvas) {
+    if (!canvas) return
+    canvas.getObjects().forEach((obj) => {
+      if (obj.elementType) return
+      const inferred = inferElementType(obj, profile)
+      if (inferred) obj.elementType = inferred
+    })
+  }
+
+  // Finds a live Fabric object tagged with a given elementType — used to
+  // pull the front's heading font when auto-populating a fresh back side.
+  function findObjectByElementType(canvas, elementType) {
+    return canvas?.getObjects().find((o) => o.elementType === elementType)
+  }
+
+  // Several templates (Dark Premium, Vertical Dark, ...) paint their
+  // background with a full-bleed Rect object instead of canvas.backgroundColor
+  // (which those templates leave unset). To carry "the same background" over
+  // to a fresh back side we need to check both: prefer an explicit
+  // canvas.backgroundColor, else fall back to a bottom-most, non-interactive
+  // rect that covers the whole canvas with a plain color fill, else the
+  // template's palette primary color.
+  function getEffectiveBackground(canvas) {
+    if (canvas.backgroundColor && typeof canvas.backgroundColor === 'string') return canvas.backgroundColor
+    const bottom = canvas.getObjects()[0]
+    if (bottom && bottom.type === 'rect' && bottom.selectable === false && typeof bottom.fill === 'string') {
+      const coversFull = (bottom.left || 0) <= 1 && (bottom.top || 0) <= 1 &&
+        bottom.getScaledWidth() >= canvas.width * 0.9 && bottom.getScaledHeight() >= canvas.height * 0.9
+      if (coversFull) return bottom.fill
+    }
+    return palette.primary || '#ffffff'
+  }
+
+  // Picks the palette's own ink color (its light `text` for dark backgrounds,
+  // its dark `textDark` for light backgrounds) using the standard
+  // relative-luminance threshold — same two ink values every template
+  // already uses, not an independently invented color.
+  function contrastInk(bgColor) {
+    const hex = (bgColor || '#ffffff').replace('#', '')
+    if (hex.length !== 6) return palette.textDark || '#1a1a1a'
+    const r = parseInt(hex.slice(0, 2), 16)
+    const g = parseInt(hex.slice(2, 4), 16)
+    const b = parseInt(hex.slice(4, 6), 16)
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return luminance > 0.55 ? (palette.textDark || '#1a1a1a') : (palette.text || '#ffffff')
+  }
+
+  // Shared by the initial back auto-populate and by manually re-adding a
+  // tagline later from the Elements panel. Centered, front's heading font,
+  // ink color sourced from the palette.
+  function addTaglineObject(canvas, frontFont) {
+    const bg = getEffectiveBackground(canvas)
+    const ink = contrastInk(bg)
+    const tagline = profile?.tagline || profile?.companyName || ''
+    if (!tagline) return
+    const tw = w - 80
+    const hasCompanySubline = profile?.companyName && profile.companyName !== tagline
+    const t = new Textbox(tagline, {
+      left: (w - tw) / 2,
+      top: hasCompanySubline ? h / 2 - 26 : h / 2 - 15,
+      width: tw,
+      fontSize: 24, fontWeight: '700',
+      fill: ink,
+      fontFamily: (frontFont || 'Georgia') + ', serif',
+      textAlign: 'center',
+      charSpacing: 40, // ~1-2px tracking at this size
+      originX: 'left', originY: 'top',
+    })
+    t.elementType = 'tagline'
+    canvas.add(t)
+
+    // Smaller, lighter company-name sub-line — gives the back more content
+    // without competing with the tagline. Reuses the 'companyName'
+    // elementType the Elements panel's BACK section already lists.
+    if (hasCompanySubline) {
+      const c = new Textbox(profile.companyName, {
+        left: (w - tw) / 2,
+        top: h / 2 + 16,
+        width: tw,
+        fontSize: 14, fontWeight: '400',
+        fill: ink,
+        opacity: 0.7,
+        fontFamily: 'Inter, sans-serif',
+        textAlign: 'center',
+        originX: 'left', originY: 'top',
+      })
+      c.elementType = 'companyName'
+      canvas.add(c)
+    }
+  }
+
+  // Change 3 — auto-populate a freshly created back side: same background
+  // color as the front, a large geometric accent shape so it doesn't read
+  // as a flat unfinished block, a centered tagline (falling back to
+  // companyName) in the front's heading font, ink from the palette, and a
+  // corner motif icon. No logo, no contact details — those stay front-only
+  // unless the user adds them.
+  function populateBackSide(canvas, frontBg, frontFont) {
+    canvas.clear()
+    const bg = frontBg || '#ffffff'
+    canvas.backgroundColor = bg
+    // Large circle, bottom-right, partially off-card — a subtle but
+    // visible geometric anchor.
+    const circleR = h * 0.6
+    const circle = new Circle({
+      left: w - circleR * 0.5, top: h - circleR * 0.5,
+      radius: circleR,
+      fill: palette.primary,
+      opacity: 0.18,
+      selectable: true, evented: true,
+      originX: 'center', originY: 'center',
+    })
+    circle.elementType = 'decorativeShape'
+    canvas.add(circle)
+    addTaglineObject(canvas, frontFont)
+    // Accent-colored so it stays visible regardless of background — never
+    // the surface color, which can vanish against a same-tone background.
+    addMotifIcon(canvas, palette, w, h, 'bl')
+  }
+
+  // Finds the front's heading font wherever it currently lives (the live
+  // canvas if front is active, else the saved front JSON) — used when
+  // manually re-adding a tagline that was never auto-created or was removed.
+  function getFrontHeadingFont() {
+    if (activeFace === 'front') return findObjectByElementType(fabricRef.current, 'personName')?.fontFamily
+    const json = faceData.front
+    if (!json) return null
+    try {
+      const obj = (JSON.parse(json).objects || []).find((o) => inferElementType(o, profile) === 'personName')
+      return obj?.fontFamily
+    } catch (_) { return null }
+  }
+
+  // ── View Both ─────────────────────────────────────────────
+  // Both cards are genuinely live, interactive Fabric canvases — `fabricRef`
+  // keeps representing `activeFace` exactly as it does outside View Both;
+  // a second canvas (secondaryFabricRef) is created for the other face.
+  // The actual Fabric.Canvas is instantiated in the effect below, once the
+  // secondary <canvas> DOM node exists — entering here just flips the flag.
+  function enterViewBoth() {
+    if (!hasBack) return
+    setViewingBoth(true)
+  }
+
+  // Syncs the secondary canvas's current content back into faceData (so
+  // nothing typed/moved while in View Both is lost) and tears it down.
+  function exitViewBoth() {
+    const sc = secondaryFabricRef.current
+    if (sc) {
+      const secondaryFace = activeFace === 'front' ? 'back' : 'front'
+      setFaceData((prev) => ({ ...prev, [secondaryFace]: JSON.stringify(sc.toObject(CUSTOM_FABRIC_PROPS)) }))
+      sc.dispose()
+      secondaryFabricRef.current = null
+    }
+    setViewBothSelectedFace(null)
+    setViewingBoth(false)
+  }
+
+  // Creates/destroys the secondary live canvas as View Both is entered/left.
+  useEffect(() => {
+    if (!viewingBoth) return
+    if (!secondaryCanvasElRef.current || secondaryFabricRef.current) return
+    let cancelled = false
+    const secondaryFace = activeFace === 'front' ? 'back' : 'front'
+    ;(async () => {
+      const sc = new Canvas(secondaryCanvasElRef.current, {
+        width: w, height: h, preserveObjectStacking: true, enableRetinaScaling: true,
+      })
+      sc.getRetinaScaling = () => Math.max(window.devicePixelRatio || 1, 2)
+      sc.setDimensions({ width: w, height: h })
+      const json = faceData[secondaryFace]
+      if (json) {
+        await sc.loadFromJSON(JSON.parse(json))
+        normalizeLegacyOrigins(sc)
+        retagUntaggedObjects(sc)
+      }
+      if (cancelled) { sc.dispose(); return }
+      sc.renderAll()
+      sc.on('selection:created', (e) => { setViewBothSelectedFace(secondaryFace); onObjSelect(e.selected?.[0]) })
+      sc.on('selection:updated', (e) => { setViewBothSelectedFace(secondaryFace); onObjSelect(e.selected?.[0]) })
+      sc.on('selection:cleared',  () => setSelectedObj(null))
+      sc.on('object:modified',    () => {
+        snapshot(secondaryFace, sc)
+        const obj = sc.getActiveObject()
+        if (obj) readProps(obj)
+        markDirty()
+      })
+      sc.on('object:added',   () => markDirty())
+      sc.on('object:removed', () => markDirty())
+      secondaryFabricRef.current = sc
+    })()
+    return () => { cancelled = true }
+  }, [viewingBoth]) // eslint-disable-line
+
+  // Jumps to single-face editing for whichever card the user clicked the
+  // "Front Side"/"Back Side" tab for — exitViewBoth() already syncs the
+  // secondary canvas's edits into faceData first, so switchFace() (a no-op
+  // if that face is already what `fabricRef` shows) always sees the latest.
+  function goToFaceFromBoth(face) {
+    exitViewBoth()
+    switchFace(face)
+  }
+
   // ── Back side management ───────────────────────────────────
   // Works for every card, template-based or blank — back side is purely an
   // editor-session concept, independent of how the front was created.
@@ -268,6 +697,13 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   }
 
   function removeBackSide() {
+    // Dispose the secondary View Both canvas WITHOUT syncing its content
+    // back to faceData — the back is being deleted, so there's nothing to
+    // preserve, and syncing here would just resurrect it after the
+    // faceData.back: null write below (both would land in the same batch).
+    if (secondaryFabricRef.current) { secondaryFabricRef.current.dispose(); secondaryFabricRef.current = null }
+    setViewBothSelectedFace(null)
+    setViewingBoth(false)
     setFaceData((prev) => ({ ...prev, back: null }))
     setHistory((prev) => ({ ...prev, back: [] }))
     setHistIdx((prev) => ({ ...prev, back: -1 }))
@@ -332,93 +768,107 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   }
 
   // ── Delete ─────────────────────────────────────────────────
+  // From here down, toolbar/property actions target getActiveCanvas() —
+  // normally fabricRef, but in View Both mode whichever card the user last
+  // selected something on — so Delete/Opacity/Layer/Flip/Duplicate and every
+  // Properties panel edit apply to the right side regardless of which one
+  // is "the" active face.
   function deleteSelected() {
-    const obj = fabricRef.current?.getActiveObject()
-    if (!obj || !fabricRef.current) return
-    fabricRef.current.remove(obj)
-    fabricRef.current.discardActiveObject()
-    fabricRef.current.renderAll()
+    const cv2 = getActiveCanvas()
+    const obj = cv2?.getActiveObject()
+    if (!obj || !cv2) return
+    cv2.remove(obj)
+    cv2.discardActiveObject()
+    cv2.renderAll()
     setSelectedObj(null)
-    snapshot(activeFace, fabricRef.current)
+    snapshot(getActiveEditFace(), cv2)
   }
 
   // ── Duplicate ──────────────────────────────────────────────
   function duplicate() {
-    const obj = fabricRef.current?.getActiveObject()
-    if (!obj || !fabricRef.current) return
+    const cv2 = getActiveCanvas()
+    const obj = cv2?.getActiveObject()
+    if (!obj || !cv2) return
     obj.clone().then((cloned) => {
       cloned.set({ left: obj.left + 14, top: obj.top + 14 })
-      fabricRef.current.add(cloned)
-      fabricRef.current.setActiveObject(cloned)
-      fabricRef.current.renderAll()
-      snapshot(activeFace, fabricRef.current)
+      cv2.add(cloned)
+      cv2.setActiveObject(cloned)
+      cv2.renderAll()
+      snapshot(getActiveEditFace(), cv2)
     })
   }
 
   // ── Flip ───────────────────────────────────────────────────
   function flip() {
-    const obj = fabricRef.current?.getActiveObject()
-    if (!obj || !fabricRef.current) return
+    const cv2 = getActiveCanvas()
+    const obj = cv2?.getActiveObject()
+    if (!obj || !cv2) return
     obj.set('flipX', !obj.flipX)
-    fabricRef.current.renderAll()
-    snapshot(activeFace, fabricRef.current)
+    cv2.renderAll()
+    snapshot(getActiveEditFace(), cv2)
   }
 
   // ── Text prop update ───────────────────────────────────────
   function updateText(key, value) {
-    const obj = fabricRef.current?.getActiveObject()
-    if (!obj || !fabricRef.current) return
+    const cv2 = getActiveCanvas()
+    const obj = cv2?.getActiveObject()
+    if (!obj || !cv2) return
     obj.set(key, value)
-    fabricRef.current.renderAll()
+    cv2.renderAll()
     setTextProps((p) => ({ ...p, [key]: value }))
-    snapshot(activeFace, fabricRef.current)
+    snapshot(getActiveEditFace(), cv2)
   }
 
   // ── Shape prop update ──────────────────────────────────────
   function updateShape(key, value) {
-    const obj = fabricRef.current?.getActiveObject()
-    if (!obj || !fabricRef.current) return
+    const cv2 = getActiveCanvas()
+    const obj = cv2?.getActiveObject()
+    if (!obj || !cv2) return
     obj.set(key, value)
-    fabricRef.current.renderAll()
+    cv2.renderAll()
     setShapeProps((p) => ({ ...p, [key]: value }))
-    snapshot(activeFace, fabricRef.current)
+    snapshot(getActiveEditFace(), cv2)
   }
 
   // ── Common prop update ────────────────────────────────────
   function updateCommon(key, value) {
-    const obj = fabricRef.current?.getActiveObject()
-    if (!obj || !fabricRef.current) return
+    const cv2 = getActiveCanvas()
+    const obj = cv2?.getActiveObject()
+    if (!obj || !cv2) return
     const num = parseFloat(value)
     if (key === 'width')  obj.set('scaleX', num / obj.width)
     else if (key === 'height') obj.set('scaleY', num / obj.height)
     else obj.set(key, num)
-    fabricRef.current.renderAll()
+    cv2.renderAll()
     setCommonProps((p) => ({ ...p, [key]: value }))
   }
 
   // ── Opacity (top bar) ─────────────────────────────────────
   function setObjOpacity(val) {
-    const obj = fabricRef.current?.getActiveObject()
-    if (!obj || !fabricRef.current) return
+    const cv2 = getActiveCanvas()
+    const obj = cv2?.getActiveObject()
+    if (!obj || !cv2) return
     obj.set('opacity', parseFloat(val))
-    fabricRef.current.renderAll()
+    cv2.renderAll()
     setCommonProps((p) => ({ ...p, opacity: val }))
   }
 
   // ── Bring/Send ────────────────────────────────────────────
   function bringForward() {
-    const obj = fabricRef.current?.getActiveObject()
-    if (!obj || !fabricRef.current) return
-    fabricRef.current.bringObjectForward(obj)
-    fabricRef.current.renderAll()
-    syncLayers(fabricRef.current)
+    const cv2 = getActiveCanvas()
+    const obj = cv2?.getActiveObject()
+    if (!obj || !cv2) return
+    cv2.bringObjectForward(obj)
+    cv2.renderAll()
+    syncLayers(cv2)
   }
   function sendBackward() {
-    const obj = fabricRef.current?.getActiveObject()
-    if (!obj || !fabricRef.current) return
-    fabricRef.current.sendObjectBackwards(obj)
-    fabricRef.current.renderAll()
-    syncLayers(fabricRef.current)
+    const cv2 = getActiveCanvas()
+    const obj = cv2?.getActiveObject()
+    if (!obj || !cv2) return
+    cv2.sendObjectBackwards(obj)
+    cv2.renderAll()
+    syncLayers(cv2)
   }
 
   // ── Add text ──────────────────────────────────────────────
@@ -446,7 +896,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   }
 
   // ── Insert entered detail as text ──────────────────────────
-  function insertDetailText(value, fontSize = 14) {
+  function insertDetailText(value, fontSize = 14, elementType, face = activeFace) {
     if (!fabricRef.current || !value) return
     const t = new Textbox(value, {
       left: 40, top: 40,
@@ -456,10 +906,11 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       width: 220,
       originX: 'left', originY: 'top',
     })
+    if (elementType) t.elementType = elementType
     fabricRef.current.add(t)
     fabricRef.current.setActiveObject(t)
     fabricRef.current.renderAll()
-    snapshot(activeFace, fabricRef.current)
+    snapshot(face, fabricRef.current)
   }
 
   // ── Add shape ─────────────────────────────────────────────
@@ -505,20 +956,273 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   // ── Layer toggle ──────────────────────────────────────────
   function toggleVisibility(obj) {
     obj.set('visible', !obj.visible)
-    fabricRef.current?.renderAll()
-    syncLayers(fabricRef.current)
+    // Render whichever canvas this object actually belongs to (not
+    // necessarily fabricRef — in View Both mode it may be the secondary/
+    // inactive-face canvas) rather than assuming the primary one.
+    const owner = obj.canvas || fabricRef.current
+    owner?.renderAll()
+    if (owner === fabricRef.current) syncLayers(owner)
   }
-  function toggleLock(obj) {
-    const locked = !obj.selectable
-    obj.set({ selectable: !locked, evented: !locked, lockMovementX: locked, lockMovementY: locked })
-    fabricRef.current?.renderAll()
-    syncLayers(fabricRef.current)
+
+  // ── Elements panel (Change 4) ──────────────────────────────
+  // The active face's objects come from live Fabric objects (`layers`,
+  // already kept in sync). The inactive face has no live canvas, so its
+  // objects are read straight from the saved JSON string in `faceData` —
+  // this is what lets both FRONT and BACK sections render at once
+  // regardless of which face is currently being edited.
+  function getFaceObjects(face) {
+    if (face === activeFace) {
+      // Read straight off the live Fabric canvas (not the `layers` snapshot
+      // state) so a toggle's checked state can never drift from what's
+      // actually rendered — `layers` is kept in sync for other UI (the
+      // active-object highlight, qrExists) but the canvas itself is the
+      // single source of truth for visibility.
+      const objs = fabricRef.current ? fabricRef.current.getObjects() : []
+      return { live: true, list: objs.map((obj) => ({ obj })) }
+    }
+    // In View Both mode the "other" face is ALSO a live canvas (the
+    // secondary one), not static JSON — read it the same way.
+    if (viewingBoth && secondaryFabricRef.current) {
+      const objs = secondaryFabricRef.current.getObjects()
+      return { live: true, list: objs.map((obj) => ({ obj })) }
+    }
+    const json = faceData[face]
+    if (!json) return null
+    let parsed
+    try { parsed = JSON.parse(json) } catch (_) { return { live: false, list: [] } }
+    const objs = parsed.objects || []
+    return { live: false, list: objs.map((obj, idx) => ({ obj, idx })) }
   }
-  function selectFromLayer(obj) {
+
+  // Builds the canonical checklist rows for a face. Each row finds the
+  // first object matching its elementType(s); rows for fields not yet on
+  // canvas still render (unchecked) so the user can add them.
+  function buildElementRows(face, rowDefs) {
+    const data = getFaceObjects(face)
+    if (data === null) return null
+    return rowDefs.map((def) => {
+      const found = data.list.find(({ obj }) => def.match.includes(inferElementType(obj, profile)))
+      return {
+        ...def,
+        exists: !!found,
+        visible: found ? found.obj.visible !== false : false,
+        obj: found?.obj,
+        idx: found?.idx,
+        live: data.live,
+        canAdd: def.key === 'qr' ? true
+          : def.key === 'logo' ? !!profile?.logo
+          : def.key === 'tagline' ? !!(profile?.tagline || profile?.companyName)
+          : def.profileKey ? !!profile?.[def.profileKey]
+          : false,
+      }
+    })
+  }
+
+  function toggleInactiveVisibility(face, idx) {
+    const json = faceData[face]
+    if (!json) return
+    const parsed = JSON.parse(json)
+    const obj = parsed.objects?.[idx]
+    if (!obj) return
+    obj.visible = obj.visible === false ? true : false
+    setFaceData((prev) => ({ ...prev, [face]: JSON.stringify(parsed) }))
+  }
+
+  // A row's checkbox does double duty: if the field already exists on
+  // canvas, toggling flips object.visible (hide, never delete). If it
+  // doesn't exist yet, checking it ON creates it from the entered details.
+  function toggleObjectVisibility(row, face) {
+    if (row.live) toggleVisibility(row.obj)
+    else toggleInactiveVisibility(face, row.idx)
+  }
+
+  // Clicking an Elements-panel row's NAME (not its switch) selects that
+  // object on canvas — same as clicking it directly — so its selection
+  // handles and Properties panel appear. No-op for hidden/missing rows.
+  // A row from the inactive face has no live object yet (`row.obj` is a
+  // plain JSON literal from faceData, not a Fabric instance); switching
+  // face first reconstructs fresh Fabric objects via loadFromJSON, so the
+  // matching live object has to be re-resolved afterwards rather than
+  // reusing `row.obj` directly.
+  async function selectRowOnCanvas(row, face) {
+    if (!row.exists || !row.visible) return
+    // Outside View Both, the inactive face has no live canvas yet — switch
+    // to it first. In View Both both faces are already live, so selecting
+    // should just focus the right one, never navigate away from either.
+    if (!viewingBoth && face !== activeFace) await switchFace(face)
+    let obj = row.obj
+    if (!row.live) {
+      const data = getFaceObjects(face)
+      if (row.match) {
+        obj = data?.list.find(({ obj }) => row.match.includes(inferElementType(obj, profile)))?.obj
+      } else {
+        obj = fabricRef.current?.getObjects()[row.idx]
+      }
+    }
+    if (!obj) return
+    const ownerCanvas = obj.canvas || fabricRef.current
+    if (!ownerCanvas) return
+    ownerCanvas.setActiveObject(obj)
+    ownerCanvas.renderAll()
+    if (viewingBoth) setViewBothSelectedFace(face)
+    onObjSelect(obj)
+  }
+
+  async function handleRowToggle(row, face) {
+    if (row.exists) {
+      toggleObjectVisibility(row, face)
+      return
+    }
+    if (!row.canAdd) return
+    if (face !== activeFace) await switchFace(face)
+    createElementForRow(row, face)
+  }
+
+  // `face` is threaded through instead of read from the activeFace closure
+  // because handleRowToggle may have just awaited switchFace() — the state
+  // variable is stale in this closure at that point.
+  function createElementForRow(row, face) {
+    if (row.key === 'qr') { addQRPlaceholder(face); return }
+    if (row.key === 'logo') { addProfileLogo(face); return }
+    if (row.key === 'tagline') {
+      if (!fabricRef.current) return
+      addTaglineObject(fabricRef.current, getFrontHeadingFont())
+      fabricRef.current.renderAll()
+      snapshot(face, fabricRef.current)
+      return
+    }
+    if (row.profileKey && profile?.[row.profileKey]) {
+      const sizes = { personName: 20, designation: 13, companyName: 13, phone: 12, email: 12, website: 12 }
+      insertDetailText(profile[row.profileKey], sizes[row.key] || 13, row.key, face)
+    }
+  }
+
+  // Inserts the profile's own logo — distinct from the generic "Images"
+  // panel upload, which adds arbitrary images without an elementType tag.
+  async function addProfileLogo(face = activeFace) {
+    if (!fabricRef.current || !profile?.logo) return
+    try {
+      const img = await FabricImage.fromURL(profile.logo, { crossOrigin: 'anonymous' })
+      img.scaleToWidth(60)
+      img.set({ left: w - 90, top: 18, originX: 'left', originY: 'top' })
+      img.elementType = 'logo'
+      fabricRef.current.add(img)
+      fabricRef.current.setActiveObject(img)
+      fabricRef.current.renderAll()
+      snapshot(face, fabricRef.current)
+    } catch (_) {}
+  }
+
+  // ── "+ Add Element" menu (Issue 4) ─────────────────────────
+  // Every add-* function here takes the target face explicitly and passes
+  // it straight to snapshot() instead of reading the `activeFace` closure
+  // variable — after an awaited switchFace(), fabricRef.current already
+  // points at the new face's canvas, but the `activeFace` state variable
+  // itself hasn't re-rendered into this closure yet.
+  async function ensureFaceActive(face) {
+    if (face !== activeFace) await switchFace(face)
+  }
+
+  async function addTextBlock(face) {
+    await ensureFaceActive(face)
     if (!fabricRef.current) return
+    const t = new Textbox('Text', {
+      left: w / 2 - 60, top: h / 2 - 12, width: 120,
+      fontSize: 16, fontWeight: '500',
+      fill: palette.textDark || '#1a1a1a',
+      fontFamily: 'Inter, sans-serif', textAlign: 'center',
+      originX: 'left', originY: 'top',
+    })
+    t.elementType = 'customText'
+    fabricRef.current.add(t)
+    fabricRef.current.setActiveObject(t)
+    fabricRef.current.renderAll()
+    snapshot(face, fabricRef.current)
+  }
+
+  async function addSocialHandle(face) {
+    await ensureFaceActive(face)
+    if (!fabricRef.current) return
+    const t = new Textbox('@yourhandle', {
+      left: w / 2 - 60, top: h / 2 - 10, width: 120,
+      fontSize: 13, fontWeight: '600',
+      fill: palette.primary || '#1a1a1a',
+      fontFamily: 'Inter, sans-serif', textAlign: 'center',
+      originX: 'left', originY: 'top',
+    })
+    t.elementType = 'socialHandle'
+    fabricRef.current.add(t)
+    fabricRef.current.setActiveObject(t)
+    fabricRef.current.renderAll()
+    snapshot(face, fabricRef.current)
+  }
+
+  async function addDivider(face) {
+    await ensureFaceActive(face)
+    if (!fabricRef.current) return
+    const line = new Line([0, 0, 140, 0], {
+      left: w / 2 - 70, top: h / 2,
+      stroke: palette.primary || '#334155', strokeWidth: 2,
+      originX: 'left', originY: 'top',
+    })
+    line.elementType = 'divider'
+    fabricRef.current.add(line)
+    fabricRef.current.setActiveObject(line)
+    fabricRef.current.renderAll()
+    snapshot(face, fabricRef.current)
+  }
+
+  async function addCustomImage(face, file) {
+    if (!file) return
+    await ensureFaceActive(face)
+    if (!fabricRef.current) return
+    const url = URL.createObjectURL(file)
+    const img = await FabricImage.fromURL(url)
+    img.scaleToWidth(Math.min(120, w / 3))
+    img.set({ left: w / 2 - 60, top: h / 2 - 40, originX: 'left', originY: 'top' })
+    img.elementType = 'customImage'
+    fabricRef.current.add(img)
+    fabricRef.current.setActiveObject(img)
+    fabricRef.current.renderAll()
+    snapshot(face, fabricRef.current)
+  }
+
+  // Renders a Lucide icon to SVG markup and parses it into real Fabric
+  // objects (grouped if the icon has multiple paths) — this is what makes
+  // it draggable/resizable/recolorable like any other canvas object rather
+  // than a static image.
+  async function addStickerIcon(face, Icon) {
+    await ensureFaceActive(face)
+    if (!fabricRef.current) return
+    const svgMarkup = renderToStaticMarkup(<Icon size={64} color={palette.primary || '#1a1a1a'} strokeWidth={1.5} />)
+    const { objects, options } = await loadSVGFromString(svgMarkup)
+    const parsed = (objects || []).filter(Boolean)
+    if (parsed.length === 0) return
+    const obj = parsed.length > 1 ? util.groupSVGElements(parsed, options) : parsed[0]
+    obj.set({ left: w / 2 - 24, top: h / 2 - 24, originX: 'left', originY: 'top' })
+    obj.elementType = 'sticker'
+    fabricRef.current.add(obj)
     fabricRef.current.setActiveObject(obj)
     fabricRef.current.renderAll()
-    onObjSelect(obj)
+    snapshot(face, fabricRef.current)
+  }
+
+  // Extra Elements-panel rows for anything added via "+ Add Element" — one
+  // row per object (unlike the canonical rows, several of the same custom
+  // type can coexist, e.g. two text blocks), always toggle-only since they
+  // already exist once added.
+  function buildCustomRows(face) {
+    const data = getFaceObjects(face)
+    if (data === null) return []
+    return data.list
+      .filter(({ obj }) => obj.elementType && CUSTOM_ELEMENT_LABELS[obj.elementType])
+      .map(({ obj, idx }, i) => ({
+        key: `custom-${face}-${i}`,
+        label: CUSTOM_ELEMENT_LABELS[obj.elementType],
+        exists: true,
+        visible: obj.visible !== false,
+        obj, idx, live: data.live, canAdd: false,
+      }))
   }
 
   // ── QR placeholder (visual only — no real QR generation yet) ──────
@@ -526,28 +1230,39 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   // Fabric object, add it, select it, render, snapshot. Fully draggable,
   // resizable and deletable via the existing canvas controls — nothing
   // QR-specific about how Fabric treats it.
-  function addQRPlaceholder() {
+  // `face` is passed explicitly by callers that just awaited switchFace()
+  // — the activeFace closure variable is stale at that point — and decides
+  // both the default position and which history bucket the snapshot lands in.
+  function addQRPlaceholder(face = activeFace) {
     if (!fabricRef.current) return
-    const size = 80
+    const size = 60
+    // Positions are computed from the canvas dimensions, never hardcoded,
+    // so they hold for every template, size and orientation: bottom-right
+    // corner on the front (out of every template's main composition),
+    // bottom-center on the back.
+    const pos = face === 'back'
+      ? { left: w / 2 - size / 2, top: h - 80 }
+      : { left: w - 80, top: h - 80 }
     const box = new Rect({
       width: size, height: size, fill: '#ffffff',
-      stroke: '#c9c5bb', strokeWidth: 1.5,
+      stroke: '#9a968d', strokeWidth: 1.5,
       originX: 'left', originY: 'top',
     })
     const label = new Textbox('QR', {
-      width: size, top: size / 2 - 9,
-      fontSize: 13, fontWeight: '700', fill: '#9a968d',
+      width: size, top: size / 2 - 7,
+      fontSize: 11, fontWeight: '700', fill: '#9a968d',
       textAlign: 'center', fontFamily: 'Inter, sans-serif',
       originX: 'left', originY: 'top',
     })
     const group = new Group([box, label], {
-      left: w / 2 - size / 2, top: h / 2 - size / 2,
+      left: pos.left, top: pos.top,
       originX: 'left', originY: 'top',
     })
+    group.elementType = 'qr'
     fabricRef.current.add(group)
     fabricRef.current.setActiveObject(group)
     fabricRef.current.renderAll()
-    snapshot(activeFace, fabricRef.current)
+    snapshot(face, fabricRef.current)
   }
 
   function removeQRPlaceholder() {
@@ -566,32 +1281,176 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     else addQRPlaceholder()
   }
 
+  // Moves the selected QR placeholder to the other face: remove here,
+  // switch (creating the back side first if needed), add a fresh one there.
+  // The QR is just a placeholder box, so recreating it is equivalent to
+  // moving it — there's no unique state to carry across.
+  async function moveQRToFace(targetFace) {
+    const obj = fabricRef.current?.getActiveObject()
+    if (!obj || !fabricRef.current || targetFace === activeFace) return
+    fabricRef.current.remove(obj)
+    fabricRef.current.discardActiveObject()
+    fabricRef.current.renderAll()
+    setSelectedObj(null)
+    if (targetFace === 'back' && !hasBack) setHasBack(true)
+    await switchFace(targetFace)
+    addQRPlaceholder(targetFace)
+  }
+
+  // ── Change 5 property helpers ──────────────────────────────
+  // Replaces an image's source while keeping its displayed position/size.
+  async function replaceImage(file) {
+    const cv2 = getActiveCanvas()
+    const obj = cv2?.getActiveObject()
+    if (!file || !obj || obj.type !== 'image' || !cv2) return
+    const targetW = obj.getScaledWidth()
+    const targetH = obj.getScaledHeight()
+    const { left, top, angle, opacity, elementType, originX, originY } = obj
+    const url = URL.createObjectURL(file)
+    const newImg = await FabricImage.fromURL(url)
+    newImg.set({ left, top, angle, opacity, originX, originY })
+    newImg.scaleToWidth(targetW)
+    if (newImg.getScaledHeight() < targetH) newImg.scaleToHeight(targetH)
+    if (elementType) newImg.elementType = elementType
+    cv2.remove(obj)
+    cv2.add(newImg)
+    cv2.setActiveObject(newImg)
+    cv2.renderAll()
+    onObjSelect(newImg)
+    snapshot(getActiveEditFace(), cv2)
+  }
+
+  // Rounds an image's corners via a clipPath (Fabric images have no native
+  // rx/ry like Rect does).
+  function updateImageCornerRadius(val) {
+    const cv2 = getActiveCanvas()
+    const obj = cv2?.getActiveObject()
+    if (!obj || obj.type !== 'image' || !cv2) return
+    const num = parseFloat(val)
+    obj.clipPath = num > 0
+      ? new Rect({ width: obj.width, height: obj.height, rx: num, ry: num, originX: 'center', originY: 'center' })
+      : null
+    cv2.renderAll()
+    setShapeProps((p) => ({ ...p, rx: num }))
+    snapshot(getActiveEditFace(), cv2)
+  }
+
+  // Uniform scale slider shared by QR and generic group/sticker elements.
+  function updateUniformScale(val) {
+    const cv2 = getActiveCanvas()
+    const obj = cv2?.getActiveObject()
+    if (!obj || !cv2) return
+    const scale = parseFloat(val)
+    obj.set({ scaleX: scale, scaleY: scale })
+    cv2.renderAll()
+    snapshot(getActiveEditFace(), cv2)
+  }
+
+  // Recolors every fillable child of a group (e.g. a decorative icon/sticker).
+  function recolorGroup(color) {
+    const cv2 = getActiveCanvas()
+    const obj = cv2?.getActiveObject()
+    if (!obj || obj.type !== 'group' || !cv2) return
+    obj.getObjects().forEach((child) => { if ('fill' in child) child.set('fill', color) })
+    cv2.renderAll()
+    snapshot(getActiveEditFace(), cv2)
+  }
+
   // ── Save ──────────────────────────────────────────────────
+  // Pure save — writes the current canvas to the DB via the parent's
+  // onSave, but does not navigate anywhere. Callers decide what happens
+  // next (the plain Save button exits to the gallery list same as before;
+  // the exit-confirmation dialog's "Save & Exit" continues on to whichever
+  // navigation the user actually triggered).
   async function handleSave() {
     if (!fabricRef.current) return
     // Save current face
-    const currentJson = JSON.stringify(fabricRef.current.toJSON())
-    const updatedFaceData = { ...faceData, [activeFace]: currentJson }
+    const currentJson = JSON.stringify(fabricRef.current.toObject(CUSTOM_FABRIC_PROPS))
+    let updatedFaceData = { ...faceData, [activeFace]: currentJson }
+    // In View Both mode the other face is a second live canvas that was
+    // never written back to faceData yet (that only happens on exit) —
+    // capture it too so a save from View Both never loses those edits.
+    if (viewingBoth && secondaryFabricRef.current) {
+      const secondaryFace = activeFace === 'front' ? 'back' : 'front'
+      updatedFaceData = {
+        ...updatedFaceData,
+        [secondaryFace]: JSON.stringify(secondaryFabricRef.current.toObject(CUSTOM_FABRIC_PROPS)),
+      }
+    }
+    setFaceData(updatedFaceData)
     const finalFront = updatedFaceData.front || currentJson
     const finalBack  = hasBack ? (updatedFaceData.back || null) : null
 
     const frontImg = activeFace === 'front'
-      ? fabricRef.current.toDataURL({ format: 'png', multiplier: 3 })
+      ? fabricRef.current.toDataURL({ format: 'png', quality: 1, multiplier: 3 })
       : await renderFaceThumbnail(finalFront, setup, 3)
 
-    onSave({
+    await onSave({
       templateId,
       setup: { ...setup, includeBack: hasBack },
       frontJson: finalFront,
       backJson:  finalBack,
       frontImg,
     })
+    setHasBeenSaved(true)
+    setHasUnsavedChanges(false)
+  }
+
+  // The two visible "Save" buttons — preserves the existing behavior of
+  // saving and then leaving to the business cards list.
+  async function handleSaveAndExit() {
+    await handleSave()
+    onExit()
+  }
+
+  // Gate for Exit / Gallery / any away-navigation: a brand-new card that's
+  // never been saved always confirms (regardless of whether anything was
+  // actually edited — an empty card row already exists in the DB and
+  // shouldn't linger there unconfirmed); an already-saved card only
+  // confirms if there are edits since the last save.
+  function requestExit(pendingAction) {
+    if (!hasBeenSaved) {
+      setExitDialog({ scenario: 'new', pendingAction })
+      return
+    }
+    if (hasUnsavedChanges) {
+      setExitDialog({ scenario: 'existing', pendingAction })
+      return
+    }
+    pendingAction()
+  }
+
+  async function confirmSaveAndExit() {
+    const { pendingAction } = exitDialog
+    setExitDialog(null)
+    await handleSave()
+    pendingAction()
+  }
+
+  async function confirmDiscard() {
+    const { scenario, pendingAction } = exitDialog
+    setExitDialog(null)
+    if (scenario === 'new') {
+      // Never saved — delete the empty card row so it doesn't show up as a
+      // blank draft in the Business Cards list. onDiscardNew owns the
+      // delete + navigate (it always goes to the list, regardless of
+      // whether Exit or Gallery triggered this).
+      await onDiscardNew?.()
+    } else {
+      // Existing card — nothing was ever written since the last save, so
+      // there's nothing to revert in the DB; just leave.
+      pendingAction()
+    }
+  }
+
+  function confirmKeepEditing() {
+    setExitDialog(null)
   }
 
   // ── Export ────────────────────────────────────────────────
   function exportPNG() {
     if (!fabricRef.current) return
-    const url = fabricRef.current.toDataURL({ format: 'png', multiplier: 3 })
+    const url = fabricRef.current.toDataURL({ format: 'png', quality: 1, multiplier: 3 })
     const a = document.createElement('a')
     a.href = url
     a.download = `business-card-${activeFace}.png`
@@ -609,6 +1468,52 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   const canUndo = histIdx[activeFace] > 0
   const canRedo = histIdx[activeFace] < (history[activeFace]?.length || 0) - 1
   const qrExists = layers.some(isQRPlaceholderObj)
+
+  // "+ Add Element" popover — a button that expands into the five element
+  // types, plus a nested icon grid for the Icon/Sticker option.
+  function renderAddElementMenu(face) {
+    return (
+      <div style={{ position: 'relative' }}>
+        <button
+          type="button"
+          className="secondary-button"
+          style={{ width: '100%', fontSize: 12, marginTop: 8 }}
+          onClick={() => { setAddMenuFace(addMenuFace === face ? null : face); setIconGridFace(null) }}
+        >
+          + Add Element
+        </button>
+        {addMenuFace === face && (
+          <div className="bce-add-menu">
+            <button type="button" onClick={() => { addTextBlock(face); setAddMenuFace(null) }}>Text Block</button>
+            <button type="button" onClick={() => { addSocialHandle(face); setAddMenuFace(null) }}>Social Handle</button>
+            <button type="button" onClick={() => { addDivider(face); setAddMenuFace(null) }}>Divider Line</button>
+            <label className="bce-add-menu-item">
+              Image
+              <input
+                type="file" accept="image/*" hidden
+                onChange={(e) => { addCustomImage(face, e.target.files?.[0]); e.target.value = ''; setAddMenuFace(null) }}
+              />
+            </label>
+            <button type="button" onClick={() => { setIconGridFace(face); setAddMenuFace(null) }}>Icon / Sticker</button>
+          </div>
+        )}
+        {iconGridFace === face && (
+          <div className="bce-icon-grid-pop">
+            <div className="bce-icon-grid">
+              {STICKER_ICONS.map(({ key, Icon }) => (
+                <button key={key} type="button" onClick={() => { addStickerIcon(face, Icon); setIconGridFace(null) }}>
+                  <Icon size={18} />
+                </button>
+              ))}
+            </div>
+            <button type="button" className="text-button" style={{ width: '100%', marginTop: 6, fontSize: 12 }} onClick={() => setIconGridFace(null)}>
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   // ════════════════════════════════════════════════════════
   // RENDER
@@ -679,20 +1584,20 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
             type="button"
             className="secondary-button"
             style={{ padding: '7px 14px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
-            onClick={onExit}
-            title="Exit without saving — back to your business cards"
+            onClick={() => requestExit(onExit)}
+            title="Exit — back to your business cards"
           >
             <X size={14} /> Exit
           </button>
         )}
-        <button type="button" className="secondary-button" style={{ padding: '7px 14px', fontSize: 13 }} onClick={onBack}>
+        <button type="button" className="secondary-button" style={{ padding: '7px 14px', fontSize: 13 }} onClick={() => requestExit(onBack)}>
           ← Gallery
         </button>
         <button
           type="button"
           className="primary-button"
           style={{ padding: '7px 18px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
-          onClick={handleSave}
+          onClick={handleSaveAndExit}
         >
           <Save size={14} /> Save
         </button>
@@ -791,7 +1696,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
                           key={key}
                           type="button"
                           className="bce-text-style-btn"
-                          onClick={() => insertDetailText(profile[key], size)}
+                          onClick={() => insertDetailText(profile[key], size, key)}
                         >
                           <strong style={{ fontSize: 13 }}>{label}</strong>
                           <small>{profile[key]}</small>
@@ -861,26 +1766,113 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
                 </div>
               )}
 
-              {/* Layers */}
-              {activePanel === 'layers' && (
+              {/* Elements — canonical FRONT + BACK checklists, always both visible */}
+              {activePanel === 'elements' && (
                 <div className="bce-lsec">
-                  <div className="bce-lsec-label">Layers ({layers.length})</div>
-                  {layers.length === 0 && <p style={{ fontSize: 12, color: 'var(--muted)' }}>No objects yet.</p>}
-                  {layers.map((obj, i) => (
+                  <div className="bce-lsec-label">FRONT</div>
+                  {buildElementRows('front', FRONT_ELEMENT_ROWS).map((row) => (
                     <div
-                      key={i}
-                      className={`bce-layer-item${selectedObj === obj ? ' active' : ''}`}
-                      onClick={() => selectFromLayer(obj)}
+                      key={row.key}
+                      className={`bce-layer-item${row.live && selectedObj && selectedObj === row.obj ? ' active' : ''}`}
+                      style={{ opacity: !row.exists && !row.canAdd ? 0.45 : row.exists && !row.visible ? 0.6 : 1 }}
                     >
-                      <span className="bce-layer-name">{objLabel(obj)}</span>
-                      <button type="button" className="bce-layer-action" onClick={(e) => { e.stopPropagation(); toggleVisibility(obj) }}>
-                        {obj.visible === false ? <EyeOff size={12} /> : <Eye size={12} />}
-                      </button>
-                      <button type="button" className="bce-layer-action" onClick={(e) => { e.stopPropagation(); toggleLock(obj) }}>
-                        {obj.selectable === false ? <Lock size={12} /> : <Unlock size={12} />}
-                      </button>
+                      <span
+                        className="bce-layer-name"
+                        style={{ cursor: row.exists && row.visible ? 'pointer' : 'default' }}
+                        onClick={() => selectRowOnCanvas(row, 'front')}
+                      >
+                        {row.label}
+                      </span>
+                      <label className="bc-switch" title={row.exists && row.visible ? 'Hide on canvas' : 'Show on canvas'}>
+                        <input
+                          type="checkbox"
+                          checked={row.exists && row.visible}
+                          disabled={!row.exists && !row.canAdd}
+                          onChange={() => handleRowToggle(row, 'front')}
+                        />
+                        <span className="bc-switch-track" />
+                      </label>
                     </div>
                   ))}
+                  {buildCustomRows('front').map((row) => (
+                    <div
+                      key={row.key}
+                      className={`bce-layer-item${row.live && selectedObj && selectedObj === row.obj ? ' active' : ''}`}
+                      style={{ opacity: row.visible ? 1 : 0.6 }}
+                    >
+                      <span
+                        className="bce-layer-name"
+                        style={{ cursor: row.visible ? 'pointer' : 'default' }}
+                        onClick={() => selectRowOnCanvas(row, 'front')}
+                      >
+                        {row.label}
+                      </span>
+                      <label className="bc-switch" title={row.visible ? 'Hide on canvas' : 'Show on canvas'}>
+                        <input type="checkbox" checked={row.visible} onChange={() => toggleObjectVisibility(row, 'front')} />
+                        <span className="bc-switch-track" />
+                      </label>
+                    </div>
+                  ))}
+                  {renderAddElementMenu('front')}
+
+                  <div className="bce-lsec-label" style={{ marginTop: 18 }}>BACK</div>
+                  {hasBack ? (
+                    <>
+                      {buildElementRows('back', BACK_ELEMENT_ROWS).map((row) => (
+                        <div
+                          key={row.key}
+                          className={`bce-layer-item${row.live && selectedObj && selectedObj === row.obj ? ' active' : ''}`}
+                          style={{ opacity: !row.exists && !row.canAdd ? 0.45 : row.exists && !row.visible ? 0.6 : 1 }}
+                        >
+                          <span
+                            className="bce-layer-name"
+                            style={{ cursor: row.exists && row.visible ? 'pointer' : 'default' }}
+                            onClick={() => selectRowOnCanvas(row, 'back')}
+                          >
+                            {row.label}
+                          </span>
+                          <label className="bc-switch" title={row.exists && row.visible ? 'Hide on canvas' : 'Show on canvas'}>
+                            <input
+                              type="checkbox"
+                              checked={row.exists && row.visible}
+                              disabled={!row.exists && !row.canAdd}
+                              onChange={() => handleRowToggle(row, 'back')}
+                            />
+                            <span className="bc-switch-track" />
+                          </label>
+                        </div>
+                      ))}
+                      {buildCustomRows('back').map((row) => (
+                        <div
+                          key={row.key}
+                          className={`bce-layer-item${row.live && selectedObj && selectedObj === row.obj ? ' active' : ''}`}
+                          style={{ opacity: row.visible ? 1 : 0.6 }}
+                        >
+                          <span
+                            className="bce-layer-name"
+                            style={{ cursor: row.visible ? 'pointer' : 'default' }}
+                            onClick={() => selectRowOnCanvas(row, 'back')}
+                          >
+                            {row.label}
+                          </span>
+                          <label className="bc-switch" title={row.visible ? 'Hide on canvas' : 'Show on canvas'}>
+                            <input type="checkbox" checked={row.visible} onChange={() => toggleObjectVisibility(row, 'back')} />
+                            <span className="bc-switch-track" />
+                          </label>
+                        </div>
+                      ))}
+                      {renderAddElementMenu('back')}
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      style={{ width: '100%', fontSize: 13, marginTop: 6 }}
+                      onClick={addBackSide}
+                    >
+                      + Add Back Side
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -888,11 +1880,41 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
           </div>
         )}
 
-        {/* Canvas */}
-        <div className="bce-canvas-area" onClick={() => setShowOpacity(false)}>
-          <div className="bce-canvas-wrap" style={{ transform: `scale(${zoom})` }}>
-            <canvas ref={canvasElRef} />
-          </div>
+        {/* Canvas — both faces are genuinely live/interactive in View Both.
+            `canvasElRef`'s <canvas> and `secondaryCanvasElRef`'s <canvas>
+            always render in the same two JSX slots (never conditionally
+            mounted/unmounted) — only their CSS order/scale/visibility
+            change — because moving a <canvas> to a different position in
+            the React tree would unmount and recreate the DOM node Fabric
+            is bound to, breaking the live canvas it wraps. */}
+        <div className="bce-canvas-area" ref={canvasAreaRef} onClick={() => setShowOpacity(false)}>
+          {(() => {
+            const secondaryFace = activeFace === 'front' ? 'back' : 'front'
+            const slot1Active = viewingBoth && viewBothSelectedFace === activeFace
+            const slot2Active = viewingBoth && viewBothSelectedFace === secondaryFace
+            return (
+              <>
+                <div
+                  className={`bce-vb-slot${slot1Active ? ' active' : ''}`}
+                  style={{ order: viewingBoth ? (activeFace === 'front' ? 0 : 1) : 0 }}
+                >
+                  <div className="bce-canvas-wrap" style={{ transform: `scale(${viewingBoth ? zoom * 0.62 : zoom})` }}>
+                    <canvas ref={canvasElRef} />
+                  </div>
+                  {viewingBoth && <span className="bce-vb-slot-label">{activeFace === 'front' ? 'Front' : 'Back'}</span>}
+                </div>
+                <div
+                  className={`bce-vb-slot${slot2Active ? ' active' : ''}`}
+                  style={{ order: activeFace === 'front' ? 1 : 0, display: viewingBoth ? 'flex' : 'none' }}
+                >
+                  <div className="bce-canvas-wrap" style={{ transform: `scale(${zoom * 0.62})` }}>
+                    <canvas ref={secondaryCanvasElRef} />
+                  </div>
+                  {viewingBoth && <span className="bce-vb-slot-label">{secondaryFace === 'front' ? 'Front' : 'Back'}</span>}
+                </div>
+              </>
+            )
+          })()}
         </div>
 
         {/* Right properties panel */}
@@ -908,12 +1930,44 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
           ) : (
             <>
               <div className="bce-rp-title">
-                <h3>{isText ? 'Edit Text' : 'Edit Shape'}</h3>
-                <button type="button" style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 12 }} onClick={() => setSelectedObj(null)}>
+                <h3>
+                  {viewingBoth && viewBothSelectedFace ? (viewBothSelectedFace === 'front' ? 'Front · ' : 'Back · ') : ''}
+                  {{ text: 'Edit Text', image: 'Edit Image', qr: 'Edit QR Code', group: 'Edit Group' }[elementKind] || 'Edit Shape'}
+                </h3>
+                <button
+                  type="button"
+                  style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 12 }}
+                  onClick={() => {
+                    // Must clear Fabric's own active object too, not just React
+                    // state — otherwise its selection-handle chrome (corner
+                    // squares, rotation handle) keeps rendering on every
+                    // renderAll() even though the panel shows "nothing selected".
+                    const cv2 = getActiveCanvas()
+                    cv2?.discardActiveObject()
+                    cv2?.renderAll()
+                    setSelectedObj(null)
+                  }}
+                >
                   ✕
                 </button>
               </div>
               <div className="bce-rp-body">
+
+                {/* Opacity — shared by every element kind */}
+                <div className="bce-rp-section">
+                  <div className="bce-rp-label">Opacity</div>
+                  <div className="bce-rp-row">
+                    <input
+                      type="range" min="0" max="1" step="0.01"
+                      value={commonProps.opacity}
+                      className="bce-slider"
+                      onChange={(e) => setObjOpacity(e.target.value)}
+                    />
+                    <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 32, textAlign: 'right' }}>
+                      {Math.round((commonProps.opacity ?? 1) * 100)}%
+                    </span>
+                  </div>
+                </div>
 
                 {/* Text name input (for text objects) */}
                 {isText && (
@@ -945,20 +1999,37 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
                         value={textProps.fontFamily}
                         onChange={(e) => updateText('fontFamily', e.target.value)}
                       >
-                        {FONTS.map((f) => <option key={f} value={f}>{f}</option>)}
+                        {FONT_OPTIONS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
                       </select>
                     </div>
                     <div className="bce-rp-row">
                       <span className="bce-rp-key">Size</span>
                       <button type="button" className="bce-zoom-btn" style={{ width: 28, height: 28 }} onClick={() => updateText('fontSize', Math.max(6, textProps.fontSize - 1))}>−</button>
-                      <span style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>{textProps.fontSize}</span>
+                      <input
+                        className="bce-input-sm" type="number" style={{ flex: 1, textAlign: 'center' }}
+                        value={textProps.fontSize}
+                        onChange={(e) => updateText('fontSize', parseInt(e.target.value, 10) || textProps.fontSize)}
+                      />
                       <button type="button" className="bce-zoom-btn" style={{ width: 28, height: 28 }} onClick={() => updateText('fontSize', textProps.fontSize + 1)}>+</button>
                     </div>
                     <div className="bce-rp-row">
-                      <span className="bce-rp-key">Weight</span>
-                      <select className="bce-select" value={textProps.fontWeight} onChange={(e) => updateText('fontWeight', e.target.value)}>
-                        {['normal','500','600','700','800','bold'].map((w) => <option key={w} value={w}>{w}</option>)}
-                      </select>
+                      <span className="bce-rp-key">Style</span>
+                      <button
+                        type="button"
+                        className={`bce-align-btn${['bold', '700', '800', '900'].includes(String(textProps.fontWeight)) ? ' active' : ''}`}
+                        onClick={() => updateText('fontWeight', ['bold', '700', '800', '900'].includes(String(textProps.fontWeight)) ? 'normal' : 'bold')}
+                        title="Bold"
+                      >
+                        <Bold size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className={`bce-align-btn${textProps.fontStyle === 'italic' ? ' active' : ''}`}
+                        onClick={() => updateText('fontStyle', textProps.fontStyle === 'italic' ? 'normal' : 'italic')}
+                        title="Italic"
+                      >
+                        <Italic size={14} />
+                      </button>
                     </div>
                     <div className="bce-rp-row">
                       <span className="bce-rp-key">Color</span>
@@ -1064,7 +2135,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
                 )}
 
                 {/* Shape fill/stroke */}
-                {!isText && selectedObj && (
+                {elementKind === 'shape' && (
                   <div className="bce-rp-section">
                     <div className="bce-rp-label">Fill & Stroke</div>
                     <div className="bce-rp-row">
@@ -1091,11 +2162,91 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
                         onChange={(e) => updateShape('strokeWidth', parseInt(e.target.value, 10) || 0)}
                       />
                     </div>
+                    {selectedObj?.type === 'rect' && (
+                      <div className="bce-rp-row">
+                        <span className="bce-rp-key">Corner radius</span>
+                        <input
+                          type="range" min="0" max="50" step="1"
+                          value={shapeProps.rx}
+                          className="bce-slider"
+                          onChange={(e) => updateShape('rx', parseInt(e.target.value, 10))}
+                        />
+                        <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 24, textAlign: 'right' }}>{shapeProps.rx}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Image controls */}
+                {elementKind === 'image' && (
+                  <div className="bce-rp-section">
+                    <div className="bce-rp-label">Image</div>
+                    <label className="bce-upload-zone" style={{ padding: '10px 8px', marginBottom: 10 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700 }}>Replace Image</span>
+                      <input
+                        type="file" accept="image/*" hidden
+                        onChange={(e) => { replaceImage(e.target.files?.[0]); e.target.value = '' }}
+                      />
+                    </label>
+                    <div className="bce-rp-row">
+                      <span className="bce-rp-key">Corner radius</span>
+                      <input
+                        type="range" min="0" max="50" step="1"
+                        value={shapeProps.rx}
+                        className="bce-slider"
+                        onChange={(e) => updateImageCornerRadius(e.target.value)}
+                      />
+                      <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 24, textAlign: 'right' }}>{shapeProps.rx}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* QR controls */}
+                {elementKind === 'qr' && (
+                  <div className="bce-rp-section">
+                    <div className="bce-rp-label">QR Code</div>
+                    <div className="bce-rp-row">
+                      <span className="bce-rp-key">Size</span>
+                      <input
+                        type="range" min="0.5" max="2.5" step="0.05"
+                        value={selectedObj.scaleX || 1}
+                        className="bce-slider"
+                        onChange={(e) => updateUniformScale(e.target.value)}
+                      />
+                    </div>
+                    <div className="bce-rp-row" style={{ gap: 6 }}>
+                      <button type="button" className="secondary-button" style={{ flex: 1, fontSize: 12 }} disabled={activeFace === 'front'} onClick={() => moveQRToFace('front')}>
+                        Add to Front
+                      </button>
+                      <button type="button" className="secondary-button" style={{ flex: 1, fontSize: 12 }} disabled={activeFace === 'back'} onClick={() => moveQRToFace('back')}>
+                        Add to Back
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Generic group / sticker controls (e.g. a future motif icon) */}
+                {elementKind === 'group' && (
+                  <div className="bce-rp-section">
+                    <div className="bce-rp-label">Group</div>
+                    <div className="bce-rp-row">
+                      <span className="bce-rp-key">Color</span>
+                      <input type="color" className="bce-color-btn" onChange={(e) => recolorGroup(e.target.value)} />
+                    </div>
+                    <div className="bce-rp-row">
+                      <span className="bce-rp-key">Size</span>
+                      <input
+                        type="range" min="0.3" max="3" step="0.05"
+                        value={selectedObj.scaleX || 1}
+                        className="bce-slider"
+                        onChange={(e) => updateUniformScale(e.target.value)}
+                      />
+                    </div>
                   </div>
                 )}
 
                 {/* Background color picker */}
-                {!isText && activePanel === 'shapes' && (
+                {elementKind === 'shape' && activePanel === 'shapes' && (
                   <div className="bce-rp-section">
                     <div className="bce-rp-label">Background</div>
                     <div className="bce-palette">
@@ -1159,7 +2310,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
           type="button"
           className="secondary-button"
           style={{ padding: '7px 14px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
-          onClick={handleSave}
+          onClick={handleSaveAndExit}
         >
           <Save size={13} /> Save Progress
         </button>
@@ -1186,18 +2337,27 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
         <div className="bce-face-tabs">
           <button
             type="button"
-            className={`bce-face-tab${activeFace === 'front' ? ' active' : ''}`}
-            onClick={() => switchFace('front')}
+            className={`bce-face-tab${!viewingBoth && activeFace === 'front' ? ' active' : ''}`}
+            onClick={() => goToFaceFromBoth('front')}
           >
             Front Side
           </button>
           {hasBack && (
             <button
               type="button"
-              className={`bce-face-tab${activeFace === 'back' ? ' active' : ''}`}
-              onClick={() => switchFace('back')}
+              className={`bce-face-tab${!viewingBoth && activeFace === 'back' ? ' active' : ''}`}
+              onClick={() => goToFaceFromBoth('back')}
             >
               Back Side
+            </button>
+          )}
+          {hasBack && (
+            <button
+              type="button"
+              className={`bce-face-tab${viewingBoth ? ' active' : ''}`}
+              onClick={() => (viewingBoth ? exitViewBoth() : enterViewBoth())}
+            >
+              View Both
             </button>
           )}
         </div>
@@ -1243,6 +2403,35 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
               </button>
               <button type="button" className="primary-button danger-button" onClick={removeBackSide}>
                 Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {exitDialog && (
+        <div className="bc-confirm-overlay">
+          <div className="bc-confirm-box">
+            {exitDialog.scenario === 'new' ? (
+              <>
+                <h3>Save your card?</h3>
+                <p>You haven't saved this card yet. Would you like to save it before leaving?</p>
+              </>
+            ) : (
+              <>
+                <h3>Unsaved changes</h3>
+                <p>You have unsaved changes. Your card will show the last saved version.</p>
+              </>
+            )}
+            <div className="bc-confirm-actions">
+              <button type="button" className="secondary-button" onClick={confirmKeepEditing}>
+                Keep Editing
+              </button>
+              <button type="button" className="primary-button danger-button" onClick={confirmDiscard}>
+                {exitDialog.scenario === 'new' ? 'Discard' : 'Discard Changes'}
+              </button>
+              <button type="button" className="primary-button" onClick={confirmSaveAndExit}>
+                Save & Exit
               </button>
             </div>
           </div>

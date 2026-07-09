@@ -27,7 +27,9 @@ export function getCardDimensions(size, orientation) {
 }
 
 // ── Smart placeholder helpers ────────────────────────────────────
-const PH = {
+// Exported so the editor can recognize untagged legacy objects by their
+// rendered text (cards saved before elementType tagging existed).
+export const PLACEHOLDER_TEXT = {
   personName:  'Your Name',
   designation: 'Your Title',
   companyName: 'Company Name',
@@ -37,6 +39,7 @@ const PH = {
   location:    'Your City',
   tagline:     'Professional tagline here',
 }
+const PH = PLACEHOLDER_TEXT
 
 function f(profile, key) {
   return profile[key] || PH[key] || ''
@@ -74,25 +77,55 @@ export function getPalette(profile) {
   }
 }
 
+// ── Element identification ────────────────────────────────────────
+// Every text/logo object created below is tagged with a plain `elementType`
+// property (e.g. 'personName', 'designationCompany', 'logo'). This is a
+// custom Fabric property, not one of the built-in ones, so it only survives
+// canvas.toObject()/loadFromJSON() round-trips if the caller explicitly asks
+// for it via canvas.toObject(CUSTOM_FABRIC_PROPS) instead of the bare
+// canvas.toJSON() — see BusinessCardEditor.jsx, which does this everywhere
+// it serializes. It's what lets the Elements panel show a real "Name" /
+// "Company Name" / "Logo" toggle instead of just "Textbox 3".
+export const CUSTOM_FABRIC_PROPS = ['elementType']
+
+export const ELEMENT_LABELS = {
+  personName: 'Name',
+  designation: 'Designation',
+  companyName: 'Company Name',
+  designationCompany: 'Designation & Company',
+  phone: 'Phone',
+  email: 'Email',
+  phoneEmail: 'Phone & Email',
+  website: 'Website',
+  location: 'Location',
+  logo: 'Logo',
+  tagline: 'Tagline',
+  qr: 'QR Code',
+}
+
 // ── Fabric helpers ───────────────────────────────────────────────
 // All templates author `left`/`top` as a top-left anchor (the convention
 // Fabric used before v6). Fabric 7's default origin is 'center', so every
 // object must explicitly opt back into 'left'/'top' or it renders shifted
 // by half its own width/height — usually off-canvas.
 function addText(canvas, text, opts = {}) {
+  const { elementType, ...rest } = opts
   const t = new Textbox(text, {
     selectable: true,
     editable: true,
     originX: 'left',
     originY: 'top',
-    ...opts,
+    ...rest,
   })
+  if (elementType) t.elementType = elementType
   canvas.add(t)
   return t
 }
 
 function addRect(canvas, opts = {}) {
-  const r = new Rect({ selectable: true, originX: 'left', originY: 'top', ...opts })
+  const { elementType, ...rest } = opts
+  const r = new Rect({ selectable: true, originX: 'left', originY: 'top', ...rest })
+  if (elementType) r.elementType = elementType
   canvas.add(r)
   return r
 }
@@ -126,8 +159,46 @@ async function addLogo(canvas, profile, x, y, size) {
     img.scaleToWidth(size)
     if (img.getScaledHeight() > size) img.scaleToHeight(size)
     img.set({ left: x, top: y, selectable: true, originX: 'left', originY: 'top' })
+    img.elementType = 'logo'
     canvas.add(img)
   } catch (_) {}
+}
+
+// ── Motif icon (corner watermark) ─────────────────────────────────
+// A small procedural star stands in for a real per-industry icon library
+// (none exists in this codebase — no industry field on the profile, no
+// icon set) while still satisfying "every template gets a subtle branded
+// corner decoration". Built as a Polygon (already imported for the
+// diagonal/triangle templates) rather than an SVG-sourced Fabric object,
+// so it needs no async loading and no new dependency.
+function starPoints(outerR, innerR, spikes = 5) {
+  const points = []
+  const step = Math.PI / spikes
+  let rot = -Math.PI / 2
+  for (let i = 0; i < spikes; i++) {
+    points.push({ x: Math.cos(rot) * outerR, y: Math.sin(rot) * outerR })
+    rot += step
+    points.push({ x: Math.cos(rot) * innerR, y: Math.sin(rot) * innerR })
+    rot += step
+  }
+  return points
+}
+
+export function addMotifIcon(canvas, palette, w, h, corner = 'br', size = 36) {
+  const isLeft = corner === 'bl' || corner === 'tl'
+  const isTop  = corner === 'tl' || corner === 'tr'
+  const cx = isLeft ? size / 2 + 16 : w - size / 2 - 16
+  const cy = isTop  ? size / 2 + 16 : h - size / 2 - 16
+  const poly = new Polygon(starPoints(size / 2, size / 4), {
+    left: cx, top: cy,
+    fill: palette.accent,
+    opacity: 0.22,
+    selectable: true, evented: true,
+    originX: 'center', originY: 'center',
+  })
+  poly.elementType = 'motifIcon'
+  canvas.add(poly)
+  return poly
 }
 
 // ── Contact line helper ──────────────────────────────────────────
@@ -175,8 +246,8 @@ export const TEMPLATES = [
       addRect(canvas, { left: 0, top: 0, width: 6, height: h, fill: palette.primary, selectable: false, evented: false })
       // Bottom band
       addRect(canvas, { left: 0, top: h * 0.76, width: w, height: h * 0.24, fill: palette.primary, opacity: 0.06, selectable: false, evented: false })
-      // Logo
-      await addLogo(canvas, profile, w - 100, 20, 70)
+      // Logo — bottom-right, out of the way of the name/contact hierarchy
+      await addLogo(canvas, profile, w - 70, h - 66, 50)
       // Name
       addText(canvas, f(profile, 'personName'), {
         left: 20, top: 28,
@@ -185,6 +256,7 @@ export const TEMPLATES = [
         fontFamily: 'Georgia, serif',
         opacity: isPlaceholder(profile, 'personName') ? 0.35 : 1,
         width: w - 130,
+        elementType: 'personName',
       })
       // Designation + Company
       addText(canvas, `${f(profile, 'designation')} · ${f(profile, 'companyName')}`, {
@@ -194,13 +266,15 @@ export const TEMPLATES = [
         fontFamily: 'Inter, sans-serif',
         width: w - 120,
         opacity: (isPlaceholder(profile, 'designation') && isPlaceholder(profile, 'companyName')) ? 0.4 : 0.75,
+        elementType: 'designationCompany',
       })
-      // Separator
-      addLine(canvas, [20, 82, w * 0.62, 82], { stroke: palette.primary, strokeWidth: 0.8, opacity: 0.25, selectable: false, evented: false })
+      // Separator — accent-colored rule marking the name/contact boundary
+      addLine(canvas, [20, 82, w * 0.62, 82], { stroke: palette.accent, strokeWidth: 1, opacity: 0.6, selectable: false, evented: false })
       // Contact
-      addText(canvas, f(profile, 'phone'), { left: 20, top: 92, fontSize: 10, fill: '#666', fontFamily: 'Inter, sans-serif', width: w - 30, opacity: 0.8 })
-      addText(canvas, f(profile, 'email'), { left: 20, top: 108, fontSize: 10, fill: '#666', fontFamily: 'Inter, sans-serif', width: w - 30, opacity: 0.8 })
-      addText(canvas, f(profile, 'website'), { left: 20, top: 124, fontSize: 10, fill: palette.primary, fontFamily: 'Inter, sans-serif', width: w - 30, opacity: 0.8 })
+      addText(canvas, f(profile, 'phone'), { left: 20, top: 92, fontSize: 10, fill: '#666', fontFamily: 'Inter, sans-serif', width: w - 30, opacity: 0.8, elementType: 'phone' })
+      addText(canvas, f(profile, 'email'), { left: 20, top: 108, fontSize: 10, fill: '#666', fontFamily: 'Inter, sans-serif', width: w - 30, opacity: 0.8, elementType: 'email' })
+      addText(canvas, f(profile, 'website'), { left: 20, top: 124, fontSize: 10, fill: palette.primary, fontFamily: 'Inter, sans-serif', width: w - 30, opacity: 0.8, elementType: 'website' })
+      addMotifIcon(canvas, palette, w, h, 'bl')
     },
   },
 
@@ -244,16 +318,19 @@ export const TEMPLATES = [
       // Corner circles
       addCircle(canvas, { left: w - 90, top: -40, radius: 90, fill: palette.accent, opacity: 0.07, selectable: false, evented: false })
       addCircle(canvas, { left: w - 60, top: -20, radius: 60, fill: palette.accent, opacity: 0.07, selectable: false, evented: false })
+      // Premium accent — thin gold/accent rule down the full left edge
+      addRect(canvas, { left: 0, top: 0, width: 3, height: h, fill: palette.accent, opacity: 0.8, selectable: false, evented: false })
       // Logo
-      await addLogo(canvas, profile, w - 100, 20, 60)
+      await addLogo(canvas, profile, w - 80, 16, 50)
       // Name
       addText(canvas, f(profile, 'personName'), {
         left: 20, top: h * 0.26,
-        fontSize: 28, fontWeight: '800',
+        fontSize: 26, fontWeight: '800',
         fill: '#ffffff',
         fontFamily: 'Georgia, serif',
         opacity: isPlaceholder(profile, 'personName') ? 0.35 : 1,
         width: w - 130,
+        elementType: 'personName',
       })
       // Title
       addText(canvas, `${f(profile, 'designation').toUpperCase()} · ${f(profile, 'companyName').toUpperCase()}`, {
@@ -264,22 +341,26 @@ export const TEMPLATES = [
         fontFamily: 'Inter, sans-serif',
         width: w - 30,
         opacity: 0.9,
+        elementType: 'designationCompany',
       })
       // Separator
       addLine(canvas, [20, h * 0.61, w * 0.75, h * 0.61], { stroke: palette.accent, strokeWidth: 0.8, opacity: 0.4, selectable: false, evented: false })
       // Contact
       addText(canvas, `${f(profile, 'phone')}  ·  ${f(profile, 'email')}`, {
         left: 20, top: h * 0.65,
-        fontSize: 9, fill: '#aaaaaa',
+        fontSize: 9, fill: 'rgba(255,255,255,0.8)',
         fontFamily: 'Inter, sans-serif',
         width: w - 30,
+        elementType: 'phoneEmail',
       })
       addText(canvas, f(profile, 'website'), {
         left: 20, top: h * 0.78,
-        fontSize: 9, fill: '#aaaaaa',
+        fontSize: 9, fill: 'rgba(255,255,255,0.8)',
         fontFamily: 'Inter, sans-serif',
         width: w - 30,
+        elementType: 'website',
       })
+      addMotifIcon(canvas, palette, w, h, 'br')
     },
   },
 
@@ -317,25 +398,30 @@ export const TEMPLATES = [
       addCircle(canvas, { left: w - 60, top: h - 60, radius: 110, fill: '#ffffff', opacity: 0.05, selectable: false, evented: false })
       addCircle(canvas, { left: w - 30, top: h - 30, radius: 70, fill: '#ffffff', opacity: 0.05, selectable: false, evented: false })
       // Logo
-      await addLogo(canvas, profile, w - 100, 20, 65)
-      // Name
+      await addLogo(canvas, profile, w - 80, 16, 50)
+      // Name — vertically centered on the left, the dominant element
       addText(canvas, f(profile, 'personName'), {
-        left: 20, top: h * 0.22,
-        fontSize: 28, fontWeight: '800',
+        left: 20, top: h * 0.34,
+        fontSize: 26, fontWeight: '800',
         fill: '#ffffff',
         fontFamily: 'Inter, sans-serif',
         opacity: isPlaceholder(profile, 'personName') ? 0.4 : 1,
         width: w - 130,
+        elementType: 'personName',
       })
+      // Short divider directly under the name
+      addLine(canvas, [20, h * 0.46, 100, h * 0.46], { stroke: '#ffffff', strokeWidth: 1, opacity: 0.4, selectable: false, evented: false })
       addText(canvas, `${f(profile, 'designation')} · ${f(profile, 'companyName')}`, {
         left: 20, top: h * 0.5,
         fontSize: 11, fill: 'rgba(255,255,255,0.8)',
         fontFamily: 'Inter, sans-serif',
         width: w - 130,
+        elementType: 'designationCompany',
       })
       addLine(canvas, [20, h * 0.62, w * 0.58, h * 0.62], { stroke: '#ffffff', strokeWidth: 0.8, opacity: 0.3, selectable: false, evented: false })
-      addText(canvas, f(profile, 'phone'), { left: 20, top: h * 0.67, fontSize: 10, fill: 'rgba(255,255,255,0.75)', fontFamily: 'Inter, sans-serif', width: w - 30 })
-      addText(canvas, f(profile, 'email'), { left: 20, top: h * 0.8, fontSize: 10, fill: 'rgba(255,255,255,0.75)', fontFamily: 'Inter, sans-serif', width: w - 30 })
+      addText(canvas, f(profile, 'phone'), { left: 20, top: h * 0.67, fontSize: 10, fill: 'rgba(255,255,255,0.75)', fontFamily: 'Inter, sans-serif', width: w - 30, elementType: 'phone' })
+      addText(canvas, f(profile, 'email'), { left: 20, top: h * 0.8, fontSize: 10, fill: 'rgba(255,255,255,0.75)', fontFamily: 'Inter, sans-serif', width: w - 30, elementType: 'email' })
+      addMotifIcon(canvas, palette, w, h, 'br')
     },
   },
 
@@ -364,47 +450,52 @@ export const TEMPLATES = [
 
     async load(canvas, profile, palette, w, h) {
       canvas.backgroundColor = '#ffffff'
-      // Dark diagonal left panel
+      // Dark diagonal left panel — averages ~45% card coverage (was ~45%
+      // already but asymmetric top/bottom; tightened for a cleaner slant).
       const poly = new Polygon(
-        [{ x: 0, y: 0 }, { x: w * 0.52, y: 0 }, { x: w * 0.38, y: h }, { x: 0, y: h }],
+        [{ x: 0, y: 0 }, { x: w * 0.50, y: 0 }, { x: w * 0.40, y: h }, { x: 0, y: h }],
         { fill: palette.primary, selectable: false, evented: false }
       )
       canvas.add(poly)
       // Accent stripe on right
       addRect(canvas, { left: w - 6, top: 0, width: 6, height: h, fill: palette.accent, selectable: false, evented: false })
-      // Logo on dark side
-      await addLogo(canvas, profile, 20, 18, 50)
-      // Name on dark side
-      // The diagonal boundary runs from x=0.52w (top) to x=0.38w (bottom), so
+      // Logo on dark side — bottom of the dark zone
+      await addLogo(canvas, profile, 16, h - 62, 45)
+      // Name on dark side, vertically centered
+      // The diagonal boundary runs from x=0.50w (top) to x=0.40w (bottom), so
       // the safe left-zone width must clear the boundary's narrowest point
-      // (bottom, 0.38w) with margin, not just its top.
+      // (bottom, 0.40w) with margin, not just its top.
       addText(canvas, f(profile, 'personName'), {
-        left: 16, top: h * 0.28,
-        fontSize: 20, fontWeight: '800',
+        left: 16, top: h * 0.38,
+        fontSize: 22, fontWeight: '800',
         fill: '#ffffff',
         fontFamily: 'Georgia, serif',
         width: w * 0.28,
         opacity: isPlaceholder(profile, 'personName') ? 0.4 : 1,
+        elementType: 'personName',
       })
       addText(canvas, f(profile, 'designation'), {
-        left: 16, top: h * 0.58,
-        fontSize: 9, fill: 'rgba(255,255,255,0.75)',
+        left: 16, top: h * 0.56,
+        fontSize: 11, fill: 'rgba(255,255,255,0.8)',
         fontFamily: 'Inter, sans-serif', width: w * 0.28,
+        elementType: 'designation',
       })
       // Info on white side — must start clear of the boundary's widest point
-      // (top, 0.52w) with margin, not just its bottom.
+      // (top, 0.50w) with margin, not just its bottom.
       const infoX = w * 0.58
       const infoWidth = w * 0.38
       addText(canvas, f(profile, 'companyName'), {
-        left: infoX, top: h * 0.2,
+        left: infoX, top: 40,
         fontSize: 13, fontWeight: '700',
         fill: palette.primary,
         fontFamily: 'Inter, sans-serif', width: infoWidth,
+        elementType: 'companyName',
       })
       addLine(canvas, [infoX, h * 0.36, w - 10, h * 0.36], { stroke: palette.primary, strokeWidth: 0.7, opacity: 0.25, selectable: false, evented: false })
-      addText(canvas, f(profile, 'phone'), { left: infoX, top: h * 0.42, fontSize: 9, fill: '#666', fontFamily: 'Inter, sans-serif', width: infoWidth })
-      addText(canvas, f(profile, 'email'), { left: infoX, top: h * 0.56, fontSize: 9, fill: '#666', fontFamily: 'Inter, sans-serif', width: infoWidth })
-      addText(canvas, f(profile, 'website'), { left: infoX, top: h * 0.7, fontSize: 9, fill: palette.primary, fontFamily: 'Inter, sans-serif', width: infoWidth })
+      addText(canvas, f(profile, 'phone'), { left: infoX, top: h * 0.42, fontSize: 9, fill: '#666', fontFamily: 'Inter, sans-serif', width: infoWidth, elementType: 'phone' })
+      addText(canvas, f(profile, 'email'), { left: infoX, top: h * 0.56, fontSize: 9, fill: '#666', fontFamily: 'Inter, sans-serif', width: infoWidth, elementType: 'email' })
+      addText(canvas, f(profile, 'website'), { left: infoX, top: h * 0.7, fontSize: 9, fill: palette.primary, fontFamily: 'Inter, sans-serif', width: infoWidth, elementType: 'website' })
+      addMotifIcon(canvas, palette, w, h, 'br')
     },
   },
 
@@ -435,43 +526,52 @@ export const TEMPLATES = [
 
     async load(canvas, profile, palette, w, h) {
       canvas.backgroundColor = '#ffffff'
-      const colW = w * 0.26
-      // Left column
+      const colW = w * 0.35
+      // Left column — exactly 35% of card width
       addRect(canvas, { left: 0, top: 0, width: colW, height: h, fill: palette.primary, selectable: false, evented: false })
-      // Logo in column
-      await addLogo(canvas, profile, (colW - 60) / 2, 18, 60)
-      // City in column
+      // Logo centered at the top of the column
+      const logoSize = 55
+      await addLogo(canvas, profile, (colW - logoSize) / 2, 16, logoSize)
+      // Name + designation centered in the column, below the logo
+      addText(canvas, f(profile, 'personName'), {
+        left: 8, top: 16 + logoSize + 12,
+        fontSize: 16, fontWeight: '800',
+        fill: '#ffffff',
+        fontFamily: 'Georgia, serif',
+        opacity: isPlaceholder(profile, 'personName') ? 0.4 : 1,
+        width: colW - 16, textAlign: 'center',
+        elementType: 'personName',
+      })
+      addText(canvas, f(profile, 'designation'), {
+        left: 8, top: 16 + logoSize + 42,
+        fontSize: 10, fill: 'rgba(255,255,255,0.8)',
+        fontFamily: 'Inter, sans-serif',
+        width: colW - 16, textAlign: 'center',
+        elementType: 'designation',
+      })
+      // City, near the bottom of the column
       addText(canvas, f(profile, 'location'), {
-        left: 6, top: h * 0.78,
+        left: 6, top: h - 30,
         fontSize: 8, fill: 'rgba(255,255,255,0.7)',
         fontFamily: 'Inter, sans-serif',
         width: colW - 12, textAlign: 'center',
+        elementType: 'location',
       })
-      // Right side content
+      // Right zone content, vertically centered as a group
       const rx = colW + 18
-      addText(canvas, f(profile, 'personName'), {
-        left: rx, top: h * 0.16,
-        fontSize: 22, fontWeight: '800',
-        fill: palette.primary,
-        fontFamily: 'Georgia, serif',
-        opacity: isPlaceholder(profile, 'personName') ? 0.35 : 1,
-        width: w - rx - 12,
-      })
-      addText(canvas, f(profile, 'designation'), {
-        left: rx, top: h * 0.43,
-        fontSize: 10, fill: '#888',
-        fontFamily: 'Inter, sans-serif', width: w - rx - 12,
-      })
+      const rw = w - rx - 12
       addText(canvas, f(profile, 'companyName'), {
-        left: rx, top: h * 0.56,
-        fontSize: 10, fontWeight: '700',
+        left: rx, top: h * 0.30,
+        fontSize: 12, fontWeight: '700',
         fill: palette.accent,
-        fontFamily: 'Inter, sans-serif', width: w - rx - 12,
+        fontFamily: 'Inter, sans-serif', width: rw,
+        elementType: 'companyName',
       })
-      addLine(canvas, [rx, h * 0.66, w - 10, h * 0.66], { stroke: palette.primary, strokeWidth: 0.7, opacity: 0.2, selectable: false, evented: false })
-      addText(canvas, f(profile, 'phone'), { left: rx, top: h * 0.7, fontSize: 9, fill: '#777', fontFamily: 'Inter, sans-serif', width: w - rx - 12 })
-      addText(canvas, f(profile, 'email'), { left: rx, top: h * 0.8, fontSize: 9, fill: '#777', fontFamily: 'Inter, sans-serif', width: w - rx - 12 })
-      addText(canvas, f(profile, 'website'), { left: rx, top: h * 0.9, fontSize: 9, fill: palette.primary, fontFamily: 'Inter, sans-serif', width: w - rx - 12 })
+      addLine(canvas, [rx, h * 0.44, w - 10, h * 0.44], { stroke: palette.primary, strokeWidth: 0.7, opacity: 0.2, selectable: false, evented: false })
+      addText(canvas, f(profile, 'phone'), { left: rx, top: h * 0.50, fontSize: 10, fill: '#777', fontFamily: 'Inter, sans-serif', width: rw, elementType: 'phone' })
+      addText(canvas, f(profile, 'email'), { left: rx, top: h * 0.60, fontSize: 10, fill: '#777', fontFamily: 'Inter, sans-serif', width: rw, elementType: 'email' })
+      addText(canvas, f(profile, 'website'), { left: rx, top: h * 0.70, fontSize: 10, fill: palette.primary, fontFamily: 'Inter, sans-serif', width: rw, elementType: 'website' })
+      addMotifIcon(canvas, palette, w, h, 'br')
     },
   },
 
@@ -500,31 +600,42 @@ export const TEMPLATES = [
 
     async load(canvas, profile, palette, w, h) {
       canvas.backgroundColor = '#ffffff'
-      const bannerH = h * 0.42
-      // Top banner
+      const bannerH = 70
+      const logoSize = 40
+      // Top banner — holds company name (left) + logo (right)
       addRect(canvas, { left: 0, top: 0, width: w, height: bannerH, fill: palette.primary, selectable: false, evented: false })
-      // Logo in banner
-      await addLogo(canvas, profile, w - 90, 14, 55)
-      // Name in banner
-      addText(canvas, f(profile, 'personName'), {
-        left: 20, top: bannerH * 0.22,
-        fontSize: 24, fontWeight: '800',
+      await addLogo(canvas, profile, w - logoSize - 16, (bannerH - logoSize) / 2, logoSize)
+      addText(canvas, f(profile, 'companyName'), {
+        left: 20, top: (bannerH - 16) / 2,
+        fontSize: 15, fontWeight: '800',
         fill: '#ffffff',
         fontFamily: 'Inter, sans-serif',
-        opacity: isPlaceholder(profile, 'personName') ? 0.4 : 1,
-        width: w - 110,
+        width: w - logoSize - 60,
+        elementType: 'companyName',
       })
-      addText(canvas, `${f(profile, 'designation')} · ${f(profile, 'companyName')}`, {
-        left: 20, top: bannerH * 0.66,
-        fontSize: 9.5, fill: 'rgba(255,255,255,0.8)',
-        fontFamily: 'Inter, sans-serif', width: w - 110,
+      // Name — below the banner, the dominant element on the white body
+      addText(canvas, f(profile, 'personName'), {
+        left: 20, top: bannerH + 16,
+        fontSize: 22, fontWeight: '800',
+        fill: palette.primary,
+        fontFamily: 'Inter, sans-serif',
+        opacity: isPlaceholder(profile, 'personName') ? 0.4 : 1,
+        width: w - 40,
+        elementType: 'personName',
+      })
+      addText(canvas, f(profile, 'designation'), {
+        left: 20, top: bannerH + 46,
+        fontSize: 11, fill: '#888',
+        fontFamily: 'Inter, sans-serif', width: w - 40, opacity: 0.85,
+        elementType: 'designation',
       })
       // Accent underline
-      addRect(canvas, { left: 20, top: h * 0.52, width: 44, height: 3, rx: 1.5, fill: palette.accent, selectable: false, evented: false })
+      addRect(canvas, { left: 20, top: bannerH + 68, width: 44, height: 3, rx: 1.5, fill: palette.accent, selectable: false, evented: false })
       // Bottom contact
-      addText(canvas, f(profile, 'phone'), { left: 20, top: h * 0.59, fontSize: 10, fill: '#777', fontFamily: 'Inter, sans-serif', width: w - 30 })
-      addText(canvas, f(profile, 'email'), { left: 20, top: h * 0.71, fontSize: 10, fill: '#777', fontFamily: 'Inter, sans-serif', width: w - 30 })
-      addText(canvas, f(profile, 'website'), { left: 20, top: h * 0.83, fontSize: 10, fill: palette.primary, fontFamily: 'Inter, sans-serif', width: w - 30 })
+      addText(canvas, f(profile, 'phone'), { left: 20, top: h - 46, fontSize: 10, fill: '#777', fontFamily: 'Inter, sans-serif', width: w - 30, elementType: 'phone' })
+      addText(canvas, f(profile, 'email'), { left: 20, top: h - 32, fontSize: 10, fill: '#777', fontFamily: 'Inter, sans-serif', width: w - 30, elementType: 'email' })
+      addText(canvas, f(profile, 'website'), { left: 20, top: h - 18, fontSize: 10, fill: palette.primary, fontFamily: 'Inter, sans-serif', width: w - 30, elementType: 'website' })
+      addMotifIcon(canvas, palette, w, h, 'br')
     },
   },
 
@@ -552,26 +663,30 @@ export const TEMPLATES = [
     },
 
     async load(canvas, profile, palette, w, h) {
-      canvas.backgroundColor = '#ffffff'
+      // Subtle grey instead of stark white — reads as intentionally
+      // designed rather than unstyled text on a blank page.
+      canvas.backgroundColor = '#f8f8f8'
       addRect(canvas, { left: 20, top: h * 0.88, width: w - 40, height: 1, fill: palette.primary, opacity: 0.1, selectable: false, evented: false })
-      // Accent bar
-      addRect(canvas, { left: 20, top: 20, width: 4, height: 52, rx: 2, fill: palette.accent, selectable: false, evented: false })
+      // Full-height colored stripe on the very left edge
+      addRect(canvas, { left: 0, top: 0, width: 4, height: h, fill: palette.primary, selectable: false, evented: false })
       // Logo
-      await addLogo(canvas, profile, w - 90, 18, 60)
-      // Name
+      await addLogo(canvas, profile, w - 66, 18, 50)
+      // Name — good margin clear of the left stripe
       addText(canvas, f(profile, 'personName'), {
-        left: 34, top: 22,
+        left: 36, top: 22,
         fontSize: 24, fontWeight: '800',
         fill: palette.primary,
         fontFamily: 'Inter, sans-serif',
         opacity: isPlaceholder(profile, 'personName') ? 0.35 : 1,
         width: w - 130,
+        elementType: 'personName',
       })
-      addText(canvas, f(profile, 'designation'), { left: 34, top: 54, fontSize: 11, fill: '#888', fontFamily: 'Inter, sans-serif', width: w - 130 })
-      addText(canvas, f(profile, 'companyName'), { left: 34, top: 69, fontSize: 11, fontWeight: '700', fill: palette.accent, fontFamily: 'Inter, sans-serif', width: w - 130 })
-      addText(canvas, f(profile, 'phone'), { left: 20, top: h * 0.55, fontSize: 10, fill: '#888', fontFamily: 'Inter, sans-serif', width: w - 30 })
-      addText(canvas, f(profile, 'email'), { left: 20, top: h * 0.67, fontSize: 10, fill: '#888', fontFamily: 'Inter, sans-serif', width: w - 30 })
-      addText(canvas, f(profile, 'website'), { left: 20, top: h * 0.79, fontSize: 10, fill: palette.primary, fontFamily: 'Inter, sans-serif', width: w - 30 })
+      addText(canvas, f(profile, 'designation'), { left: 36, top: 54, fontSize: 11, fill: '#888', fontFamily: 'Inter, sans-serif', width: w - 130, opacity: 0.85, elementType: 'designation' })
+      addText(canvas, f(profile, 'companyName'), { left: 36, top: 69, fontSize: 11, fontWeight: '700', fill: palette.accent, fontFamily: 'Inter, sans-serif', width: w - 130, elementType: 'companyName' })
+      addText(canvas, f(profile, 'phone'), { left: 20, top: h * 0.55, fontSize: 10, fill: '#888', fontFamily: 'Inter, sans-serif', width: w - 30, elementType: 'phone' })
+      addText(canvas, f(profile, 'email'), { left: 20, top: h * 0.67, fontSize: 10, fill: '#888', fontFamily: 'Inter, sans-serif', width: w - 30, elementType: 'email' })
+      addText(canvas, f(profile, 'website'), { left: 20, top: h * 0.79, fontSize: 10, fill: palette.primary, fontFamily: 'Inter, sans-serif', width: w - 30, elementType: 'website' })
+      addMotifIcon(canvas, palette, w, h, 'br')
     },
   },
 
@@ -605,23 +720,28 @@ export const TEMPLATES = [
     async load(canvas, profile, palette, w, h) {
       const grad = linearGrad(canvas, 0, 0, w, h, '#d1495b', '#f4a261')
       addRect(canvas, { left: 0, top: 0, width: w, height: h, fill: grad, selectable: false, evented: false })
+      // Large contrasting circle, top-right, partially off-card
+      addCircle(canvas, { left: w - h * 0.5, top: -h * 0.45, radius: h * 0.6, fill: palette.accent, opacity: 0.25, selectable: false, evented: false })
       addCircle(canvas, { left: -40, top: h - 40, radius: 110, fill: '#ffffff', opacity: 0.07, selectable: false, evented: false })
-      addCircle(canvas, { left: w - 30, top: -30, radius: 80, fill: '#ffffff', opacity: 0.07, selectable: false, evented: false })
-      await addLogo(canvas, profile, w - 90, 18, 60)
+      await addLogo(canvas, profile, w - 66, 18, 50)
+      // Name — bottom-left, the dominant element
       addText(canvas, f(profile, 'personName'), {
-        left: 20, top: h * 0.2,
+        left: 20, top: h * 0.52,
         fontSize: 26, fontWeight: '800', fill: '#ffffff',
         fontFamily: 'Poppins, sans-serif',
         opacity: isPlaceholder(profile, 'personName') ? 0.4 : 1,
         width: w - 130,
+        elementType: 'personName',
       })
       addText(canvas, `${f(profile, 'designation')} · ${f(profile, 'companyName')}`, {
-        left: 20, top: h * 0.5, fontSize: 10, fill: 'rgba(255,255,255,0.85)',
-        fontFamily: 'Inter, sans-serif', width: w - 130,
+        left: 20, top: h * 0.65, fontSize: 11, fill: 'rgba(255,255,255,0.85)',
+        fontFamily: 'Inter, sans-serif', width: w - 130, opacity: 0.85,
+        elementType: 'designationCompany',
       })
-      addLine(canvas, [20, h * 0.62, w * 0.65, h * 0.62], { stroke: '#ffffff', strokeWidth: 0.8, opacity: 0.3, selectable: false, evented: false })
-      addText(canvas, f(profile, 'phone'), { left: 20, top: h * 0.67, fontSize: 9.5, fill: 'rgba(255,255,255,0.8)', fontFamily: 'Inter, sans-serif', width: w - 30 })
-      addText(canvas, f(profile, 'email'), { left: 20, top: h * 0.79, fontSize: 9.5, fill: 'rgba(255,255,255,0.8)', fontFamily: 'Inter, sans-serif', width: w - 30 })
+      addLine(canvas, [20, h * 0.76, w * 0.5, h * 0.76], { stroke: '#ffffff', strokeWidth: 0.8, opacity: 0.3, selectable: false, evented: false })
+      addText(canvas, f(profile, 'phone'), { left: 20, top: h * 0.81, fontSize: 10, fill: 'rgba(255,255,255,0.8)', fontFamily: 'Inter, sans-serif', width: w - 30, elementType: 'phone' })
+      addText(canvas, f(profile, 'email'), { left: 20, top: h * 0.91, fontSize: 10, fill: 'rgba(255,255,255,0.8)', fontFamily: 'Inter, sans-serif', width: w - 30, elementType: 'email' })
+      addMotifIcon(canvas, palette, w, h, 'br')
     },
   },
 
@@ -655,35 +775,41 @@ export const TEMPLATES = [
       // depending on the accent hue — a flat, palette-agnostic white tint
       // reads as a clean, intentional dark shade regardless of accent color.
       addRect(canvas, { left: 0, top: h * 0.42, width: w, height: h * 0.58, fill: 'rgba(255,255,255,0.05)', selectable: false, evented: false })
-      // Logo circle — sized and padded so it sits fully inside the card
-      // with clear top margin, instead of crowding/clipping the top edge.
-      const circleR = 28
-      const circleTop = h * 0.10
+      // Small circular logo placeholder, top-center — a fixed 80x80 badge
+      // rather than an oversized photo-style area.
+      const circleR = 40
+      const circleTop = h * 0.08
       addCircle(canvas, { left: w / 2 - circleR, top: circleTop, radius: circleR, fill: 'rgba(255,255,255,0.08)', selectable: false, evented: false })
-      const logoSize = 42
+      const logoSize = 56
       await addLogo(canvas, profile, w / 2 - logoSize / 2, circleTop + circleR - logoSize / 2, logoSize)
+      // Tightened vertical rhythm — name/title/divider now sit close under
+      // the (larger) logo circle instead of spread across a third of the card.
       addText(canvas, f(profile, 'personName'), {
-        left: 10, top: h * 0.28,
+        left: 10, top: circleTop + circleR * 2 + 14,
         fontSize: 18, fontWeight: '800', fill: '#ffffff',
         fontFamily: 'Georgia, serif', textAlign: 'center', width: w - 20,
         opacity: isPlaceholder(profile, 'personName') ? 0.4 : 1,
+        elementType: 'personName',
       })
       addText(canvas, f(profile, 'designation').toUpperCase(), {
-        left: 10, top: h * 0.375, fontSize: 9, fontWeight: '700',
+        left: 10, top: circleTop + circleR * 2 + 42, fontSize: 9, fontWeight: '700',
         fill: palette.accent, textAlign: 'center', charSpacing: 40,
         fontFamily: 'Inter, sans-serif', width: w - 20,
+        elementType: 'designation',
       })
-      addLine(canvas, [w * 0.22, h * 0.44, w * 0.78, h * 0.44], { stroke: palette.accent, strokeWidth: 0.8, opacity: 0.4, selectable: false, evented: false })
+      // Short fixed-width accent divider below the name
+      addLine(canvas, [w / 2 - 30, circleTop + circleR * 2 + 62, w / 2 + 30, circleTop + circleR * 2 + 62], { stroke: palette.accent, strokeWidth: 0.8, opacity: 0.4, selectable: false, evented: false })
       // The footer band runs from 0.42h to 1.0h. Packing the four contact
       // lines into a tight cluster right under the divider (as a previous
       // pass did, ~0.065h apart starting at 0.52h) leaves a large dead zone
       // between the last line and the bottom edge. Spacing them out across
       // the actual footer band — not just tightening the gaps — keeps them
       // readable as one group while using the space the band implies.
-      addText(canvas, f(profile, 'companyName'), { left: 10, top: h * 0.50, fontSize: 9, fill: 'rgba(255,255,255,0.7)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20 })
-      addText(canvas, f(profile, 'phone'), { left: 10, top: h * 0.60, fontSize: 8.5, fill: 'rgba(255,255,255,0.6)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20 })
-      addText(canvas, f(profile, 'email'), { left: 10, top: h * 0.70, fontSize: 8.5, fill: 'rgba(255,255,255,0.6)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20 })
-      addText(canvas, f(profile, 'website'), { left: 10, top: h * 0.80, fontSize: 8.5, fill: 'rgba(255,255,255,0.6)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20 })
+      addText(canvas, f(profile, 'companyName'), { left: 10, top: h * 0.50, fontSize: 9, fill: 'rgba(255,255,255,0.7)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20, elementType: 'companyName' })
+      addText(canvas, f(profile, 'phone'), { left: 10, top: h * 0.60, fontSize: 8.5, fill: 'rgba(255,255,255,0.6)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20, elementType: 'phone' })
+      addText(canvas, f(profile, 'email'), { left: 10, top: h * 0.70, fontSize: 8.5, fill: 'rgba(255,255,255,0.6)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20, elementType: 'email' })
+      addText(canvas, f(profile, 'website'), { left: 10, top: h * 0.80, fontSize: 8.5, fill: 'rgba(255,255,255,0.6)', textAlign: 'center', fontFamily: 'Inter, sans-serif', width: w - 20, elementType: 'website' })
+      addMotifIcon(canvas, palette, w, h, 'br', 32)
     },
   },
 
@@ -709,29 +835,32 @@ export const TEMPLATES = [
 
     async load(canvas, profile, palette, w, h) {
       canvas.backgroundColor = '#ffffff'
-      // Top-left triangle
-      const tl = new Polygon([{ x: 0, y: 0 }, { x: w * 0.3, y: 0 }, { x: 0, y: h * 0.55 }], { fill: palette.primary, selectable: false, evented: false })
+      // Top-left triangle — enlarged for a bolder geometric anchor
+      const tl = new Polygon([{ x: 0, y: 0 }, { x: w * 0.35, y: 0 }, { x: 0, y: h * 0.6 }], { fill: palette.primary, selectable: false, evented: false })
       canvas.add(tl)
-      // Bottom-right triangles
-      const br1 = new Polygon([{ x: w, y: h }, { x: w * 0.65, y: h }, { x: w, y: h * 0.44 }], { fill: palette.accent, opacity: 0.8, selectable: false, evented: false })
+      // Bottom-right triangles — also enlarged, extending further across
+      const br1 = new Polygon([{ x: w, y: h }, { x: w * 0.55, y: h }, { x: w, y: h * 0.34 }], { fill: palette.accent, opacity: 0.8, selectable: false, evented: false })
       canvas.add(br1)
-      const br2 = new Polygon([{ x: w, y: h }, { x: w, y: h * 0.7 }, { x: w * 0.78, y: h }], { fill: palette.primary, opacity: 0.5, selectable: false, evented: false })
+      const br2 = new Polygon([{ x: w, y: h }, { x: w, y: h * 0.6 }, { x: w * 0.7, y: h }], { fill: palette.primary, opacity: 0.5, selectable: false, evented: false })
       canvas.add(br2)
-      // Logo
-      await addLogo(canvas, profile, w * 0.38, 18, 50)
-      // Name
+      // Logo — small, tucked near the top-left corner shape
+      await addLogo(canvas, profile, w * 0.40, 16, 45)
+      // Name — well clear of the enlarged top-left triangle
       addText(canvas, f(profile, 'personName'), {
-        left: 20, top: h * 0.55,
+        left: 20, top: h * 0.64,
         fontSize: 22, fontWeight: '800', fill: palette.primary,
         fontFamily: 'Inter, sans-serif',
         opacity: isPlaceholder(profile, 'personName') ? 0.35 : 1,
         width: w - 40,
+        elementType: 'personName',
       })
       addText(canvas, `${f(profile, 'designation')} · ${f(profile, 'companyName')}`, {
-        left: 20, top: h * 0.74, fontSize: 9.5, fill: '#888', fontFamily: 'Inter, sans-serif', width: w * 0.65,
+        left: 20, top: h * 0.80, fontSize: 10, fill: '#888', fontFamily: 'Inter, sans-serif', width: w * 0.55, opacity: 0.85,
+        elementType: 'designationCompany',
       })
-      addLine(canvas, [20, h * 0.84, w * 0.74, h * 0.84], { stroke: palette.primary, strokeWidth: 0.7, opacity: 0.2, selectable: false, evented: false })
-      addText(canvas, `${f(profile, 'phone')}  ·  ${f(profile, 'email')}`, { left: 20, top: h * 0.87, fontSize: 8.5, fill: '#999', fontFamily: 'Inter, sans-serif', width: w * 0.65 })
+      addLine(canvas, [20, h * 0.90, w * 0.5, h * 0.90], { stroke: palette.primary, strokeWidth: 0.7, opacity: 0.2, selectable: false, evented: false })
+      addText(canvas, `${f(profile, 'phone')}  ·  ${f(profile, 'email')}`, { left: 20, top: h * 0.93, fontSize: 9, fill: '#999', fontFamily: 'Inter, sans-serif', width: w * 0.55, elementType: 'phoneEmail' })
+      addMotifIcon(canvas, palette, w, h, 'tr', 32)
     },
   },
 ]

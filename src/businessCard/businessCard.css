@@ -946,6 +946,52 @@
   margin: auto;
 }
 
+/* Fills the whole canvas workspace and splits it between the two cards —
+   no fixed pixel caps, so the cards scale with the viewport. Each card
+   gets half the width minus the gap/padding share; the image then scales
+   to whichever constraint binds (width or height), preserving aspect
+   ratio, so both cards always render at the same scale and fit without
+   scrolling on any card size/orientation. */
+.bce-view-both {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: 30px;
+}
+.bce-view-both-card {
+  flex: 0 1 calc(50% - 20px);
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.bce-view-both-card img {
+  max-width: 100%;
+  /* leave room for the FRONT/BACK label under the card */
+  max-height: calc(100% - 34px);
+  width: auto;
+  height: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  border-radius: 4px;
+  transition: transform 0.15s ease;
+}
+.bce-view-both-card:hover img { transform: scale(1.02); }
+.bce-view-both-card span {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--navy, #112d37);
+}
+
 /* Right panel ────────────────────────────────────────── */
 .bce-rpanel {
   width: 288px;
@@ -1191,6 +1237,68 @@
 }
 .bce-opacity-pop label { font-size: 12px; font-weight: 700; color: var(--navy, #112d37); white-space: nowrap; }
 
+/* Add Element popover ────────────────────────────────── */
+.bce-add-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--line, #e5e3dd);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(17,45,55,0.14);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+.bce-add-menu button,
+.bce-add-menu-item {
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--navy, #112d37);
+  padding: 8px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+}
+.bce-add-menu button:hover,
+.bce-add-menu-item:hover { background: #f4f2ed; }
+
+.bce-icon-grid-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--line, #e5e3dd);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(17,45,55,0.14);
+  z-index: 60;
+  padding: 8px;
+}
+.bce-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.bce-icon-grid button {
+  border: 1px solid var(--line, #e5e3dd);
+  background: #fff;
+  border-radius: 7px;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--navy, #112d37);
+  cursor: pointer;
+}
+.bce-icon-grid button:hover { border-color: var(--navy, #112d37); background: #f8f7f3; }
+
 /* Confirm dialog ─────────────────────────────────────── */
 .bc-confirm-overlay {
   position: fixed; inset: 0;
@@ -1210,7 +1318,7 @@
 }
 .bc-confirm-box h3 { font-size: 18px; font-weight: 800; color: var(--navy, #112d37); letter-spacing: -0.03em; margin-bottom: 8px; }
 .bc-confirm-box p { font-size: 14px; color: var(--muted, #657174); line-height: 1.6; margin-bottom: 22px; }
-.bc-confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.bc-confirm-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
 
 /* Toast ──────────────────────────────────────────────── */
 .bc-toast {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { fetchCard, updateCard } from '../api'
+import { fetchCard, updateCard, deleteCard } from '../api'
 import { DetailsForm }         from './DetailsForm'
 import { SetupDialog }         from './SetupDialog'
 import { TemplateGallery }     from './TemplateGallery'
@@ -70,6 +70,11 @@ export function BusinessCardFlow() {
     setStep('editor')
   }
 
+  // Writes the current editor state to the DB. Does NOT navigate — the
+  // editor's own exit flow decides what happens after a successful save
+  // (stay, go to the business cards list, go back to the gallery, etc.),
+  // since a plain in-editor "Save Progress" and a "Save & Exit" triggered
+  // from the unsaved-changes dialog need different follow-up navigation.
   async function handleSave(editorSnapshot) {
     try {
       const card = await fetchCard(cardId)
@@ -86,10 +91,23 @@ export function BusinessCardFlow() {
           },
         },
       })
-      navigate('/business-cards')
     } catch (e) {
       console.error('Failed to save business card', e)
       alert('Save failed. Please try again.')
+      throw e // stop the editor's post-save flow (marking saved, navigating)
+    }
+  }
+
+  // Scenario A of the exit-confirmation flow: the card was never saved,
+  // so its DB row is still just the empty placeholder from createCard() —
+  // delete it rather than leaving a blank draft in the Business Cards list.
+  async function handleDiscardNew() {
+    try {
+      await deleteCard(cardId)
+    } catch (e) {
+      console.error('Failed to discard unsaved business card', e)
+    } finally {
+      navigate('/business-cards')
     }
   }
 
@@ -164,6 +182,7 @@ export function BusinessCardFlow() {
           onExit={() => navigate('/business-cards')}
           onSave={handleSave}
           onExport={handleExport}
+          onDiscardNew={handleDiscardNew}
         />
       )}
     </>
