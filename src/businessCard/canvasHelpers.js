@@ -55,6 +55,29 @@ export async function renderTemplateThumbnail(tmpl, profile, palette, size = 'st
 }
 
 /**
+ * Same as renderTemplateThumbnail but for the template's own back-side
+ * layout (tmpl.loadBack), so the gallery's hover toggle and preview modal
+ * show the actual per-template back (its real bg/ink/QR-side/accent-shape
+ * choices) instead of one generic mockup shared by every template.
+ */
+export async function renderTemplateBackThumbnail(tmpl, profile, palette, size = 'standard') {
+  if (!tmpl.loadBack) return null
+  const orientation = tmpl.orientation === 'vertical' ? 'vertical' : 'horizontal'
+  const { w, h } = getCardDimensions(size, orientation)
+
+  const el = document.createElement('canvas')
+  const canvas = new StaticCanvas(el, { width: w, height: h })
+
+  try {
+    await tmpl.loadBack(canvas, profile, palette, w, h)
+    canvas.renderAll()
+    return canvas.toDataURL({ format: 'png', multiplier: 1 })
+  } finally {
+    canvas.dispose()
+  }
+}
+
+/**
  * Renders a single stored Fabric JSON face (front or back) at full
  * resolution and returns a PNG data URL. Old JSON may still carry the
  * broken 'center' origin (see normalizeLegacyOrigins above), so it's

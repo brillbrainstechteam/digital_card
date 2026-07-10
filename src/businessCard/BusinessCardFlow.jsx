@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { fetchCard, updateCard, deleteCard } from '../api'
+import { fetchCard, createCard, updateCard, deleteCard } from '../api'
 import { DetailsForm }         from './DetailsForm'
 import { SetupDialog }         from './SetupDialog'
 import { TemplateGallery }     from './TemplateGallery'
@@ -8,22 +8,39 @@ import { BusinessCardEditor }  from './BusinessCardEditor'
 import './businessCard.css'
 
 // Steps: 'details' | 'gallery' | 'setup' | 'editor'
+// The 'new' cardId is a routing sentinel, not a real DB id — no card row
+// exists yet for it. Nothing in this flow (details form, template gallery,
+// entering the editor) creates one; the DB row is only created lazily, on
+// the user's first explicit Save, so cancelling out at any point before
+// that never leaves a blank draft in the Business Cards list.
 export function BusinessCardFlow() {
-  const { cardId } = useParams()
+  const { cardId: routeCardId } = useParams()
   const navigate   = useNavigate()
+  const isNew      = routeCardId === 'new'
 
   const [step, setStep]       = useState('details')
   const [rawCard, setRawCard] = useState(null)
   const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(isNew ? false : true)
   const [error, setError]     = useState(null)
+  // The real DB id once a row exists — null for a brand-new, never-saved
+  // card. Distinct from routeCardId, which stays 'new' in the URL until
+  // the first save swaps it in via navigate(..., { replace: true }).
+  const [dbCardId, setDbCardId] = useState(isNew ? null : routeCardId)
 
   const [selection, setSelection] = useState(null)
 
   useEffect(() => {
+    if (isNew) {
+      setRawCard({})
+      setProfile({})
+      setStep('details')
+      setLoading(false)
+      return
+    }
     async function load() {
       try {
-        const card = await fetchCard(cardId)
+        const card = await fetchCard(routeCardId)
         setRawCard(card)
         const baseProfile = card.profile || card.card_data?.profile || {}
 
@@ -49,7 +66,7 @@ export function BusinessCardFlow() {
       }
     }
     load()
-  }, [cardId])
+  }, [routeCardId, isNew])
 
   function handleDetailsSubmit(formProfile) {
     setProfile(formProfile)
@@ -75,11 +92,21 @@ export function BusinessCardFlow() {
   // (stay, go to the business cards list, go back to the gallery, etc.),
   // since a plain in-editor "Save Progress" and a "Save & Exit" triggered
   // from the unsaved-changes dialog need different follow-up navigation.
+  // The DB row itself is created here, lazily, on the *first* save — not
+  // when the details form or editor opens — so a card only ever exists in
+  // the list once the user has actually chosen to keep it.
   async function handleSave(editorSnapshot) {
     try {
-      const card = await fetchCard(cardId)
-      const existing = card.card_data || {}
-      await updateCard(cardId, {
+      let id = dbCardId
+      let existing = {}
+      if (!id) {
+        const created = await createCard('Business Card', { productType: 'business' })
+        id = created.id
+      } else {
+        const card = await fetchCard(id)
+        existing = card.card_data || {}
+      }
+      await updateCard(id, {
         card_data: {
           ...existing,
           productType: 'business',
@@ -91,6 +118,10 @@ export function BusinessCardFlow() {
           },
         },
       })
+      if (id !== dbCardId) {
+        setDbCardId(id)
+        navigate(`/business-card/${id}`, { replace: true })
+      }
     } catch (e) {
       console.error('Failed to save business card', e)
       alert('Save failed. Please try again.')
@@ -98,12 +129,14 @@ export function BusinessCardFlow() {
     }
   }
 
-  // Scenario A of the exit-confirmation flow: the card was never saved,
-  // so its DB row is still just the empty placeholder from createCard() —
-  // delete it rather than leaving a blank draft in the Business Cards list.
+  // Scenario A of the exit-confirmation flow: the card was never saved. If
+  // no DB row was ever created for it (the common case now that createCard
+  // only runs on first save), there's nothing to delete — just leave. If
+  // one does exist (e.g. an older card reached via a direct link before a
+  // save completed), delete it rather than leaving a blank draft behind.
   async function handleDiscardNew() {
     try {
-      await deleteCard(cardId)
+      if (dbCardId) await deleteCard(dbCardId)
     } catch (e) {
       console.error('Failed to discard unsaved business card', e)
     } finally {
@@ -112,10 +145,11 @@ export function BusinessCardFlow() {
   }
 
   async function handleExport() {
+    if (!dbCardId) return
     try {
-      const card = await fetchCard(cardId)
+      const card = await fetchCard(dbCardId)
       const existing = card.card_data || {}
-      await updateCard(cardId, {
+      await updateCard(dbCardId, {
         card_data: {
           ...existing,
           productType: 'business',

@@ -6,7 +6,7 @@ import { useToast } from '../context/ToastContext'
 import { isBusinessCard } from '../cardTypeUtils'
 import { PageHeader } from './PageHeader'
 import { Sidebar } from './Sidebar'
-import { renderSavedCardThumbnail } from '../businessCard/canvasHelpers'
+import { renderSavedCardThumbnail, renderFaceThumbnail } from '../businessCard/canvasHelpers'
 import { CardPreviewScreen } from '../businessCard/CardPreviewScreen'
 import { getTemplate } from '../businessCard/bcTemplates'
 import '../businessCard/businessCard.css'
@@ -99,27 +99,51 @@ function CardTitle({ card, onRenamed }) {
   )
 }
 
+// Same hover Front/Back toggle as the template gallery (TemplateGallery.jsx)
+// — but rendered from this specific card's own saved frontJson/backJson,
+// not a template default, so edits the user made to either side show up.
 function BusinessCardThumb({ businessCard }) {
   const [liveThumb, setLiveThumb] = useState(null)
+  const [backThumb, setBackThumb] = useState(null)
   const [tried, setTried] = useState(false)
+  const [face, setFace] = useState('front')
 
   useEffect(() => {
     let cancelled = false
     setLiveThumb(null)
+    setBackThumb(null)
     setTried(false)
+    setFace('front')
     renderSavedCardThumbnail(businessCard)
       .then((url) => { if (!cancelled) setLiveThumb(url) })
       .finally(() => { if (!cancelled) setTried(true) })
+    renderFaceThumbnail(businessCard?.backJson, businessCard?.setup)
+      .then((url) => { if (!cancelled) setBackThumb(url) })
+      .catch(() => {})
     return () => { cancelled = true }
   }, [businessCard])
 
   // Prefer a freshly re-rendered thumbnail (always matches current saved
   // content); fall back to the cached snapshot only if re-render fails or
   // there's no frontJson (older saves), and finally to a placeholder icon.
-  const src = liveThumb || (tried ? businessCard?.frontImg : null)
+  const frontSrc = liveThumb || (tried ? businessCard?.frontImg : null)
+  const src = face === 'back' ? backThumb : frontSrc
 
-  if (src) return <img src={src} alt="Business card preview" />
-  return <span style={{ fontSize: 28 }}>🪪</span>
+  return (
+    <>
+      {src ? <img src={src} alt={`Business card preview — ${face}`} /> : <span style={{ fontSize: 28 }}>🪪</span>}
+      {backThumb && (
+        <div className="bc-tmpl-face-toggle" onClick={(e) => e.stopPropagation()}>
+          <button type="button" className={face === 'front' ? 'active' : ''} onClick={() => setFace('front')}>
+            Front
+          </button>
+          <button type="button" className={face === 'back' ? 'active' : ''} onClick={() => setFace('back')}>
+            Back
+          </button>
+        </div>
+      )}
+    </>
+  )
 }
 
 function ConfirmDialog({ title, message, actionLabel, onCancel, onConfirm }) {
@@ -163,17 +187,12 @@ export function BusinessCardsPage() {
 
   useEffect(() => { loadCards() }, [])
 
-  async function handleCreate() {
-    setCreating(true)
-    setError('')
-    try {
-      const card = await createCard('Business Card', { productType: 'business' })
-      navigate(`/business-card/${card.id}`)
-    } catch (err) {
-      toast.error(err.message)
-    } finally {
-      setCreating(false)
-    }
+  // No DB record is created here — BusinessCardFlow runs the details/
+  // template/editor steps entirely in local state and only calls
+  // createCard() on the user's first explicit Save, so cancelling out of
+  // the flow before that never leaves a blank draft behind.
+  function handleCreate() {
+    navigate('/business-card/new')
   }
 
   async function confirmDelete(card) {

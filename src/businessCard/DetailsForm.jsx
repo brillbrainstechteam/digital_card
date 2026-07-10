@@ -20,10 +20,10 @@ const FIELDS = [
   { key: 'personName',  label: 'Full Name',      placeholder: 'Your Name',           required: true },
   { key: 'designation', label: 'Designation',    placeholder: 'Your Title' },
   { key: 'companyName', label: 'Company Name',   placeholder: 'Company Name' },
+  { key: 'tagline',     label: 'Tagline',        placeholder: 'Your brand tagline' },
   { key: 'phone',       label: 'Phone',          placeholder: '+91 XXXXX XXXXX' },
   { key: 'email',       label: 'Email',          placeholder: 'email@example.com' },
   { key: 'website',     label: 'Website',        placeholder: 'www.example.com' },
-  { key: 'location',    label: 'City / Location', placeholder: 'Your City' },
 ]
 
 export function DetailsForm({
@@ -38,10 +38,11 @@ export function DetailsForm({
     personName:  initialProfile?.personName  || '',
     designation: initialProfile?.designation || '',
     companyName: initialProfile?.companyName || '',
+    tagline:     initialProfile?.tagline     || '',
     phone:       initialProfile?.phone       || '',
     email:       initialProfile?.email       || '',
     website:     initialProfile?.website     || '',
-    location:    initialProfile?.location    || '',
+    address:     initialProfile?.address     || '',
   })
   const [logo, setLogo]           = useState(initialProfile?.logo || '')
   const [uploading, setUploading] = useState(false)
@@ -93,6 +94,10 @@ export function DetailsForm({
       setError('Please enter your name.')
       return
     }
+    if (!logo) {
+      setError('Please upload a logo.')
+      return
+    }
     onContinue({
       ...initialProfile,
       ...values,
@@ -116,9 +121,9 @@ export function DetailsForm({
             <input type="file" accept="image/*" hidden onChange={handleLogoUpload} />
           </label>
           <div>
-            <div className="bc-setup-label" style={{ marginBottom: 4 }}>Logo</div>
+            <div className="bc-setup-label" style={{ marginBottom: 4 }}>Logo *</div>
             <p style={{ fontSize: 12, color: 'var(--muted)' }}>
-              {uploading ? 'Uploading...' : 'Click to upload your logo (optional)'}
+              {uploading ? 'Uploading...' : 'Click to upload your logo'}
             </p>
           </div>
         </div>
@@ -137,6 +142,17 @@ export function DetailsForm({
             </label>
           ))}
         </div>
+
+        <label className="bc-details-field" style={{ marginTop: 12 }}>
+          <span>Address</span>
+          <textarea
+            className="bce-input"
+            rows={2}
+            value={values.address}
+            placeholder="123 MG Road, Mumbai 400001"
+            onChange={(e) => update('address', e.target.value)}
+          />
+        </label>
 
         {error && <p className="dashboard-error">{error}</p>}
 

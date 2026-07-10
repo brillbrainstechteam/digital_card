@@ -12,7 +12,7 @@ import {
   Minus, Plus, Download, Printer, Save, X,
   Heart, Award, Briefcase, Globe, Camera, Coffee, Zap, Shield, Smile, MapPin, Sparkles,
 } from 'lucide-react'
-import { TEMPLATES, getPalette, getCardDimensions, getTemplate, CUSTOM_FABRIC_PROPS, PLACEHOLDER_TEXT, addMotifIcon } from './bcTemplates'
+import { TEMPLATES, getPalette, getCardDimensions, getTemplate, CUSTOM_FABRIC_PROPS, PLACEHOLDER_TEXT, addMotifIcon, loadBackSide, addText, addLogo, addAddressFooter, f, isPlaceholder } from './bcTemplates'
 import { normalizeLegacyOrigins, renderFaceThumbnail } from './canvasHelpers'
 import { FONT_OPTIONS } from '../fontOptions'
 
@@ -87,20 +87,23 @@ const LEFT_PANELS = [
 // then toggles that same shared object. No "Motif Icon" row — that system
 // doesn't exist yet (no industry field, no per-template icon), deferred by
 // user decision rather than built as a stub.
+// Front is brand identity only; back is personal contact + QR — the two
+// sides now have fixed, distinct field sets rather than overlapping ones.
 const FRONT_ELEMENT_ROWS = [
-  { key: 'personName',  label: 'Name',          match: ['personName'] },
-  { key: 'designation',  label: 'Designation',   match: ['designation', 'designationCompany'], profileKey: 'designation' },
+  { key: 'logo',         label: 'Logo',          match: ['logo'] },
   { key: 'companyName',  label: 'Company Name',  match: ['companyName', 'designationCompany'], profileKey: 'companyName' },
+  { key: 'tagline',      label: 'Tagline',       match: ['tagline'] },
+  { key: 'address',      label: 'Address',       match: ['address'], profileKey: 'address' },
+  { key: 'accentShape',  label: 'Accent Shape',  match: ['accentShape'] },
+]
+const BACK_ELEMENT_ROWS = [
+  { key: 'personName',   label: 'Name',          match: ['personName'], alwaysOn: true },
+  { key: 'designation',  label: 'Designation',   match: ['designation', 'designationCompany'], profileKey: 'designation' },
   { key: 'phone',        label: 'Phone',         match: ['phone', 'phoneEmail'], profileKey: 'phone' },
   { key: 'email',        label: 'Email',         match: ['email', 'phoneEmail'], profileKey: 'email' },
   { key: 'website',      label: 'Website',       match: ['website'], profileKey: 'website' },
-  { key: 'logo',         label: 'Logo',          match: ['logo'] },
-  { key: 'qr',           label: 'QR Code',       match: ['qr'] },
-]
-const BACK_ELEMENT_ROWS = [
-  { key: 'tagline',      label: 'Tagline',       match: ['tagline'] },
-  { key: 'companyName',  label: 'Company Name',  match: ['companyName'], profileKey: 'companyName' },
-  { key: 'qr',           label: 'QR Code',       match: ['qr'] },
+  { key: 'qr',           label: 'QR Code',       match: ['qr', 'qrCode'] },
+  { key: 'accentShape',  label: 'Decorative Accent', match: ['accentShape'] },
 ]
 
 // elementTypes created via the "+ Add Element" menu (Issue 4) — not part of
@@ -114,8 +117,20 @@ const CUSTOM_ELEMENT_LABELS = {
   customImage:  'Image',
   sticker:      'Icon/Sticker',
   decorativeShape: 'Decorative Shape',
+  accentShape:  'Accent Shape',
   motifIcon:    'Motif Icon',
 }
+
+// What the QR code should link to once the QR Generation module is wired
+// in — UI/state only for now, see qrDestination/qrCustomLink and the TODO
+// in addQRPlaceholder(). 'saveContact' is the sensible default for a
+// physical business card (scan → save the person to your phone).
+const QR_DESTINATIONS = [
+  { key: 'saveContact', label: 'Save Contact' },
+  { key: 'digitalCard',  label: 'Digital Card' },
+  { key: 'website',      label: 'Website' },
+  { key: 'customLink',   label: 'Custom Link' },
+]
 
 const STICKER_ICONS = [
   { key: 'star', Icon: Star },
@@ -158,9 +173,9 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   const suppressDirtyRef = useRef(true)
 
   const [activeFace, setActiveFace] = useState('front')
-  const [hasBack, setHasBack]       = useState(!!savedBack || setup.includeBack || false)
+  // Every card has both sides by default — no session-level toggle for it.
+  const hasBack = true
   const [faceData, setFaceData]     = useState({ front: null, back: savedBack || null })
-  const [removeBackConfirm, setRemoveBackConfirm] = useState(false)
   const [viewingBoth, setViewingBoth] = useState(false)
   // Which face currently has the active selection while in View Both —
   // null when nothing is selected on either card. Drives the Properties
@@ -177,6 +192,11 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   const [exitDialog, setExitDialog]             = useState(null) // { scenario: 'new'|'existing', pendingAction: fn } | null
 
   const [activePanel, setActivePanel]   = useState(null)
+  // QR destination — UI/state only for now. TODO: once the QR generation
+  // module exists, pass { qrDestination, qrCustomLink } into it to produce
+  // the real encoded QR image in place of the placeholder box.
+  const [qrDestination, setQrDestination] = useState('saveContact') // 'saveContact' | 'digitalCard' | 'website' | 'customLink'
+  const [qrCustomLink, setQrCustomLink]   = useState('')
   const [addMenuFace, setAddMenuFace]   = useState(null) // 'front' | 'back' | null — which section's "+ Add Element" popover is open
   const [iconGridFace, setIconGridFace] = useState(null) // 'front' | 'back' | null — icon/sticker sub-picker
   const [selectedObj, setSelectedObj]   = useState(null)
@@ -247,7 +267,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       if (tmpl) {
         await tmpl.load(cv, profile, palette, w, h)
       } else {
-        cv.backgroundColor = '#ffffff'
+        await loadBlankFrontSide(cv)
       }
 
       // Add QR if enabled
@@ -260,6 +280,20 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     cv.renderAll()
     snapshot('front', cv)
     syncLayers(cv)
+
+    // Both sides must be populated with real data immediately on load —
+    // the back is never left blank until the user manually visits it.
+    // Built on a detached, off-DOM canvas so it doesn't disturb the live
+    // front canvas or require creating the secondary live canvas early.
+    if (!savedBack) {
+      const tempEl = document.createElement('canvas')
+      const tmp = new Canvas(tempEl, { width: w, height: h })
+      await populateBackSide(tmp)
+      tmp.renderAll()
+      const backJson = JSON.stringify(tmp.toObject(CUSTOM_FABRIC_PROPS))
+      tmp.dispose()
+      setFaceData((prev) => ({ ...prev, back: backJson }))
+    }
 
     // Events — this canvas always represents `activeFaceRef.current`
     // (read via ref, not the closed-over `activeFace`, since this handler
@@ -445,11 +479,6 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   // ── Switch face ────────────────────────────────────────────
   async function switchFace(newFace) {
     if (newFace === activeFace || !fabricRef.current) return
-    // Capture the front's look before we touch anything — needed both to
-    // persist the current face and (when creating a fresh back) to carry
-    // the background/heading font over to the new back face.
-    const outgoingBg = getEffectiveBackground(fabricRef.current)
-    const outgoingFont = findObjectByElementType(fabricRef.current, 'personName')?.fontFamily
     const currentJson = JSON.stringify(fabricRef.current.toObject(CUSTOM_FABRIC_PROPS))
     setFaceData((prev) => ({ ...prev, [activeFace]: currentJson }))
     // Load new face
@@ -467,12 +496,14 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       setIsRestoring(false)
       suppressDirtyRef.current = false
     } else if (newFace === 'back') {
-      populateBackSide(fabricRef.current, outgoingBg, outgoingFont)
+      await populateBackSide(fabricRef.current)
       fabricRef.current.renderAll()
       snapshot(newFace, fabricRef.current)
     } else {
+      const tmpl = templateId === 'blank' ? null : getTemplate(templateId)
       fabricRef.current.clear()
-      fabricRef.current.backgroundColor = '#ffffff'
+      if (tmpl) await tmpl.load(fabricRef.current, profile, palette, w, h)
+      else await loadBlankFrontSide(fabricRef.current)
       fabricRef.current.renderAll()
       snapshot(newFace, fabricRef.current)
     }
@@ -576,33 +607,48 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     }
   }
 
-  // Change 3 — auto-populate a freshly created back side: same background
-  // color as the front, a large geometric accent shape so it doesn't read
-  // as a flat unfinished block, a centered tagline (falling back to
-  // companyName) in the front's heading font, ink from the palette, and a
-  // corner motif icon. No logo, no contact details — those stay front-only
-  // unless the user adds them.
-  function populateBackSide(canvas, frontBg, frontFont) {
-    canvas.clear()
-    const bg = frontBg || '#ffffff'
-    canvas.backgroundColor = bg
-    // Large circle, bottom-right, partially off-card — a subtle but
-    // visible geometric anchor.
-    const circleR = h * 0.6
-    const circle = new Circle({
-      left: w - circleR * 0.5, top: h - circleR * 0.5,
-      radius: circleR,
-      fill: palette.primary,
-      opacity: 0.18,
-      selectable: true, evented: true,
-      originX: 'center', originY: 'center',
+  // Customise/blank canvas has no template to delegate to — front shows a
+  // centered logo + company name placeholder, back a plain contact layout,
+  // matching the same content model every real template follows.
+  async function loadBlankFrontSide(canvas) {
+    canvas.backgroundColor = palette.primary || '#f8f7f3'
+    const logoSize = 80
+    await addLogo(canvas, profile, w / 2 - logoSize / 2, h * 0.14, logoSize)
+    addText(canvas, f(profile, 'companyName'), {
+      left: 20, top: h * 0.14 + logoSize + 16, fontSize: 27, fontWeight: '800',
+      fill: palette.text || '#ffffff', fontFamily: 'Georgia, serif',
+      textAlign: 'center', width: w - 40,
+      opacity: isPlaceholder(profile, 'companyName') ? 0.4 : 1,
+      elementType: 'companyName',
     })
-    circle.elementType = 'decorativeShape'
-    canvas.add(circle)
-    addTaglineObject(canvas, frontFont)
-    // Accent-colored so it stays visible regardless of background — never
-    // the surface color, which can vanish against a same-tone background.
-    addMotifIcon(canvas, palette, w, h, 'bl')
+    addText(canvas, f(profile, 'tagline'), {
+      left: 20, top: h * 0.14 + logoSize + 54, fontSize: 13, fontStyle: 'italic',
+      fill: palette.text || '#ffffff', fontFamily: 'Inter, sans-serif',
+      textAlign: 'center', width: w - 40, opacity: 0.78,
+      elementType: 'tagline',
+    })
+    addAddressFooter(canvas, profile, w, h, { ink: palette.text || '#ffffff' })
+  }
+
+  async function loadBlankBackSide(canvas) {
+    await loadBackSide(canvas, profile, palette, w, h, {
+      bg: '#ffffff', ink: palette.textDark || '#1a1a1a', accentColor: palette.accent, qrSide: 'right', accentShape: 'circle',
+    })
+  }
+
+  // Populates a freshly created back side using the template's own
+  // `loadBack()` (personal contact info + QR, per the fixed back content
+  // model) when a real template is selected. Falls back to a generic
+  // contact layout for the blank/Customise canvas, which has no template
+  // to delegate to.
+  async function populateBackSide(canvas) {
+    canvas.clear()
+    const tmpl = templateId === 'blank' ? null : getTemplate(templateId)
+    if (tmpl?.loadBack) {
+      await tmpl.loadBack(canvas, profile, palette, w, h)
+    } else {
+      await loadBlankBackSide(canvas)
+    }
   }
 
   // Finds the front's heading font wherever it currently lives (the live
@@ -625,7 +671,6 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   // The actual Fabric.Canvas is instantiated in the effect below, once the
   // secondary <canvas> DOM node exists — entering here just flips the flag.
   function enterViewBoth() {
-    if (!hasBack) return
     setViewingBoth(true)
   }
 
@@ -686,39 +731,6 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   function goToFaceFromBoth(face) {
     exitViewBoth()
     switchFace(face)
-  }
-
-  // ── Back side management ───────────────────────────────────
-  // Works for every card, template-based or blank — back side is purely an
-  // editor-session concept, independent of how the front was created.
-  function addBackSide() {
-    setHasBack(true)
-    switchFace('back')
-  }
-
-  function removeBackSide() {
-    // Dispose the secondary View Both canvas WITHOUT syncing its content
-    // back to faceData — the back is being deleted, so there's nothing to
-    // preserve, and syncing here would just resurrect it after the
-    // faceData.back: null write below (both would land in the same batch).
-    if (secondaryFabricRef.current) { secondaryFabricRef.current.dispose(); secondaryFabricRef.current = null }
-    setViewBothSelectedFace(null)
-    setViewingBoth(false)
-    setFaceData((prev) => ({ ...prev, back: null }))
-    setHistory((prev) => ({ ...prev, back: [] }))
-    setHistIdx((prev) => ({ ...prev, back: -1 }))
-    setHasBack(false)
-    if (activeFace === 'back') {
-      setActiveFace('front')
-      if (fabricRef.current && faceData.front) {
-        fabricRef.current.loadFromJSON(JSON.parse(faceData.front)).then(() => {
-          normalizeLegacyOrigins(fabricRef.current)
-          fabricRef.current.renderAll()
-          syncLayers(fabricRef.current)
-        })
-      }
-    }
-    setRemoveBackConfirm(false)
   }
 
   // ── Undo / Redo ────────────────────────────────────────────
@@ -896,8 +908,9 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   }
 
   // ── Insert entered detail as text ──────────────────────────
-  function insertDetailText(value, fontSize = 14, elementType, face = activeFace) {
-    if (!fabricRef.current || !value) return
+  function insertDetailText(value, fontSize = 14, elementType, face = activeFace, cv2 = null) {
+    const canvas = cv2 || fabricRef.current
+    if (!canvas || !value) return
     const t = new Textbox(value, {
       left: 40, top: 40,
       fontSize, fontWeight: '600',
@@ -907,10 +920,10 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       originX: 'left', originY: 'top',
     })
     if (elementType) t.elementType = elementType
-    fabricRef.current.add(t)
-    fabricRef.current.setActiveObject(t)
-    fabricRef.current.renderAll()
-    snapshot(face, fabricRef.current)
+    canvas.add(t)
+    canvas.setActiveObject(t)
+    canvas.renderAll()
+    snapshot(face, canvas)
   }
 
   // ── Add shape ─────────────────────────────────────────────
@@ -975,7 +988,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       // Read straight off the live Fabric canvas (not the `layers` snapshot
       // state) so a toggle's checked state can never drift from what's
       // actually rendered — `layers` is kept in sync for other UI (the
-      // active-object highlight, qrExists) but the canvas itself is the
+      // active-object highlight) but the canvas itself is the
       // single source of truth for visibility.
       const objs = fabricRef.current ? fabricRef.current.getObjects() : []
       return { live: true, list: objs.map((obj) => ({ obj })) }
@@ -1069,63 +1082,67 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   }
 
   async function handleRowToggle(row, face) {
+    if (row.alwaysOn) return
     if (row.exists) {
       toggleObjectVisibility(row, face)
       return
     }
     if (!row.canAdd) return
-    if (face !== activeFace) await switchFace(face)
-    createElementForRow(row, face)
+    const cv2 = await resolveFaceCanvas(face)
+    createElementForRow(row, face, cv2)
   }
 
-  // `face` is threaded through instead of read from the activeFace closure
-  // because handleRowToggle may have just awaited switchFace() — the state
-  // variable is stale in this closure at that point.
-  function createElementForRow(row, face) {
-    if (row.key === 'qr') { addQRPlaceholder(face); return }
-    if (row.key === 'logo') { addProfileLogo(face); return }
+  function createElementForRow(row, face, cv2) {
+    if (!cv2) return
+    if (row.key === 'qr') { addQRPlaceholder(face, cv2); return }
+    if (row.key === 'logo') { addProfileLogo(face, cv2); return }
     if (row.key === 'tagline') {
-      if (!fabricRef.current) return
-      addTaglineObject(fabricRef.current, getFrontHeadingFont())
-      fabricRef.current.renderAll()
-      snapshot(face, fabricRef.current)
+      addTaglineObject(cv2, getFrontHeadingFont())
+      cv2.renderAll()
+      snapshot(face, cv2)
       return
     }
     if (row.profileKey && profile?.[row.profileKey]) {
       const sizes = { personName: 20, designation: 13, companyName: 13, phone: 12, email: 12, website: 12 }
-      insertDetailText(profile[row.profileKey], sizes[row.key] || 13, row.key, face)
+      insertDetailText(profile[row.profileKey], sizes[row.key] || 13, row.key, face, cv2)
     }
   }
 
   // Inserts the profile's own logo — distinct from the generic "Images"
   // panel upload, which adds arbitrary images without an elementType tag.
-  async function addProfileLogo(face = activeFace) {
-    if (!fabricRef.current || !profile?.logo) return
+  async function addProfileLogo(face = activeFace, cv2 = null) {
+    const canvas = cv2 || await resolveFaceCanvas(face)
+    if (!canvas || !profile?.logo) return
     try {
       const img = await FabricImage.fromURL(profile.logo, { crossOrigin: 'anonymous' })
       img.scaleToWidth(60)
       img.set({ left: w - 90, top: 18, originX: 'left', originY: 'top' })
       img.elementType = 'logo'
-      fabricRef.current.add(img)
-      fabricRef.current.setActiveObject(img)
-      fabricRef.current.renderAll()
-      snapshot(face, fabricRef.current)
+      canvas.add(img)
+      canvas.setActiveObject(img)
+      canvas.renderAll()
+      snapshot(face, canvas)
     } catch (_) {}
   }
 
   // ── "+ Add Element" menu (Issue 4) ─────────────────────────
-  // Every add-* function here takes the target face explicitly and passes
-  // it straight to snapshot() instead of reading the `activeFace` closure
-  // variable — after an awaited switchFace(), fabricRef.current already
-  // points at the new face's canvas, but the `activeFace` state variable
-  // itself hasn't re-rendered into this closure yet.
-  async function ensureFaceActive(face) {
+  // Resolves the live canvas for `face` without ever repointing which
+  // physical canvas (fabricRef vs the secondary) represents which face —
+  // calling switchFace() while View Both is active would reload fabricRef
+  // with a different face's content while the secondary canvas keeps
+  // showing what it had, desyncing which slot's label matches its actual
+  // content. Outside View Both this still switches faces exactly as before.
+  async function resolveFaceCanvas(face) {
+    if (viewingBoth) {
+      return face === activeFace ? fabricRef.current : secondaryFabricRef.current
+    }
     if (face !== activeFace) await switchFace(face)
+    return fabricRef.current
   }
 
   async function addTextBlock(face) {
-    await ensureFaceActive(face)
-    if (!fabricRef.current) return
+    const cv2 = await resolveFaceCanvas(face)
+    if (!cv2) return
     const t = new Textbox('Text', {
       left: w / 2 - 60, top: h / 2 - 12, width: 120,
       fontSize: 16, fontWeight: '500',
@@ -1134,15 +1151,15 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       originX: 'left', originY: 'top',
     })
     t.elementType = 'customText'
-    fabricRef.current.add(t)
-    fabricRef.current.setActiveObject(t)
-    fabricRef.current.renderAll()
-    snapshot(face, fabricRef.current)
+    cv2.add(t)
+    cv2.setActiveObject(t)
+    cv2.renderAll()
+    snapshot(face, cv2)
   }
 
   async function addSocialHandle(face) {
-    await ensureFaceActive(face)
-    if (!fabricRef.current) return
+    const cv2 = await resolveFaceCanvas(face)
+    if (!cv2) return
     const t = new Textbox('@yourhandle', {
       left: w / 2 - 60, top: h / 2 - 10, width: 120,
       fontSize: 13, fontWeight: '600',
@@ -1151,40 +1168,40 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       originX: 'left', originY: 'top',
     })
     t.elementType = 'socialHandle'
-    fabricRef.current.add(t)
-    fabricRef.current.setActiveObject(t)
-    fabricRef.current.renderAll()
-    snapshot(face, fabricRef.current)
+    cv2.add(t)
+    cv2.setActiveObject(t)
+    cv2.renderAll()
+    snapshot(face, cv2)
   }
 
   async function addDivider(face) {
-    await ensureFaceActive(face)
-    if (!fabricRef.current) return
+    const cv2 = await resolveFaceCanvas(face)
+    if (!cv2) return
     const line = new Line([0, 0, 140, 0], {
       left: w / 2 - 70, top: h / 2,
       stroke: palette.primary || '#334155', strokeWidth: 2,
       originX: 'left', originY: 'top',
     })
     line.elementType = 'divider'
-    fabricRef.current.add(line)
-    fabricRef.current.setActiveObject(line)
-    fabricRef.current.renderAll()
-    snapshot(face, fabricRef.current)
+    cv2.add(line)
+    cv2.setActiveObject(line)
+    cv2.renderAll()
+    snapshot(face, cv2)
   }
 
   async function addCustomImage(face, file) {
     if (!file) return
-    await ensureFaceActive(face)
-    if (!fabricRef.current) return
+    const cv2 = await resolveFaceCanvas(face)
+    if (!cv2) return
     const url = URL.createObjectURL(file)
     const img = await FabricImage.fromURL(url)
     img.scaleToWidth(Math.min(120, w / 3))
     img.set({ left: w / 2 - 60, top: h / 2 - 40, originX: 'left', originY: 'top' })
     img.elementType = 'customImage'
-    fabricRef.current.add(img)
-    fabricRef.current.setActiveObject(img)
-    fabricRef.current.renderAll()
-    snapshot(face, fabricRef.current)
+    cv2.add(img)
+    cv2.setActiveObject(img)
+    cv2.renderAll()
+    snapshot(face, cv2)
   }
 
   // Renders a Lucide icon to SVG markup and parses it into real Fabric
@@ -1192,8 +1209,8 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   // it draggable/resizable/recolorable like any other canvas object rather
   // than a static image.
   async function addStickerIcon(face, Icon) {
-    await ensureFaceActive(face)
-    if (!fabricRef.current) return
+    const cv2 = await resolveFaceCanvas(face)
+    if (!cv2) return
     const svgMarkup = renderToStaticMarkup(<Icon size={64} color={palette.primary || '#1a1a1a'} strokeWidth={1.5} />)
     const { objects, options } = await loadSVGFromString(svgMarkup)
     const parsed = (objects || []).filter(Boolean)
@@ -1201,10 +1218,10 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     const obj = parsed.length > 1 ? util.groupSVGElements(parsed, options) : parsed[0]
     obj.set({ left: w / 2 - 24, top: h / 2 - 24, originX: 'left', originY: 'top' })
     obj.elementType = 'sticker'
-    fabricRef.current.add(obj)
-    fabricRef.current.setActiveObject(obj)
-    fabricRef.current.renderAll()
-    snapshot(face, fabricRef.current)
+    cv2.add(obj)
+    cv2.setActiveObject(obj)
+    cv2.renderAll()
+    snapshot(face, cv2)
   }
 
   // Extra Elements-panel rows for anything added via "+ Add Element" — one
@@ -1214,8 +1231,9 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   function buildCustomRows(face) {
     const data = getFaceObjects(face)
     if (data === null) return []
+    const canonicalTypes = new Set((face === 'back' ? BACK_ELEMENT_ROWS : FRONT_ELEMENT_ROWS).flatMap((def) => def.match))
     return data.list
-      .filter(({ obj }) => obj.elementType && CUSTOM_ELEMENT_LABELS[obj.elementType])
+      .filter(({ obj }) => obj.elementType && CUSTOM_ELEMENT_LABELS[obj.elementType] && !canonicalTypes.has(obj.elementType))
       .map(({ obj, idx }, i) => ({
         key: `custom-${face}-${i}`,
         label: CUSTOM_ELEMENT_LABELS[obj.elementType],
@@ -1233,8 +1251,9 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   // `face` is passed explicitly by callers that just awaited switchFace()
   // — the activeFace closure variable is stale at that point — and decides
   // both the default position and which history bucket the snapshot lands in.
-  function addQRPlaceholder(face = activeFace) {
-    if (!fabricRef.current) return
+  function addQRPlaceholder(face = activeFace, cv2 = null) {
+    const canvas = cv2 || fabricRef.current
+    if (!canvas) return
     const size = 60
     // Positions are computed from the canvas dimensions, never hardcoded,
     // so they hold for every template, size and orientation: bottom-right
@@ -1258,27 +1277,43 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       left: pos.left, top: pos.top,
       originX: 'left', originY: 'top',
     })
-    group.elementType = 'qr'
-    fabricRef.current.add(group)
-    fabricRef.current.setActiveObject(group)
-    fabricRef.current.renderAll()
-    snapshot(face, fabricRef.current)
+    // TODO:
+    // Replace placeholder QR with generated QR from the QR Generation module.
+    // The selected destination (qrDestination) and custom URL (qrCustomLink)
+    // will be passed into that module in place of this static box.
+    group.elementType = 'qrCode'
+    canvas.add(group)
+    canvas.setActiveObject(group)
+    canvas.renderAll()
+    snapshot(face, canvas)
   }
 
-  function removeQRPlaceholder() {
-    if (!fabricRef.current) return
-    const obj = fabricRef.current.getObjects().find(isQRPlaceholderObj)
-    if (!obj) return
-    fabricRef.current.remove(obj)
-    fabricRef.current.discardActiveObject()
-    fabricRef.current.renderAll()
-    setSelectedObj(null)
-    snapshot(activeFace, fabricRef.current)
+  // Per-face existence check (read-only — never switches the active face,
+  // unlike resolveFaceCanvas) so the QR panel can label its two buttons
+  // "Add to Front"/"Remove from Front" and "Add to Back"/"Remove from Back"
+  // independently of which face is currently being edited.
+  function faceHasQR(face) {
+    const data = getFaceObjects(face)
+    if (!data) return false
+    return data.list.some(({ obj }) => isQRPlaceholderObj(obj))
   }
 
-  function toggleQRPlaceholder() {
-    if (qrExists) removeQRPlaceholder()
-    else addQRPlaceholder()
+  // Toggles the QR placeholder on a specific face regardless of which face
+  // is currently active — resolveFaceCanvas switches to it first if needed
+  // (same navigation behavior every other "+ Add Element" action uses).
+  async function toggleQRForFace(face) {
+    const canvas = await resolveFaceCanvas(face)
+    if (!canvas) return
+    const obj = canvas.getObjects().find(isQRPlaceholderObj)
+    if (obj) {
+      canvas.remove(obj)
+      canvas.discardActiveObject()
+      canvas.renderAll()
+      setSelectedObj(null)
+      snapshot(face, canvas)
+    } else {
+      addQRPlaceholder(face, canvas)
+    }
   }
 
   // Moves the selected QR placeholder to the other face: remove here,
@@ -1286,15 +1321,16 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   // The QR is just a placeholder box, so recreating it is equivalent to
   // moving it — there's no unique state to carry across.
   async function moveQRToFace(targetFace) {
-    const obj = fabricRef.current?.getActiveObject()
-    if (!obj || !fabricRef.current || targetFace === activeFace) return
-    fabricRef.current.remove(obj)
-    fabricRef.current.discardActiveObject()
-    fabricRef.current.renderAll()
+    const sourceCanvas = getActiveCanvas()
+    const obj = sourceCanvas?.getActiveObject()
+    const sourceFace = getActiveEditFace()
+    if (!obj || !sourceCanvas || targetFace === sourceFace) return
+    sourceCanvas.remove(obj)
+    sourceCanvas.discardActiveObject()
+    sourceCanvas.renderAll()
     setSelectedObj(null)
-    if (targetFace === 'back' && !hasBack) setHasBack(true)
-    await switchFace(targetFace)
-    addQRPlaceholder(targetFace)
+    const targetCanvas = await resolveFaceCanvas(targetFace)
+    addQRPlaceholder(targetFace, targetCanvas)
   }
 
   // ── Change 5 property helpers ──────────────────────────────
@@ -1467,7 +1503,6 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
 
   const canUndo = histIdx[activeFace] > 0
   const canRedo = histIdx[activeFace] < (history[activeFace]?.length || 0) - 1
-  const qrExists = layers.some(isQRPlaceholderObj)
 
   // "+ Add Element" popover — a button that expands into the five element
   // types, plus a nested icon grid for the Icon/Sticker option.
@@ -1744,24 +1779,65 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
                 </div>
               )}
 
-              {/* QR — visual placeholder only, no real QR generation yet */}
+              {/* QR — visual placeholder only, no real QR generation yet.
+                  TODO: once the QR Generation module exists, feed it
+                  { qrDestination, qrCustomLink } and swap this static box
+                  for the real encoded image — see addQRPlaceholder(). */}
               {activePanel === 'qr' && (
                 <div className="bce-lsec">
                   <div className="bce-lsec-label">QR Code</div>
                   <div className="bce-qr-placeholder-box">
                     <QrCode size={26} color="var(--muted)" />
                   </div>
+
+                  <p className="bce-qr-section-label">Links to</p>
+                  <div className="bce-qr-dest-options">
+                    {QR_DESTINATIONS.map(({ key, label }) => (
+                      <label key={key} className="bce-qr-dest-option">
+                        <input
+                          type="radio"
+                          name="qrDestination"
+                          value={key}
+                          checked={qrDestination === key}
+                          onChange={() => setQrDestination(key)}
+                        />
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {qrDestination === 'customLink' && (
+                    <input
+                      type="text"
+                      className="bce-input"
+                      style={{ width: '100%', marginTop: 8, marginBottom: 4 }}
+                      placeholder="https://..."
+                      value={qrCustomLink}
+                      onChange={(e) => setQrCustomLink(e.target.value)}
+                    />
+                  )}
+
                   <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, margin: '10px 0 14px' }}>
                     QR code will link to your digital card
                   </p>
+
                   <button
                     type="button"
-                    className={qrExists ? 'secondary-button' : 'primary-button'}
-                    style={{ width: '100%', fontSize: 13, marginBottom: 10 }}
-                    onClick={toggleQRPlaceholder}
+                    className={faceHasQR('front') ? 'secondary-button' : 'primary-button'}
+                    style={{ width: '100%', fontSize: 13, marginBottom: 8 }}
+                    onClick={() => toggleQRForFace('front')}
                   >
-                    {qrExists ? 'Remove QR' : `Add to ${activeFace === 'back' ? 'Back' : 'Front'}`}
+                    {faceHasQR('front') ? 'Remove from Front' : 'Add to Front'}
                   </button>
+                  <button
+                    type="button"
+                    className={faceHasQR('back') ? 'secondary-button' : 'primary-button'}
+                    style={{ width: '100%', fontSize: 13, marginBottom: 10 }}
+                    onClick={() => toggleQRForFace('back')}
+                  >
+                    {faceHasQR('back') ? 'Remove from Back' : 'Add to Back'}
+                  </button>
+
                   <p className="bce-qr-coming-soon">Placeholder only — no QR generated yet</p>
                 </div>
               )}
@@ -1769,7 +1845,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
               {/* Elements — canonical FRONT + BACK checklists, always both visible */}
               {activePanel === 'elements' && (
                 <div className="bce-lsec">
-                  <div className="bce-lsec-label">FRONT</div>
+                  <div className={`bce-lsec-label${viewingBoth && viewBothSelectedFace === 'front' ? ' active-face' : ''}`}>FRONT</div>
                   {buildElementRows('front', FRONT_ELEMENT_ROWS).map((row) => (
                     <div
                       key={row.key}
@@ -1815,10 +1891,8 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
                   ))}
                   {renderAddElementMenu('front')}
 
-                  <div className="bce-lsec-label" style={{ marginTop: 18 }}>BACK</div>
-                  {hasBack ? (
-                    <>
-                      {buildElementRows('back', BACK_ELEMENT_ROWS).map((row) => (
+                  <div className={`bce-lsec-label${viewingBoth && viewBothSelectedFace === 'back' ? ' active-face' : ''}`} style={{ marginTop: 18 }}>BACK</div>
+                  {buildElementRows('back', BACK_ELEMENT_ROWS).map((row) => (
                         <div
                           key={row.key}
                           className={`bce-layer-item${row.live && selectedObj && selectedObj === row.obj ? ' active' : ''}`}
@@ -1831,11 +1905,11 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
                           >
                             {row.label}
                           </span>
-                          <label className="bc-switch" title={row.exists && row.visible ? 'Hide on canvas' : 'Show on canvas'}>
+                          <label className="bc-switch" title={row.alwaysOn ? 'Always shown' : row.exists && row.visible ? 'Hide on canvas' : 'Show on canvas'}>
                             <input
                               type="checkbox"
                               checked={row.exists && row.visible}
-                              disabled={!row.exists && !row.canAdd}
+                              disabled={row.alwaysOn || (!row.exists && !row.canAdd)}
                               onChange={() => handleRowToggle(row, 'back')}
                             />
                             <span className="bc-switch-track" />
@@ -1861,18 +1935,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
                           </label>
                         </div>
                       ))}
-                      {renderAddElementMenu('back')}
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      style={{ width: '100%', fontSize: 13, marginTop: 6 }}
-                      onClick={addBackSide}
-                    >
-                      + Add Back Side
-                    </button>
-                  )}
+                  {renderAddElementMenu('back')}
                 </div>
               )}
 
@@ -2342,45 +2405,21 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
           >
             Front Side
           </button>
-          {hasBack && (
-            <button
-              type="button"
-              className={`bce-face-tab${!viewingBoth && activeFace === 'back' ? ' active' : ''}`}
-              onClick={() => goToFaceFromBoth('back')}
-            >
-              Back Side
-            </button>
-          )}
-          {hasBack && (
-            <button
-              type="button"
-              className={`bce-face-tab${viewingBoth ? ' active' : ''}`}
-              onClick={() => (viewingBoth ? exitViewBoth() : enterViewBoth())}
-            >
-              View Both
-            </button>
-          )}
+          <button
+            type="button"
+            className={`bce-face-tab${!viewingBoth && activeFace === 'back' ? ' active' : ''}`}
+            onClick={() => goToFaceFromBoth('back')}
+          >
+            Back Side
+          </button>
+          <button
+            type="button"
+            className={`bce-face-tab${viewingBoth ? ' active' : ''}`}
+            onClick={() => (viewingBoth ? exitViewBoth() : enterViewBoth())}
+          >
+            View Both
+          </button>
         </div>
-
-        {hasBack ? (
-          <button
-            type="button"
-            className="secondary-button"
-            style={{ padding: '7px 14px', fontSize: 13 }}
-            onClick={() => setRemoveBackConfirm(true)}
-          >
-            Remove Back Side
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="secondary-button"
-            style={{ padding: '7px 14px', fontSize: 13 }}
-            onClick={addBackSide}
-          >
-            + Add Back Side
-          </button>
-        )}
 
         <div className="bce-bottombar-space" />
 
@@ -2391,23 +2430,6 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
           <button type="button" className="bce-zoom-btn" onClick={zoomIn}>+</button>
         </div>
       </div>
-
-      {removeBackConfirm && (
-        <div className="bc-confirm-overlay">
-          <div className="bc-confirm-box">
-            <h3>Remove Back Side?</h3>
-            <p>This will permanently delete everything on the back of this card.</p>
-            <div className="bc-confirm-actions">
-              <button type="button" className="secondary-button" onClick={() => setRemoveBackConfirm(false)}>
-                Cancel
-              </button>
-              <button type="button" className="primary-button danger-button" onClick={removeBackSide}>
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {exitDialog && (
         <div className="bc-confirm-overlay">
