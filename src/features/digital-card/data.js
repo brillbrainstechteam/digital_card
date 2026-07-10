@@ -9,6 +9,7 @@ export const BUTTON_LABEL_DEFAULTS = {
   website: 'Website',
   saveContact: 'Save Contact',
   subscribe: 'Subscribe',
+  googleMaps: 'Get Directions',
 }
 
 export const PRESET_DEFAULTS = {
@@ -29,6 +30,7 @@ export const PRESET_DEFAULTS = {
     showSocialLinks: true,
     showWebsite: true,
     showSubscribe: false,
+    showGoogleMaps: false,
   },
   professional: {
     showLogo: true,
@@ -47,6 +49,7 @@ export const PRESET_DEFAULTS = {
     showSocialLinks: true,
     showWebsite: true,
     showSubscribe: false,
+    showGoogleMaps: false,
   },
   business: {
     showLogo: true,
@@ -65,6 +68,7 @@ export const PRESET_DEFAULTS = {
     showSocialLinks: true,
     showWebsite: true,
     showSubscribe: false,
+    showGoogleMaps: false,
   },
 }
 
@@ -88,6 +92,7 @@ export const defaultProfile = {
   website: 'brillbrainsconsultants.com',
   whatsapp: '+918104258910',
   location: 'India',
+  googleMapsUrl: '',
   buttonLabels: {
     call: 'Call',
     email: 'Email',
@@ -95,6 +100,7 @@ export const defaultProfile = {
     website: 'Website',
     saveContact: 'Save Contact',
     subscribe: 'Subscribe',
+    googleMaps: 'Get Directions',
   },
   fontFamily: 'Inter, system-ui, sans-serif',
   typography: {
@@ -107,6 +113,7 @@ export const defaultProfile = {
     buttonLabels: 'Inter, system-ui, sans-serif',
     footerText: 'Inter, system-ui, sans-serif',
     website: 'Inter, system-ui, sans-serif',
+    googleMaps: 'Inter, system-ui, sans-serif',
   },
   logo: '/brillbrains-logo.jpg',
   logoSource: '/brillbrains-logo.jpg',

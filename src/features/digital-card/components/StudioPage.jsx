@@ -2,9 +2,10 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { defaultProfile, getVisibilityFlags } from '../data'
 import { extractPaletteFromLogo, detectBackdrop, rgbToHex } from '../theme'
-import { fetchCard, updateCard, uploadLogo } from '../api'
+import { fetchCard, updateCard, uploadLogo } from '../services/api'
 import { useHistory } from '../hooks/useHistory'
-import { useToast } from '../context/ToastContext'
+import { useToast } from '../../../context/ToastContext'
+import { createDefaultQrSettings, fetchCardQr, saveCardQr, removeCardQr, QrIntegrationPanel } from '../../qr'
 import { Studio } from './Studio'
 
 function ConfirmModal({ message, confirmLabel = 'OK', cancelLabel = 'Cancel', onConfirm, onCancel }) {
@@ -87,6 +88,10 @@ export function StudioPage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [pendingLogoTheme, setPendingLogoTheme] = useState(null)
   const [confirmModal, setConfirmModal] = useState(null)
+  const [qr, setQr] = useState(null)
+  const [qrModalOpen, setQrModalOpen] = useState(false)
+  const [qrDraftSettings, setQrDraftSettings] = useState(null)
+  const [qrSaving, setQrSaving] = useState(false)
   const initialProfileRef = useRef(null)
   const savedSnapshotRef = useRef('')
   const liveEditSnapshotRef = useRef(null)
@@ -143,6 +148,8 @@ export function StudioPage() {
         navigate('/dashboard', { replace: true })
       })
       .finally(() => setLoading(false))
+
+    fetchCardQr(cardId).then(setQr).catch(() => setQr(null))
   }, [cardId])
 
   const handleSave = useCallback(async () => {
@@ -418,6 +425,80 @@ export function StudioPage() {
 
   const publicUrl = cardSlug ? `${window.location.origin}/card/${cardSlug}` : null
 
+  // Requirement: creating a QR from a Digital Card should need zero manual
+  // setup — brand colors, logo, and destination are all pre-filled from the
+  // card itself. The user can still change any of it afterwards.
+  function buildAutoQrSettings() {
+    const base = createDefaultQrSettings()
+    return {
+      ...base,
+      destinationType: 'digitalCard',
+      destinationFields: { url: publicUrl || '' },
+      foreground: editorProfile.palette?.primary || base.foreground,
+      background: editorProfile.palette?.surface || base.background,
+      logo: editorProfile.logo || null,
+    }
+  }
+
+  // Only the "Save Contact" destination has card-derived defaults worth
+  // prefilling — everything else falls back to the QR module's own blank
+  // defaults (returning undefined signals "use the generic default").
+  function getCardDefaultFields(type) {
+    if (type === 'digitalCard') return { url: publicUrl || '' }
+    if (type === 'saveContact') {
+      return {
+        fullName: editorProfile.personName || editorProfile.brandName || '',
+        companyName: editorProfile.companyName || '',
+        designation: editorProfile.designation || '',
+        phone: editorProfile.phone || '',
+        phone2: '',
+        phone3: '',
+        email: editorProfile.email || '',
+        website: editorProfile.website || '',
+        address: editorProfile.location || '',
+      }
+    }
+    return undefined
+  }
+
+  function openQrModal() {
+    setQrDraftSettings(qr ? qr.settings : buildAutoQrSettings())
+    setQrModalOpen(true)
+  }
+
+  function closeQrModal() {
+    setQrModalOpen(false)
+    setQrDraftSettings(null)
+  }
+
+  async function handleSaveQr() {
+    setQrSaving(true)
+    try {
+      const saved = await saveCardQr(cardId, qrDraftSettings)
+      setQr(saved)
+      toast.success('QR code saved')
+      closeQrModal()
+    } catch (err) {
+      toast.error(err.message || 'Could not save QR code')
+    } finally {
+      setQrSaving(false)
+    }
+  }
+
+  async function handleRemoveQr() {
+    setQrSaving(true)
+    try {
+      await removeCardQr(cardId)
+      setQr(null)
+      toast.success('QR code removed')
+      closeQrModal()
+    } catch (err) {
+      toast.error(err.message || 'Could not remove QR code')
+    } finally {
+      setQrSaving(false)
+    }
+  }
+
   if (loading || !editorProfile) {
     return (
       <main className="studio">
@@ -501,6 +582,27 @@ export function StudioPage() {
           onCancel={confirmModal.onCancel}
         />
       )}
+      {qrModalOpen && qrDraftSettings && (
+        <div className="confirm-overlay" onClick={closeQrModal}>
+          <div className="qr-integration-dialog" onClick={(e) => e.stopPropagation()}>
+            <h2>{qr ? 'Edit QR Code' : 'Add QR Code'}</h2>
+            <p>Customize the QR code for this card. It appears automatically on the public view once saved.</p>
+            <QrIntegrationPanel
+              settings={qrDraftSettings}
+              onSettingsChange={setQrDraftSettings}
+              brandTheme={editorProfile.palette}
+              getDefaultFields={getCardDefaultFields}
+              onSave={handleSaveQr}
+              onRemove={qr ? handleRemoveQr : undefined}
+              saving={qrSaving}
+              isExisting={Boolean(qr)}
+            />
+            <button type="button" className="secondary-button qr-integration-close" onClick={closeQrModal}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
       <Studio
           profile={editorProfile}
           setProfile={setEditorProfile}
@@ -512,6 +614,8 @@ export function StudioPage() {
       onCoverConfirm={handleCoverConfirm}
       paletteStatus={paletteStatus}
       onReset={resetSample}
+      hasQrCode={Boolean(qr)}
+      onOpenQrCode={openQrModal}
       onPublicView={() => {
         if (hasUnsavedChanges) {
           setConfirmModal({

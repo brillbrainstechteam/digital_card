@@ -1,0 +1,287 @@
+/* QR Studio — styles scoped to the features/qr module. Reuses the host
+   app's existing design tokens (--navy, --muted, --line) so QR Studio,
+   Digital Cards, and any future product stay visually consistent without
+   this module importing anything from the Digital Card feature. */
+
+.qr-destination-picker,
+.qr-customization-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.qr-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.qr-field select,
+.qr-field input[type='text'],
+.qr-field input[type='email'],
+.qr-field input[type='tel'] {
+  background: #fbfaf8;
+  border: 1px solid #e8e5df;
+  border-radius: 10px;
+  color: var(--navy);
+  font-size: 13px;
+  padding: 10px 12px;
+}
+
+.qr-field-label {
+  color: #687679;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.qr-field--inline {
+  align-items: center;
+  flex-direction: row;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.qr-field--inline input[type='color'] {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  height: 32px;
+  padding: 2px;
+  width: 48px;
+}
+
+.qr-field--checkbox {
+  align-items: center;
+  flex-direction: row;
+  gap: 8px;
+}
+
+.qr-section {
+  border-top: 1px solid #f2efe9;
+  padding-top: 14px;
+}
+
+.qr-section:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.qr-section-title {
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0 0 10px;
+}
+
+.qr-preset-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.qr-preset-btn {
+  background: #f7f5f0;
+  border: 1px solid #e8e5df;
+  border-radius: 10px;
+  color: var(--navy);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 9px 10px;
+}
+
+.qr-preset-btn:hover:not(:disabled) {
+  background: #efece5;
+}
+
+.qr-preset-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.qr-apply-brand-btn {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.qr-gradient-type-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.qr-gradient-type-btn {
+  background: #f7f5f0;
+  border: 1px solid #e8e5df;
+  border-radius: 999px;
+  color: var(--navy);
+  cursor: pointer;
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 10px;
+}
+
+.qr-gradient-type-btn.active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+
+.qr-logo-preview-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.qr-logo-thumb {
+  background: #f4f2ed;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  height: 44px;
+  object-fit: contain;
+  padding: 4px;
+  width: 44px;
+}
+
+.qr-upload-btn {
+  background: #f7f5f0;
+  border: 1px dashed #cfcabf;
+  border-radius: 10px;
+  color: var(--navy);
+  cursor: pointer;
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 14px;
+  text-align: center;
+  width: 100%;
+}
+
+.qr-preview-canvas {
+  align-items: center;
+  background: #fbfaf8;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+.qr-code-surface {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
+
+.qr-code-surface svg,
+.qr-code-surface canvas {
+  height: 100% !important;
+  max-width: 100%;
+  width: 100% !important;
+}
+
+.qr-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.qr-warning-item {
+  align-items: flex-start;
+  background: #fff7e6;
+  border: 1px solid #f2d896;
+  border-radius: 10px;
+  color: #7a5b00;
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.qr-warning-icon {
+  flex: none;
+}
+
+.qr-download-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.qr-download-row button {
+  flex: 1;
+  min-width: 120px;
+}
+
+/* Generic "Add/Edit QR Code" integration panel — embedded by any product
+   editor (Digital Card today, Business Card later) via <QrIntegrationPanel>. */
+.qr-integration-dialog {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.2);
+  max-height: 88vh;
+  max-width: 780px;
+  overflow-y: auto;
+  padding: 28px;
+  width: 100%;
+}
+
+.qr-integration-dialog h2 {
+  color: var(--navy);
+  margin-bottom: 6px;
+}
+
+.qr-integration-dialog > p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.qr-integration-close {
+  margin-top: 16px;
+  width: 100%;
+}
+
+.qr-integration-columns {
+  display: grid;
+  gap: 28px;
+  grid-template-columns: minmax(280px, 1fr) minmax(220px, 260px);
+}
+
+.qr-integration-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.qr-integration-preview {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+}
+
+.qr-integration-actions {
+  border-top: 1px solid #efece5;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 20px;
+}
+
+@media (max-width: 720px) {
+  .qr-integration-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .qr-integration-preview {
+    position: static;
+  }
+}

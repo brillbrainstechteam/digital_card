@@ -1,4 +1,4 @@
-import client from './api/client'
+import client from '../../../api/client'
 
 export async function fetchCards() {
   const { data } = await client.get('/cards')

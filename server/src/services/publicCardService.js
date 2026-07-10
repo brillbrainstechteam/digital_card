@@ -11,7 +11,16 @@ async function getPublishedCardBySlug(slug) {
     throw new AppError('Card not found', 404)
   }
 
-  return result.rows[0]
+  const card = result.rows[0]
+
+  const qrResult = await pool.query(
+    'SELECT slug, settings FROM qr_codes WHERE card_id = $1',
+    [card.id]
+  )
+  card.qr_settings = qrResult.rows[0]?.settings || null
+  card.qr_slug = qrResult.rows[0]?.slug || null
+
+  return card
 }
 
 module.exports = { getPublishedCardBySlug }

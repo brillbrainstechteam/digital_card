@@ -339,6 +339,64 @@
   justify-content: center;
 }
 
+.qr-showcase {
+  align-items: center;
+  box-sizing: border-box;
+  display: grid;
+  gap: clamp(42px, 7vw, 90px);
+  grid-template-columns: minmax(390px, 1fr) minmax(320px, 420px);
+  margin: 0 auto;
+  max-width: 1250px;
+  padding: clamp(60px, 8vw, 110px) clamp(24px, 6vw, 64px);
+}
+
+.qr-showcase-copy {
+  max-width: 640px;
+}
+
+.qr-showcase-copy h2 {
+  color: var(--navy);
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(38px, 4.4vw, 54px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin-bottom: 18px;
+}
+
+.qr-showcase-description {
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.qr-showcase-grid {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+.qr-showcase-card {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 20px 44px rgba(28, 36, 36, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.qr-showcase-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .profile-card {
   --brand-primary: #155e75;
   --brand-accent: #e2a454;
@@ -515,21 +573,78 @@
   grid-column: 1 / -1;
 }
 
+.footer-text-actions {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 18px;
+  justify-content: center;
+  width: 100%;
+}
+
 .subscribe-text-action {
   background: transparent;
   border: 0;
-  color: var(--theme-subscribe-button-text);
+  color: var(--theme-subscribe-button-text) !important;
   cursor: pointer;
+  display: inline-flex;
   font-family: var(--font-button-labels);
   font-size: 12px;
   font-weight: 700;
   min-height: 28px;
   padding: 2px 0;
   text-decoration: none;
+  transition: color 1ms linear;
+  white-space: nowrap;
 }
 
 .subscribe-text-action:hover {
   background: transparent;
+}
+
+.google-maps-text-action {
+  background: transparent;
+  border: 0;
+  color: var(--theme-google-maps-button-text) !important;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--font-google-maps);
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 28px;
+  padding: 2px 0;
+  text-decoration: none;
+  transition: color 1ms linear;
+  white-space: nowrap;
+}
+
+.google-maps-text-action:hover {
+  background: transparent;
+}
+
+.public-view-qr-badge {
+  bottom: 28px;
+  position: fixed;
+  right: 28px;
+  z-index: 100;
+}
+
+.public-view-qr-badge .qr-code-surface {
+  height: 180px;
+  width: 180px;
+}
+
+@media (max-width: 640px) {
+  .public-view-qr-badge {
+    bottom: 16px;
+    right: 16px;
+  }
+
+  .public-view-qr-badge .qr-code-surface {
+    height: 130px;
+    width: 88px;
+  }
 }
 
 .quick-actions .quick-action-call {
@@ -2563,6 +2678,7 @@
 
 @media (max-width: 1040px) {
   .landing,
+  .qr-showcase,
   .studio {
     display: flex;
     flex-direction: column;
@@ -2572,11 +2688,17 @@
     min-height: 0;
   }
 
-  .hero-copy {
+  .hero-copy,
+  .qr-showcase-copy {
     text-align: center;
   }
 
-  .hero-description {
+  .qr-showcase-copy {
+    margin: 0 auto;
+  }
+
+  .hero-description,
+  .qr-showcase-description {
     margin-left: auto;
     margin-right: auto;
   }
@@ -2584,6 +2706,10 @@
   .hero-buttons,
   .feature-row {
     justify-content: center;
+  }
+
+  .qr-showcase-grid {
+    flex-wrap: wrap;
   }
 
   .preview-panel {
@@ -2621,12 +2747,21 @@
     display: none;
   }
 
-  .landing {
+  .landing,
+  .qr-showcase {
     padding: 42px 16px;
   }
 
   .hero-copy h1 {
     font-size: clamp(48px, 18vw, 64px);
+  }
+
+  .qr-showcase-grid {
+    gap: 10px;
+  }
+
+  .qr-showcase-card {
+    padding: 10px;
   }
 
   .hero-buttons,

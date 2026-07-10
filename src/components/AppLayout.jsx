@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Outlet, Link, useLocation } from 'react-router-dom'
+import { Outlet, Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export function AppLayout() {
@@ -30,7 +30,10 @@ export function AppLayout() {
           <img src="/logo.png" alt="BB" className="product-mark-icon" />
           <strong>Digital Card</strong>
         </Link>
-        <nav aria-label="Main navigation" />
+        <nav aria-label="Main navigation">
+          <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'active' : undefined}>Digital Cards</NavLink>
+          <NavLink to="/qr-studio" className={({ isActive }) => isActive ? 'active' : undefined}>QR Studio</NavLink>
+        </nav>
         {isAuthenticated ? (
           <div className="topbar-user">
             {user?.name && <span className="topbar-greeting">Hi, {user.name.split(' ')[0]}</span>}
