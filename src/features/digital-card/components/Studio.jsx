@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react'
 import { CardPreview } from './CardPreview'
-import { PageHeader } from './PageHeader'
-import { Sidebar } from './Sidebar'
+import { PageHeader } from '../../../components/PageHeader'
+import { Sidebar } from '../../../components/Sidebar'
 import { FONT_OPTIONS } from '../fontOptions'
 import { PRESET_DEFAULTS, getVisibilityFlags, ABOUT_MAX_LENGTH, BUTTON_LABEL_DEFAULTS, BUTTON_LABEL_MAX_LENGTH } from '../data'
 import { autoTextFor } from '../theme'
@@ -212,6 +212,7 @@ const COLOR_FIELD_GROUPS = {
     { key: 'saveContactButtonText', label: 'Save Contact Button Text' },
     { key: 'subscribeButtonText', label: 'Subscribe Text' },
     { key: 'websiteButtonText', label: 'Website Button Text' },
+    { key: 'googleMapsButtonText', label: 'Get Directions Text' },
   ],
   socials: [
     ...SOCIAL_PLATFORMS.map((p) => ({ key: `${p.key}Button`, label: p.label })),
@@ -706,6 +707,8 @@ export function Studio({
   canUndo,
   canRedo,
   onDiscard,
+  hasQrCode,
+  onOpenQrCode,
 }) {
   const [activePanel, setActivePanel] = useState('design')
   const commitTimerRef = useRef(null)
@@ -1306,7 +1309,45 @@ export function Studio({
                 </div>
               )}
             </div>
+
+            <div className="button-setting-row">
+              <label className="button-setting-toggle-row">
+                <span>Enable Google Maps</span>
+                <span className="switch">
+                  <input
+                    type="checkbox"
+                    checked={profile.showGoogleMaps === true}
+                    onChange={(event) => updateVisibility('showGoogleMaps', event.target.checked)}
+                  />
+                  <span />
+                </span>
+              </label>
+              {profile.showGoogleMaps === true && (
+                <div className="button-setting-expand">
+                  <Field
+                    {...liveControlProps}
+                    label="Google Maps URL"
+                    value={profile.googleMapsUrl}
+                    onChange={(value) => updateProfile('googleMapsUrl', value)}
+                  />
+                </div>
+              )}
+            </div>
           </div>
+        </section>
+        )}
+
+        {activePanel === 'design' && (
+        <section className="editor-section">
+          <h2>QR Code</h2>
+          <p className="settings-description">
+            {hasQrCode
+              ? 'Your QR code is live on this card\'s public view.'
+              : 'Add a branded QR code that appears on this card\'s public view.'}
+          </p>
+          <button type="button" className="primary-button" onClick={onOpenQrCode}>
+            {hasQrCode ? 'Edit QR Code' : 'Add QR Code'}
+          </button>
         </section>
         )}
 
@@ -1398,6 +1439,7 @@ export function Studio({
                 <ColorField {...liveControlProps} {...applyColorProps} label="Save Contact Button Text" value={profile.theme?.saveContactButtonText || autoTextFor(profile.theme?.saveContactButton || profile.palette.accent)} onChange={(value) => updateTheme('saveContactButtonText', value)} />
                 <ColorField {...liveControlProps} {...applyColorProps} label="Subscribe Text" value={profile.theme?.subscribeButtonText || profile.theme?.websiteButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('subscribeButtonText', value)} />
                 <ColorField {...liveControlProps} {...applyColorProps} label="Website Button Text" value={profile.theme?.websiteButtonText || autoTextFor(profile.theme?.websiteButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('websiteButtonText', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Get Directions Text" value={profile.theme?.googleMapsButtonText || profile.theme?.subscribeButtonText || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('googleMapsButtonText', value)} />
               </div>
             </div>
             <div className="customize-color-group">
@@ -1432,6 +1474,7 @@ export function Studio({
             <FontSelect {...liveControlProps} label="Button Labels" value={profile.typography?.buttonLabels || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('buttonLabels', value)} />
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Footer Text" value={profile.typography?.footerText || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('footerText', value)} />
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Website" value={profile.typography?.website || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('website', value)} />
+            <TypographyField {...liveControlProps} {...applyTypographyProps} label="Google Maps Button" value={profile.typography?.googleMaps || profile.typography?.buttonLabels || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('googleMaps', value)} />
           </div>
         </section>
         )}

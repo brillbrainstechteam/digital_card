@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { renderFaceThumbnail } from './canvasHelpers'
 import { getCardDimensions } from './bcTemplates'
-import './businessCard.css'
+import './features/business-card.css'
 
 // Clean, read-only view of a saved card's front (and back, if present) —
 // no Fabric editor handles/toolbars, just the finished design.

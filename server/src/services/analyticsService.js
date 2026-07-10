@@ -2,7 +2,7 @@ const { pool } = require('../config/database')
 const AppError = require('../utils/AppError')
 
 const BUTTON_TYPES = [
-  'call', 'email', 'whatsapp', 'website', 'save_contact',
+  'call', 'email', 'whatsapp', 'website', 'save_contact', 'google_maps',
   'instagram', 'facebook', 'linkedin', 'twitter', 'youtube',
   'telegram', 'tiktok', 'threads', 'soundcloud', 'pinterest',
   'patreon', 'twitch', 'apple_music', 'reddit', 'github',
@@ -115,13 +115,13 @@ async function getSummary(userId, cardId) {
   const cardIds = await getOwnedCardIds(userId, cardId)
   if (cardIds.length === 0) {
     return {
-      totalViews: 0, totalLeads: 0, totalButtonClicks: 0, totalSubscribers: 0,
+      totalViews: 0, totalLeads: 0, totalButtonClicks: 0, totalSubscribers: 0, totalQrScans: 0,
       conversionRate: 0, lastActivity: null, topPerformingAction: null,
       buttonClicks: Object.fromEntries(BUTTON_TYPES.map((t) => [t, 0])),
     }
   }
 
-  const [viewsRes, leadsRes, clicksRes, lastActivityRes, subscribersRes] = await Promise.all([
+  const [viewsRes, leadsRes, clicksRes, lastActivityRes, subscribersRes, qrScansRes] = await Promise.all([
     pool.query('SELECT COUNT(*)::int AS count FROM card_views WHERE card_id = ANY($1::uuid[])', [cardIds]),
     pool.query('SELECT COUNT(*)::int AS count FROM leads WHERE card_id = ANY($1::uuid[])', [cardIds]),
     pool.query(
@@ -130,11 +130,21 @@ async function getSummary(userId, cardId) {
     ),
     pool.query('SELECT MAX(created_at) AS last_activity FROM card_events WHERE card_id = ANY($1::uuid[])', [cardIds]),
     pool.query('SELECT COUNT(*)::int AS count FROM subscribers WHERE card_id = ANY($1::uuid[])', [cardIds]),
+    // QR scans feed the same funnel (scan → view → click → lead → subscriber)
+    // without double counting: a scan is its own event, distinct from the
+    // page view it leads to.
+    pool.query(
+      `SELECT COUNT(*)::int AS count FROM qr_scans s
+       JOIN qr_codes qr ON qr.id = s.qr_id
+       WHERE qr.card_id = ANY($1::uuid[])`,
+      [cardIds]
+    ),
   ])
 
   const totalViews = viewsRes.rows[0].count
   const totalLeads = leadsRes.rows[0].count
   const totalSubscribers = subscribersRes.rows[0].count
+  const totalQrScans = qrScansRes.rows[0].count
   const buttonClicks = Object.fromEntries(BUTTON_TYPES.map((t) => [t, 0]))
   let totalButtonClicks = 0
   let topCount = 0
@@ -149,7 +159,7 @@ async function getSummary(userId, cardId) {
   const conversionRate = totalViews > 0 ? Number((((totalLeads + totalSubscribers) / totalViews) * 100).toFixed(1)) : 0
 
   return {
-    totalViews, totalLeads, totalButtonClicks, totalSubscribers, conversionRate,
+    totalViews, totalLeads, totalButtonClicks, totalSubscribers, totalQrScans, conversionRate,
     lastActivity: lastActivityRes.rows[0].last_activity,
     topPerformingAction, buttonClicks,
   }
@@ -229,6 +239,8 @@ async function getActivity(userId, cardId, { search = '', dateRange = '', dateFr
     conditions.push("event_type = 'button_click'")
   } else if (eventType === 'leads') {
     conditions.push("event_type = 'lead_created'")
+  } else if (eventType === 'qr_scans') {
+    conditions.push("event_type = 'qr_scan'")
   }
 
   if (search) {

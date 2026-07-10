@@ -107,6 +107,7 @@ export function paletteVariables(palette, theme = {}) {
   const saveContactBg = theme.saveContactButton || palette.accent
   const subscribeBg = theme.subscribeButton || theme.primaryButton || palette.primary
   const websiteBg = theme.websiteButton || theme.primaryButton || palette.primary
+  const googleMapsText = theme.googleMapsButtonText || theme.subscribeButtonText || subscribeBg
 
   // Use user's ink color only when it meets WCAG AA contrast (4.5:1) against the surface.
   // Buttons always use auto-derived text so they stay legible regardless.
@@ -152,6 +153,7 @@ export function paletteVariables(palette, theme = {}) {
     '--theme-whatsapp-button-text': theme.whatsappButtonText || autoTextFor(whatsappBg),
     '--theme-save-contact-button-text': theme.saveContactButtonText || autoTextFor(saveContactBg),
     '--theme-subscribe-button-text': theme.subscribeButtonText || autoTextFor(subscribeBg),
+    '--theme-google-maps-button-text': googleMapsText,
     '--theme-website-button-text': theme.websiteButtonText || autoTextFor(websiteBg),
     '--theme-linkedin-button': theme.linkedinButton || theme.primaryButton || palette.primary,
     '--theme-instagram-button': theme.instagramButton || theme.primaryButton || palette.primary,

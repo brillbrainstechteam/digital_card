@@ -6,10 +6,10 @@ import { useToast } from '../context/ToastContext'
 import { isBusinessCard } from '../cardTypeUtils'
 import { PageHeader } from './PageHeader'
 import { Sidebar } from './Sidebar'
-import { renderSavedCardThumbnail, renderFaceThumbnail } from '../businessCard/canvasHelpers'
-import { CardPreviewScreen } from '../businessCard/CardPreviewScreen'
-import { getTemplate } from '../businessCard/bcTemplates'
-import '../businessCard/businessCard.css'
+import { renderSavedCardThumbnail, renderFaceThumbnail } from '../features/business-card/canvasHelpers'
+import { CardPreviewScreen } from '../features/business-card/CardPreviewScreen'
+import { getTemplate } from '../features/business-card/bcTemplates'
+import '../features/business-card/features/business-card.css'
 
 // Cards are created with a generic placeholder title ("Business Card").
 // Until the user renames one, show the template's own name instead so the

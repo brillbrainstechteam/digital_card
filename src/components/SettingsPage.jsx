@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchCards } from '../api'
+import { fetchCards } from '../features/digital-card/services/api'
 import { useAuth } from '../context/AuthContext'
 import { PageHeader } from './PageHeader'
 import { Sidebar } from './Sidebar'

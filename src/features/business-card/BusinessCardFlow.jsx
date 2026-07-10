@@ -4,8 +4,8 @@ import { fetchCard, createCard, updateCard, deleteCard } from '../api'
 import { DetailsForm }         from './DetailsForm'
 import { SetupDialog }         from './SetupDialog'
 import { TemplateGallery }     from './TemplateGallery'
-import { BusinessCardEditor }  from './BusinessCardEditor'
-import './businessCard.css'
+import { BusinessCardEditor }  from './features/business-cardEditor'
+import './features/business-card.css'
 
 // Steps: 'details' | 'gallery' | 'setup' | 'editor'
 // The 'new' cardId is a routing sentinel, not a real DB id — no card row

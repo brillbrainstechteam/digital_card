@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { fetchCards, fetchAnalyticsActivity } from '../api'
-import { PageHeader } from './PageHeader'
-import { Sidebar } from './Sidebar'
+import { fetchCards, fetchAnalyticsActivity } from '../services/api'
+import { PageHeader } from '../../../components/PageHeader'
+import { Sidebar } from '../../../components/Sidebar'
 import { formatEventLabel, timeAgo } from './AnalyticsPage'
 
 const PAGE_SIZE = 20
@@ -19,6 +19,7 @@ const DATE_OPTIONS = [
 const EVENT_TYPE_OPTIONS = [
   { value: '', label: 'All Activity' },
   { value: 'views', label: 'Views' },
+  { value: 'qr_scans', label: 'QR Scans' },
   { value: 'clicks', label: 'Button Clicks' },
   { value: 'leads', label: 'Leads' },
 ]

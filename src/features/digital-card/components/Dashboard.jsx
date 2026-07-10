@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchCards, deleteCard, unarchiveCard } from '../api'
-import { useToast } from '../context/ToastContext'
-import { isDigitalCard } from '../cardTypeUtils'
+
+import { fetchCards, deleteCard, unarchiveCard } from '../services/api'
+import { useToast } from '../../../context/ToastContext'
+import { isDigitalCard } from '../../../cardTypeUtils'
+
 import { SetupWizard } from './SetupWizard'
-import { PageHeader } from './PageHeader'
-import { Sidebar } from './Sidebar'
+import { PageHeader } from '../../../components/PageHeader'
+import { Sidebar } from '../../../components/Sidebar'
 
 function ConfirmDialog({ title, message, actionLabel, onCancel, onConfirm }) {
   return (

@@ -10,6 +10,8 @@ const cardRoutes = require('./routes/cardRoutes')
 const publicCardRoutes = require('./routes/publicCardRoutes')
 const analyticsRoutes = require('./routes/analyticsRoutes')
 const webhookRoutes = require('./routes/webhookRoutes')
+const qrRoutes = require('./routes/qrRoutes')
+const qrPublicRoutes = require('./routes/qrPublicRoutes')
 
 const app = express()
 
@@ -27,6 +29,8 @@ app.use('/api/auth', authRoutes)
 app.use('/api/cards', cardRoutes)
 app.use('/api/public/cards', publicCardRoutes)
 app.use('/api/analytics', analyticsRoutes)
+app.use('/api/qr', qrRoutes)
+app.use('/api/public/qr', qrPublicRoutes)
 app.use('/api/webhooks', webhookRoutes)
 
 app.use(notFound)

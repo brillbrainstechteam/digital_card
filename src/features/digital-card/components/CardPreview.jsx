@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { paletteVariables } from '../theme'
-import { trackButtonClick, submitCardLead, submitSubscriber } from '../api'
+import { trackButtonClick, submitCardLead, submitSubscriber } from '../services/api'
 import { BUTTON_LABEL_DEFAULTS } from '../data'
 
 function ActionIcon({ type }) {
@@ -314,6 +314,7 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
         '--font-button-labels': typography.buttonLabels || defaultFont,
         '--font-footer-text': typography.footerText || defaultFont,
         '--font-website': typography.website || defaultFont,
+        '--font-google-maps': typography.googleMaps || typography.buttonLabels || defaultFont,
       }}
     >
       {profile.showLogo !== false && (
@@ -409,10 +410,25 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
           </div>
         )}
 
-        {profile.showSubscribe && (
-          <button type="button" className="subscribe-text-action" onClick={() => setShowSubscribeModal(true)}>
-            Subscribe
-          </button>
+        {(profile.showSubscribe || (profile.showGoogleMaps && profile.googleMapsUrl)) && (
+          <div className="footer-text-actions">
+            {profile.showSubscribe && (
+              <button type="button" className="subscribe-text-action" onClick={() => setShowSubscribeModal(true)}>
+                {buttonLabels.subscribe}
+              </button>
+            )}
+            {profile.showGoogleMaps && profile.googleMapsUrl && (
+              <a
+                className="google-maps-text-action"
+                href={safeLink(profile.googleMapsUrl)}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => track('google_maps')}
+              >
+                {buttonLabels.googleMaps}
+              </a>
+            )}
+          </div>
         )}
 
         {profile.branding?.poweredBy !== false && (

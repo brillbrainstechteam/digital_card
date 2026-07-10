@@ -99,6 +99,42 @@ async function ensureSchema() {
   `)
   await pool.query('ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS subscribed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()')
   await pool.query('CREATE INDEX IF NOT EXISTS subscribers_card_id_idx ON subscribers (card_id)')
+
+  // qr_codes — one optional QR per card (enforced by the unique partial index
+  // below), owned by the user who created it. `settings` stores the full
+  // reusable QR settings object (features/qr's single source of truth) as-is.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS qr_codes (
+      id UUID PRIMARY KEY,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      card_id UUID REFERENCES cards(id) ON DELETE CASCADE,
+      slug TEXT NOT NULL UNIQUE,
+      settings JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('ALTER TABLE qr_codes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()')
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS qr_codes_card_id_unique ON qr_codes (card_id) WHERE card_id IS NOT NULL')
+  await pool.query('CREATE INDEX IF NOT EXISTS qr_codes_user_id_idx ON qr_codes (user_id)')
+
+  // qr_scans — one row per QR scan, used for both per-QR and per-card analytics.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS qr_scans (
+      id BIGSERIAL PRIMARY KEY,
+      qr_id UUID NOT NULL REFERENCES qr_codes(id) ON DELETE CASCADE,
+      visitor_hash TEXT,
+      device_type TEXT,
+      browser TEXT,
+      os TEXT,
+      country TEXT,
+      city TEXT,
+      referrer TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS qr_scans_qr_id_idx ON qr_scans (qr_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS qr_scans_created_at_idx ON qr_scans (created_at)')
 }
 
 module.exports = { pool, testConnection, ensureSchema }

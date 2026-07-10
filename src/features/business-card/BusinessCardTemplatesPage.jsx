@@ -4,8 +4,8 @@ import { createCard, updateCard, fetchCard } from '../api'
 import { TemplateGallery } from './TemplateGallery'
 import { SetupDialog } from './SetupDialog'
 import { DetailsForm } from './DetailsForm'
-import { BusinessCardEditor } from './BusinessCardEditor'
-import './businessCard.css'
+import { BusinessCardEditor } from './features/business-cardEditor'
+import './features/business-card.css'
 
 // Browse-first entry point: gallery (generic placeholders) -> details -> editor.
 // Mirrors BusinessCardFlow's "details first" order in reverse — the card

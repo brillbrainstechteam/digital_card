@@ -1,14 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchCards, fetchAnalytics, fetchAnalyticsLeads, fetchAnalyticsActivity, fetchAnalyticsSubscribers } from '../api'
-import { PageHeader } from './PageHeader'
-import { Sidebar } from './Sidebar'
+import { fetchCards, fetchAnalytics, fetchAnalyticsLeads, fetchAnalyticsActivity, fetchAnalyticsSubscribers } from '../services/api'
+import { PageHeader } from '../../../components/PageHeader'
+import { Sidebar } from '../../../components/Sidebar'
+import { fetchQrAnalytics, fetchOverallQrAnalytics } from '../../qr'
 
 const POLL_INTERVAL = 15000
 
 const BUTTON_LABELS = {
   call: 'Call', email: 'Email', whatsapp: 'WhatsApp',
-  website: 'Website', save_contact: 'Save Contact',
+  website: 'Website', save_contact: 'Save Contact', google_maps: 'Google Maps',
 }
 
 const SOCIAL_LABELS = {
@@ -23,11 +24,12 @@ const ALL_BUTTON_LABELS = { ...BUTTON_LABELS, ...SOCIAL_LABELS }
 
 const BUTTON_EVENT_ICONS = {
   call: '\u{1F4DE}', email: '✉️', whatsapp: '\u{1F4AC}',
-  website: '\u{1F310}', save_contact: '\u{1F4BE}',
+  website: '\u{1F310}', save_contact: '\u{1F4BE}', google_maps: '\u{1F4CD}',
 }
 
 export function formatEventLabel(event) {
   if (event.event_type === 'view') return { icon: '\u{1F440}', text: 'Card Viewed' }
+  if (event.event_type === 'qr_scan') return { icon: '\u{1F4F1}', text: 'QR Code Scanned' }
   if (event.event_type === 'lead_created') {
     const name = event.metadata?.visitor_name
     return { icon: '\u{1F4BE}', text: name ? `Contact Saved by ${name}` : 'Contact Saved' }
@@ -180,6 +182,7 @@ export function AnalyticsPage() {
   const [activity, setActivity] = useState([])
   const [subscribers, setSubscribers] = useState([])
   const [exportingSubscribers, setExportingSubscribers] = useState(false)
+  const [qrAnalytics, setQrAnalytics] = useState(null)
   const [loading, setLoading] = useState(true)
   const pollRef = useRef(null)
 
@@ -234,19 +237,21 @@ export function AnalyticsPage() {
   const loadAll = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const [summaryData, leadsData, activityData, subscribersData] = await Promise.all([
+      const [summaryData, leadsData, activityData, subscribersData, qrData] = await Promise.all([
         fetchAnalytics(selectedCardId),
         fetchAnalyticsLeads(selectedCardId, leadsParamsRef.current),
         fetchAnalyticsActivity(selectedCardId, { limit: 5 }),
         fetchAnalyticsSubscribers(selectedCardId, { limit: 5 }),
+        (selectedCardId === 'all' ? fetchOverallQrAnalytics() : fetchQrAnalytics({ cardId: selectedCardId })).catch(() => null),
       ])
       setSummary(summaryData)
       setLeads(leadsData.leads)
       setLeadsTotal(leadsData.total)
       setActivity(activityData.events || [])
       setSubscribers(subscribersData.subscribers || [])
+      setQrAnalytics(qrData)
     } catch {
-      if (!silent) { setSummary(null); setLeads([]); setLeadsTotal(0); setActivity([]); setSubscribers([]) }
+      if (!silent) { setSummary(null); setLeads([]); setLeadsTotal(0); setActivity([]); setSubscribers([]); setQrAnalytics(null) }
     } finally {
       if (!silent) setLoading(false)
     }
@@ -312,6 +317,7 @@ export function AnalyticsPage() {
           <div className="analytics-overview-grid">
             {[
               ['Total Views', summary.totalViews],
+              ['QR Scans', summary.totalQrScans ?? 0],
               ['Total Leads', summary.totalLeads],
               ['Total Subscribers', summary.totalSubscribers],
               ['Button Clicks', summary.totalButtonClicks],
@@ -341,6 +347,48 @@ export function AnalyticsPage() {
               </tbody>
             </table>
           </section>
+
+          {/* QR Code Performance */}
+          {qrAnalytics && qrAnalytics.totalScans > 0 && (
+            <section className="editor-section">
+              <h2>QR Code Performance</h2>
+              <div className="analytics-overview-grid">
+                <div className="analytics-overview-card"><span>Total Scans</span><strong>{qrAnalytics.totalScans}</strong></div>
+                <div className="analytics-overview-card"><span>Unique Scans</span><strong>{qrAnalytics.uniqueScans}</strong></div>
+              </div>
+              <div className="analytics-traffic-grid">
+                {Object.entries(qrAnalytics.deviceBreakdown).map(([device, count]) => (
+                  <div key={`device-${device}`}><span>{device}</span><strong>{count}</strong></div>
+                ))}
+                {Object.entries(qrAnalytics.browserBreakdown).map(([browser, count]) => (
+                  <div key={`browser-${browser}`}><span>{browser}</span><strong>{count}</strong></div>
+                ))}
+                {Object.entries(qrAnalytics.osBreakdown).map(([os, count]) => (
+                  <div key={`os-${os}`}><span>{os}</span><strong>{count}</strong></div>
+                ))}
+                {Object.entries(qrAnalytics.countryBreakdown).map(([country, count]) => (
+                  <div key={`country-${country}`}><span>{country}</span><strong>{count}</strong></div>
+                ))}
+              </div>
+              {qrAnalytics.recentScans.length > 0 && (
+                <table className="analytics-leads-table">
+                  <thead><tr><th>Scanned</th><th>Device</th><th>Browser</th><th>OS</th><th>Location</th><th>Referrer</th></tr></thead>
+                  <tbody>
+                    {qrAnalytics.recentScans.map((scan, i) => (
+                      <tr key={i}>
+                        <td>{timeAgo(scan.created_at)}</td>
+                        <td>{scan.device_type || '—'}</td>
+                        <td>{scan.browser || '—'}</td>
+                        <td>{scan.os || '—'}</td>
+                        <td>{[scan.city, scan.country].filter(Boolean).join(', ') || '—'}</td>
+                        <td>{scan.referrer || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+          )}
 
           {/* Social Performance */}
           {socialButtons.length > 0 && (

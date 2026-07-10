@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-// Each product gets its own dedicated nav — Digital Card and Business Card
-// are separate products and should never mix items in the same sidebar.
-const DIGITAL_ITEMS = [
-  { key: 'cards', label: 'Your Cards', path: '/dashboard' },
+const APP_ITEMS = [
+  { key: 'cards', label: 'Digital Cards', path: '/dashboard' },
+  { key: 'qrstudio', label: 'QR Studio', path: '/qr-studio' },
   { key: 'analytics', label: 'Analytics', path: '/analytics' },
   { key: 'activity', label: 'Activity', path: '/activity' },
   { key: 'settings', label: 'Settings', path: '/settings' },
@@ -53,7 +52,7 @@ export function Sidebar({
   const navigate = useNavigate()
   const [pendingPath, setPendingPath] = useState(null)
   const [busy, setBusy] = useState(false)
-  const appItems = product === 'business' ? BUSINESS_ITEMS : DIGITAL_ITEMS
+  const appItems = product === 'business' ? BUSINESS_ITEMS : APP_ITEMS
   const appGroupLabel = product === 'business' ? 'Business Card' : 'Digital Card'
 
   function handleAppNav(item) {
