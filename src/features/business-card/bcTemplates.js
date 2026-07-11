@@ -9,7 +9,7 @@
  * Fabric.js v7 API is used throughout.
  */
 import {
-  Textbox, Rect, Circle, Triangle, Line, FabricImage, Gradient, Polygon, Group,
+  Textbox, Rect, Circle, Line, FabricImage, Gradient, Polygon, Group,
 } from 'fabric'
 
 // ── Card dimensions ──────────────────────────────────────────────
@@ -155,14 +155,36 @@ function linearGrad(canvas, x1, y1, x2, y2, c1, c2) {
   })
 }
 
-// Logo now sits in a bordered white box — same visual treatment as the QR
-// placeholder (white fill, thin border, rounded corners) — instead of a
-// bare floating image, and shows a "LOGO" placeholder box when no logo has
-// been uploaded yet. The box's footprint always equals `size`×`size`, so
-// every template's surrounding layout math (company name position, etc.)
-// is unaffected regardless of whether a real logo or the placeholder renders.
-export async function addLogo(canvas, profile, x, y, size) {
+// Logo sits in a bordered white box by default — same visual treatment as
+// the QR placeholder (white fill, thin border, rounded corners) — instead
+// of a bare floating image, and shows a "LOGO" placeholder box when no logo
+// has been uploaded yet. Pass `{ bordered: false }` for templates that want
+// the raw logo image with no frame around it. The box's footprint always
+// equals `size`×`size`, so every template's surrounding layout math
+// (company name position, etc.) is unaffected regardless of whether a real
+// logo or the placeholder renders.
+export async function addLogo(canvas, profile, x, y, size, opts = {}) {
+  const { bordered = true } = opts
   const src = profile.logo || profile.logoSource
+
+  if (!bordered && src) {
+    try {
+      const img = await FabricImage.fromURL(src, { crossOrigin: 'anonymous' })
+      img.scaleToWidth(size)
+      if (img.getScaledHeight() > size) img.scaleToHeight(size)
+      img.set({
+        left: x + (size - img.getScaledWidth()) / 2,
+        top: y,
+        originX: 'left', originY: 'top',
+      })
+      img.elementType = 'logo'
+      canvas.add(img)
+    } catch {
+      // Logo failed to load (broken URL, CORS, etc.) — leave nothing behind.
+    }
+    return
+  }
+
   const box = new Rect({
     width: size, height: size, rx: 6, ry: 6,
     fill: '#ffffff', stroke: '#9a968d', strokeWidth: 1.5,
@@ -197,7 +219,9 @@ export async function addLogo(canvas, profile, x, y, size) {
     const group = new Group([box, img], { left: x, top: y, originX: 'left', originY: 'top' })
     group.elementType = 'logo'
     canvas.add(group)
-  } catch (_) {}
+  } catch {
+    // Logo failed to load (broken URL, CORS, etc.) — leave the box empty.
+  }
 }
 
 // ── Motif icon (corner watermark) ─────────────────────────────────
@@ -270,16 +294,6 @@ export function addAddressFooter(canvas, profile, w, h, opts = {}) {
   return group
 }
 
-// ── Contact line helper ──────────────────────────────────────────
-function contactLine(profile, fillColor) {
-  const parts = [
-    f(profile, 'phone'),
-    f(profile, 'email'),
-    f(profile, 'website'),
-  ].filter(Boolean)
-  return { text: parts.join('  ·  '), fill: fillColor }
-}
-
 // ── Shared BACK side layout ────────────────────────────────────────
 // Every template's back follows the same content structure (personal
 // contact block + QR, grouped on opposite sides) — templates differ only
@@ -288,35 +302,81 @@ function contactLine(profile, fillColor) {
 // than 10 bespoke ones.
 // Small round icon badge + label, used for phone/email/website rows so
 // they read as attractive contact "chips" rather than bare bullet text.
+// `center: true` centers the badge+text pair as a unit (used by the
+// centered/stacked qrPosition layouts) instead of the default left-aligned
+// row starting at `left`.
 function addContactRow(canvas, glyph, text, opts) {
-  const { left, top, width, ink, accentColor, elementType } = opts
-  const badgeR = 11
+  const { left, top, width, ink, accentColor, elementType, fontSize = 13, center = false } = opts
+  const badgeR = 13
   const badge = new Circle({
     left: 0, top: 0, radius: badgeR, fill: accentColor, opacity: 0.16,
     originX: 'left', originY: 'top', selectable: false, evented: false,
   })
   const icon = new Textbox(glyph, {
-    left: 0, top: badgeR - 8, width: badgeR * 2,
-    fontSize: 12, fill: accentColor, textAlign: 'center',
+    left: 0, top: badgeR - 9, width: badgeR * 2,
+    fontSize: 13, fill: accentColor, textAlign: 'center',
     fontFamily: 'Inter, sans-serif', originX: 'left', originY: 'top',
     selectable: false, evented: false,
   })
-  const group = new Group([badge, icon], { left, top: top - badgeR + 6, originX: 'left', originY: 'top' })
-  group.selectable = false
-  group.evented = false
-  canvas.add(group)
-  addText(canvas, text, {
-    left: left + badgeR * 2 + 8, top,
-    fontSize: 11.5, fill: ink, opacity: 0.9,
-    fontFamily: 'Inter, sans-serif', width: width - (badgeR * 2 + 8),
+  const badgeGroup = new Group([badge, icon], { left, top: top - badgeR + 7, originX: 'left', originY: 'top' })
+  badgeGroup.selectable = false
+  badgeGroup.evented = false
+  canvas.add(badgeGroup)
+  const textLeft = left + badgeR * 2 + 10
+  const textObj = addText(canvas, text, {
+    left: textLeft, top,
+    fontSize, fill: ink, opacity: 0.92,
+    fontFamily: 'Inter, sans-serif', width: width - (badgeR * 2 + 10),
     elementType,
+  })
+  if (center) {
+    // Center the badge+text pair together as a visual unit: shift both by
+    // half the leftover space in `width` once the text's actual rendered
+    // width is known (Textbox doesn't auto-shrink, so measure via its
+    // internal line width instead of assuming it fills the given width).
+    const textActualWidth = Math.min(textObj.calcTextWidth(), textObj.width)
+    const pairWidth = (textLeft - left) + textActualWidth
+    const shift = (width - pairWidth) / 2
+    if (shift > 0) {
+      badgeGroup.set({ left: left + shift })
+      badgeGroup.setCoords()
+      textObj.set({ left: textLeft + shift })
+      textObj.setCoords()
+    }
+  }
+}
+
+// Places phone/email/website in one horizontal row (three evenly-spaced
+// chips) instead of stacked — the "horizontal alignment" option some
+// templates opt into via opts.align === 'horizontal'.
+function addContactRowsHorizontal(canvas, profile, opts) {
+  const { left, top, width, ink, accentColor, fontSize } = opts
+  const items = [
+    { glyph: '☎', key: 'phone' },
+    { glyph: '✉', key: 'email' },
+    { glyph: '🌐', key: 'website' },
+  ]
+  const colW = width / items.length
+  items.forEach((item, i) => {
+    addContactRow(canvas, item.glyph, f(profile, item.key), {
+      left: left + i * colW, top, width: colW - 14, ink, accentColor, fontSize,
+      elementType: item.key,
+    })
   })
 }
 
-// Shared back-side layout: personal contact block + QR, grouped on
-// opposite sides. Sized and spaced to fill 60-70% of the card rather than
-// leaving large empty margins — bigger name, bigger QR, evenly spread
-// contact rows with icon badges beside each line.
+// Shared back-side layout: personal contact block + QR. Sized generously —
+// large name, large QR, roomy contact rows — so the back never reads as
+// the "blank" or "unfinished" side of the card.
+//
+// opts.qrPosition:
+//   'side' (default) — contact block and QR on opposite sides of the card,
+//     vertically centered against each other (best for wide horizontal cards).
+//   'top' | 'bottom' — QR and the fully-centered contact block stacked one
+//     above the other (best for narrow/vertical cards, where a side-by-side
+//     split leaves no breathing room).
+// opts.align: 'vertical' (default, contact rows stacked) | 'horizontal'
+//   (phone/email/website in one row) — only applies to qrPosition:'side'.
 export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
   const {
     bg = '#ffffff',
@@ -324,6 +384,8 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
     accentColor = palette.accent,
     qrSide = 'right',
     accentShape = 'circle',
+    qrPosition = 'side',
+    align = 'vertical',
   } = opts
   canvas.backgroundColor = bg
 
@@ -345,59 +407,113 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
     }
   }
 
-  // QR enlarged for legibility — contact column narrowed slightly to match,
-  // so the bigger QR still has clear breathing room instead of crowding
-  // the card.
-  const qrSize = 104
-  const contactW = w * 0.56
-  const contactX = qrSide === 'right' ? 22 : w - contactW - 14
-  const qrX = qrSide === 'right' ? w - qrSize - 22 : 22
+  const qrLabel = (size) => {
+    const box = new Rect({
+      width: size, height: size, fill: '#ffffff',
+      stroke: accentColor, strokeWidth: 1.5, opacity: 0.9,
+      originX: 'left', originY: 'top',
+    })
+    const label = new Textbox('QR', {
+      width: size, top: size / 2 - 10,
+      fontSize: 16, fontWeight: '700', fill: '#9a968d',
+      textAlign: 'center', fontFamily: 'Inter, sans-serif',
+      originX: 'left', originY: 'top',
+    })
+    return new Group([box, label])
+  }
+
+  if (qrPosition !== 'side') {
+    // ── Stacked layout: QR + fully-centered contact block ─────────
+    const stackQrSize = Math.max(w, h) < 260 ? 92 : Math.min(w * 0.34, 120)
+    const rowW = w * 0.78
+    const rowX = (w - rowW) / 2
+
+    const qrGroup = qrLabel(stackQrSize)
+    qrGroup.elementType = 'qr'
+    const contactBlockH = 34 + 30 + 34 * 3 // name + designation + 3 contact rows, roughly
+    const gap = h * 0.05
+
+    let qrTop, blockTop
+    if (qrPosition === 'top') {
+      qrTop = h * 0.08
+      blockTop = qrTop + stackQrSize + gap
+    } else {
+      blockTop = h * 0.08
+      qrTop = Math.min(h - stackQrSize - h * 0.06, blockTop + contactBlockH + gap)
+    }
+    qrGroup.set({ left: (w - stackQrSize) / 2, top: qrTop, originX: 'left', originY: 'top' })
+    canvas.add(qrGroup)
+
+    addText(canvas, f(profile, 'personName'), {
+      left: 10, top: blockTop,
+      fontSize: 25, fontWeight: '800', fill: ink,
+      fontFamily: 'Georgia, serif', textAlign: 'center', width: w - 20,
+      elementType: 'personName',
+      opacity: isPlaceholder(profile, 'personName') ? 0.4 : 1,
+    })
+    addText(canvas, f(profile, 'designation'), {
+      left: 10, top: blockTop + 34,
+      fontSize: 14, fill: ink, opacity: 0.8, textAlign: 'center',
+      fontFamily: 'Inter, sans-serif', width: w - 20,
+      elementType: 'designation',
+    })
+    const contactTop = blockTop + 68
+    const rowGap = 34
+    addContactRow(canvas, '☎', f(profile, 'phone'), { left: rowX, top: contactTop, width: rowW, ink, accentColor, elementType: 'phone', center: true })
+    addContactRow(canvas, '✉', f(profile, 'email'), { left: rowX, top: contactTop + rowGap, width: rowW, ink, accentColor, elementType: 'email', center: true })
+    addContactRow(canvas, '🌐', f(profile, 'website'), { left: rowX, top: contactTop + rowGap * 2, width: rowW, ink, accentColor, elementType: 'website', center: true })
+
+    addMotifIcon(canvas, palette, w, h, qrPosition === 'top' ? 'br' : 'tr', 32)
+    return
+  }
+
+  // ── Side-by-side layout (default) ───────────────────────────────
+  // Contact block and QR sized generously and pulled in from the edges
+  // (percentage margins, not fixed px) so the whole composition reads as
+  // centered on the card rather than pinned to one corner.
+  const sideQrSize = 116
+  const marginX = w * 0.07
+  const contactW = w * 0.58
+  const contactX = qrSide === 'right' ? marginX : w - contactW - marginX
+  const qrX = qrSide === 'right' ? w - sideQrSize - marginX : marginX
   const blockTop = h * 0.16
 
   addText(canvas, f(profile, 'personName'), {
     left: contactX, top: blockTop,
-    fontSize: 23, fontWeight: '800',
+    fontSize: 26, fontWeight: '800',
     fill: ink, fontFamily: 'Georgia, serif',
     width: contactW, elementType: 'personName',
     opacity: isPlaceholder(profile, 'personName') ? 0.4 : 1,
   })
   addText(canvas, f(profile, 'designation'), {
-    left: contactX, top: blockTop + 32,
-    fontSize: 13, fill: ink, opacity: 0.8,
+    left: contactX, top: blockTop + 36,
+    fontSize: 14, fill: ink, opacity: 0.8,
     fontFamily: 'Inter, sans-serif', width: contactW,
     elementType: 'designation',
   })
-  const contactTop = blockTop + 78
-  const rowGap = 28
-  addContactRow(canvas, '☎', f(profile, 'phone'), {
-    left: contactX, top: contactTop, width: contactW, ink, accentColor, elementType: 'phone',
-  })
-  addContactRow(canvas, '✉', f(profile, 'email'), {
-    left: contactX, top: contactTop + rowGap, width: contactW, ink, accentColor, elementType: 'email',
-  })
-  addContactRow(canvas, '🌐', f(profile, 'website'), {
-    left: contactX, top: contactTop + rowGap * 2, width: contactW, ink, accentColor, elementType: 'website',
-  })
+
+  const contactTop = blockTop + 86
+  let contactBottom
+  if (align === 'horizontal') {
+    addContactRowsHorizontal(canvas, profile, { left: contactX, top: contactTop, width: contactW, ink, accentColor, fontSize: 12 })
+    contactBottom = contactTop
+  } else {
+    const rowGap = 32
+    addContactRow(canvas, '☎', f(profile, 'phone'), { left: contactX, top: contactTop, width: contactW, ink, accentColor, elementType: 'phone' })
+    addContactRow(canvas, '✉', f(profile, 'email'), { left: contactX, top: contactTop + rowGap, width: contactW, ink, accentColor, elementType: 'email' })
+    addContactRow(canvas, '🌐', f(profile, 'website'), { left: contactX, top: contactTop + rowGap * 2, width: contactW, ink, accentColor, elementType: 'website' })
+    contactBottom = contactTop + rowGap * 2
+  }
 
   // QR placeholder — opposite side from the contact block, vertically
   // centered relative to it, never dead-center on the card.
-  const box = new Rect({
-    width: qrSize, height: qrSize, fill: '#ffffff',
-    stroke: accentColor, strokeWidth: 1.5, opacity: 0.9,
+  const qrGroup = qrLabel(sideQrSize)
+  qrGroup.elementType = 'qr'
+  qrGroup.set({
+    left: qrX, top: (blockTop + contactBottom) / 2 - sideQrSize / 2,
     originX: 'left', originY: 'top',
   })
-  const label = new Textbox('QR', {
-    width: qrSize, top: qrSize / 2 - 10,
-    fontSize: 16, fontWeight: '700', fill: '#9a968d',
-    textAlign: 'center', fontFamily: 'Inter, sans-serif',
-    originX: 'left', originY: 'top',
-  })
-  const group = new Group([box, label], {
-    left: qrX, top: (blockTop + contactTop + rowGap * 2) / 2 - qrSize / 2,
-    originX: 'left', originY: 'top',
-  })
-  group.elementType = 'qr'
-  canvas.add(group)
+  canvas.add(qrGroup)
 
   addMotifIcon(canvas, palette, w, h, qrSide === 'right' ? 'bl' : 'br', 44)
 }
@@ -419,10 +535,10 @@ export const TEMPLATES = [
       return `<svg viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg">
         <rect width="280" height="160" fill="#f8f7f3"/>
         <rect width="8" height="160" fill="${pal.primary}"/>
-        <rect x="24" y="26" width="60" height="60" rx="8" fill="${pal.accent}" opacity="0.2"/>
-        <text x="98" y="52" font-size="22" font-weight="800" fill="${pal.primary}" font-family="system-ui">Company Name</text>
-        <text x="98" y="74" font-size="11" font-style="italic" fill="#888" font-family="system-ui">Your tagline here</text>
-        <text x="24" y="144" font-size="8" fill="#999" font-family="system-ui">123 Business Street, Your City</text>
+        <rect x="110" y="14" width="60" height="60" rx="8" fill="${pal.accent}" opacity="0.2"/>
+        <text x="140" y="94" text-anchor="middle" font-size="22" font-weight="800" fill="${pal.primary}" font-family="system-ui">Company Name</text>
+        <text x="140" y="114" text-anchor="middle" font-size="11" font-style="italic" fill="#888" font-family="system-ui">Your tagline here</text>
+        <text x="140" y="146" text-anchor="middle" font-size="9" fill="#999" font-family="system-ui">123 Business Street, Your City</text>
       </svg>`
     },
 
@@ -432,37 +548,40 @@ export const TEMPLATES = [
       addRect(canvas, { left: 0, top: 0, width: 8, height: h, fill: palette.primary, selectable: false, evented: false, elementType: 'accentShape' })
       // Bottom band
       addRect(canvas, { left: 0, top: h * 0.72, width: w, height: h * 0.28, fill: palette.primary, opacity: 0.07, selectable: false, evented: false })
-      // Logo — large, top-left, the primary visual element, covering most
-      // of the card's upper area alongside the company name.
-      await addLogo(canvas, profile, 22, h * 0.14, 86)
-      // Company Name — beside the logo, sized to dominate the card
+      // Logo — large, centered, stacked above the company name (not beside
+      // it) — the primary visual element, no border around it.
+      const logoSize = 100
+      await addLogo(canvas, profile, w / 2 - logoSize / 2, h * 0.08, logoSize, { bordered: false })
+      // Company Name — centered below the logo, sized to dominate the card
       addText(canvas, f(profile, 'companyName'), {
-        left: 122, top: h * 0.14 + 4,
-        fontSize: 29, fontWeight: '800',
+        left: 20, top: h * 0.08 + logoSize + 14,
+        fontSize: 32, fontWeight: '800',
         fill: palette.primary,
         fontFamily: 'Georgia, serif',
+        textAlign: 'center',
         opacity: isPlaceholder(profile, 'companyName') ? 0.35 : 1,
-        width: w - 145,
+        width: w - 40,
         elementType: 'companyName',
       })
       // Tagline
       addText(canvas, f(profile, 'tagline'), {
-        left: 122, top: h * 0.14 + 44,
-        fontSize: 13, fontStyle: 'italic',
+        left: 20, top: h * 0.08 + logoSize + 56,
+        fontSize: 14, fontStyle: 'italic',
         fill: '#888',
         fontFamily: 'Inter, sans-serif',
+        textAlign: 'center',
         opacity: 0.78,
-        width: w - 145,
+        width: w - 40,
         elementType: 'tagline',
       })
       // Address — bottom center, with a pin icon, clearly legible
-      addAddressFooter(canvas, profile, w, h, { ink: palette.primary })
+      addAddressFooter(canvas, profile, w, h, { ink: palette.primary, fontSize: 14 })
       addMotifIcon(canvas, palette, w, h, 'bl', 44)
     },
 
     async loadBack(canvas, profile, palette, w, h) {
       await loadBackSide(canvas, profile, palette, w, h, {
-        bg: '#f8f7f3', ink: palette.primary, accentColor: palette.accent, qrSide: 'right', accentShape: 'circle',
+        bg: '#f8f7f3', ink: palette.primary, accentColor: palette.accent, qrSide: 'right', accentShape: 'circle', align: 'horizontal',
       })
     },
   },
@@ -507,30 +626,31 @@ export const TEMPLATES = [
       addCircle(canvas, { left: w - 60, top: -20, radius: 60, fill: palette.accent, opacity: 0.07, selectable: false, evented: false })
       // Premium accent — thin gold/accent rule down the full left edge
       addRect(canvas, { left: 0, top: 0, width: 3, height: h, fill: palette.accent, opacity: 0.8, selectable: false, evented: false })
-      // Logo — large, top-left, the primary visual element
-      await addLogo(canvas, profile, 20, h * 0.12, 82)
+      // Logo — pulled in from the edge toward center, the primary visual element
+      const indent = w * 0.14
+      await addLogo(canvas, profile, indent, h * 0.12, 82)
       // Company Name
       addText(canvas, f(profile, 'companyName'), {
-        left: 20, top: h * 0.12 + 92,
-        fontSize: 28, fontWeight: '800',
+        left: indent, top: h * 0.12 + 92,
+        fontSize: 32, fontWeight: '800',
         fill: '#ffffff',
         fontFamily: 'Georgia, serif',
         opacity: isPlaceholder(profile, 'companyName') ? 0.35 : 1,
-        width: w - 40,
+        width: w - indent - 20,
         elementType: 'companyName',
       })
       // Tagline
       addText(canvas, f(profile, 'tagline'), {
-        left: 20, top: h * 0.12 + 130,
-        fontSize: 13, fontStyle: 'italic',
+        left: indent, top: h * 0.12 + 134,
+        fontSize: 14, fontStyle: 'italic',
         fill: palette.accent,
         fontFamily: 'Inter, sans-serif',
-        width: w - 30,
+        width: w - indent - 20,
         opacity: 0.85,
         elementType: 'tagline',
       })
       // Address — bottom center, with a pin icon, clearly legible
-      addAddressFooter(canvas, profile, w, h, { ink: '#ffffff' })
+      addAddressFooter(canvas, profile, w, h, { ink: '#ffffff', fontSize: 14 })
       addMotifIcon(canvas, palette, w, h, 'br', 44)
     },
 
@@ -595,7 +715,7 @@ export const TEMPLATES = [
         elementType: 'tagline',
       })
       // Address — bottom center, with a pin icon, clearly legible
-      addAddressFooter(canvas, profile, w, h, { ink: '#ffffff' })
+      addAddressFooter(canvas, profile, w, h, { ink: '#ffffff', fontSize: 14 })
       addMotifIcon(canvas, palette, w, h, 'br', 44)
     },
 
@@ -640,30 +760,30 @@ export const TEMPLATES = [
       // Accent stripe on right
       addRect(canvas, { left: w - 6, top: 0, width: 6, height: h, fill: palette.accent, selectable: false, evented: false })
       // Logo — large, dark side, the primary visual element
-      const logoSize = 70
-      await addLogo(canvas, profile, 20, h * 0.14, logoSize)
+      const logoSize = 86
+      await addLogo(canvas, profile, 20, h * 0.11, logoSize)
       // Company Name on dark side
       // The diagonal boundary runs from x=0.66w (top) to x=0.54w (bottom), so
       // the safe left-zone width must clear the boundary's narrowest point
       // (bottom, 0.54w) with margin, not just its top.
       addText(canvas, f(profile, 'companyName'), {
-        left: 20, top: h * 0.14 + logoSize + 12,
-        fontSize: 23, fontWeight: '800',
+        left: 20, top: h * 0.11 + logoSize + 12,
+        fontSize: 27, fontWeight: '800',
         fill: '#ffffff',
         fontFamily: 'Georgia, serif',
-        width: w * 0.46,
+        width: w * 0.48,
         opacity: isPlaceholder(profile, 'companyName') ? 0.4 : 1,
         elementType: 'companyName',
       })
       addText(canvas, f(profile, 'tagline'), {
-        left: 20, top: h * 0.14 + logoSize + 46,
-        fontSize: 12, fontStyle: 'italic',
+        left: 20, top: h * 0.11 + logoSize + 50,
+        fontSize: 13, fontStyle: 'italic',
         fill: 'rgba(255,255,255,0.8)',
-        fontFamily: 'Inter, sans-serif', width: w * 0.46,
+        fontFamily: 'Inter, sans-serif', width: w * 0.48,
         elementType: 'tagline',
       })
       // Address — bottom center, with a pin icon, clearly legible
-      addAddressFooter(canvas, profile, w, h, { ink: palette.primary })
+      addAddressFooter(canvas, profile, w, h, { ink: palette.primary, fontSize: 14 })
       addMotifIcon(canvas, palette, w, h, 'br', 36)
     },
 
@@ -702,29 +822,29 @@ export const TEMPLATES = [
       const colH = h * 0.84
       addRect(canvas, { left: 0, top: 0, width: colW, height: colH, fill: palette.primary, selectable: false, evented: false, elementType: 'accentShape' })
       // Logo — large, centered in the column, the primary visual element
-      const logoSize = 84
+      const logoSize = 96
       await addLogo(canvas, profile, (colW - logoSize) / 2, colH / 2 - logoSize / 2, logoSize)
       // Right zone: Company Name, Tagline, Address — grouped vertically
       const rx = colW + 18
       const rw = w - rx - 12
       addText(canvas, f(profile, 'companyName'), {
-        left: rx, top: h * 0.28,
-        fontSize: 24, fontWeight: '800',
+        left: rx, top: h * 0.26,
+        fontSize: 28, fontWeight: '800',
         fill: palette.primary,
         fontFamily: 'Georgia, serif', width: rw,
         opacity: isPlaceholder(profile, 'companyName') ? 0.4 : 1,
         elementType: 'companyName',
       })
       addText(canvas, f(profile, 'tagline'), {
-        left: rx, top: h * 0.28 + 38,
-        fontSize: 13, fontStyle: 'italic',
+        left: rx, top: h * 0.26 + 42,
+        fontSize: 14, fontStyle: 'italic',
         fill: '#888',
         fontFamily: 'Inter, sans-serif', width: rw, opacity: 0.78,
         elementType: 'tagline',
       })
       addLine(canvas, [rx, h * 0.68, w - 10, h * 0.68], { stroke: palette.primary, strokeWidth: 0.7, opacity: 0.2, selectable: false, evented: false })
       // Address — bottom center, with a pin icon, clearly legible
-      addAddressFooter(canvas, profile, w, h, { ink: palette.primary })
+      addAddressFooter(canvas, profile, w, h, { ink: palette.primary, fontSize: 14 })
       addMotifIcon(canvas, palette, w, h, 'br')
     },
 
@@ -783,7 +903,7 @@ export const TEMPLATES = [
       // Accent underline
       addRect(canvas, { left: 20, top: bannerH + 54, width: 50, height: 3, rx: 1.5, fill: palette.accent, selectable: false, evented: false })
       // Address — bottom center, with a pin icon, clearly legible
-      addAddressFooter(canvas, profile, w, h, { ink: palette.primary })
+      addAddressFooter(canvas, profile, w, h, { ink: palette.primary, fontSize: 14 })
       addMotifIcon(canvas, palette, w, h, 'br', 36)
     },
 
@@ -838,7 +958,7 @@ export const TEMPLATES = [
         elementType: 'tagline',
       })
       // Address — bottom center, with a pin icon, clearly legible
-      addAddressFooter(canvas, profile, w, h, { ink: palette.primary })
+      addAddressFooter(canvas, profile, w, h, { ink: palette.primary, fontSize: 14 })
       addMotifIcon(canvas, palette, w, h, 'br')
     },
 
@@ -856,7 +976,7 @@ export const TEMPLATES = [
     category: 'creative',
     orientation: 'horizontal',
 
-    svgPreview(pal) {
+    svgPreview() {
       return `<svg viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="wc" x1="0" y1="0" x2="280" y2="160" gradientUnits="userSpaceOnUse">
@@ -895,7 +1015,7 @@ export const TEMPLATES = [
         elementType: 'tagline',
       })
       // Address — bottom center, with a pin icon, clearly legible
-      addAddressFooter(canvas, profile, w, h, { ink: '#ffffff' })
+      addAddressFooter(canvas, profile, w, h, { ink: '#ffffff', fontSize: 14 })
       addMotifIcon(canvas, palette, w, h, 'br', 40)
     },
 
@@ -934,35 +1054,39 @@ export const TEMPLATES = [
       // reads as a clean, intentional dark shade regardless of accent color.
       addRect(canvas, { left: 0, top: h * 0.36, width: w, height: h * 0.64, fill: 'rgba(255,255,255,0.05)', selectable: false, evented: false })
       // Large circular logo placeholder, top-center — the primary visual,
-      // now covering a much bigger share of the card's upper half.
-      const circleR = 58
-      const circleTop = h * 0.05
+      // enlarged and the whole block spread out (bigger gaps, bigger type)
+      // so it actually fills the tinted band instead of clustering at the
+      // top and leaving the rest of the band empty.
+      const circleR = 76
+      const circleTop = h * 0.08
       addCircle(canvas, { left: w / 2 - circleR, top: circleTop, radius: circleR, fill: 'rgba(255,255,255,0.08)', selectable: false, evented: false })
-      const logoSize = 84
+      const logoSize = 108
       await addLogo(canvas, profile, w / 2 - logoSize / 2, circleTop + circleR - logoSize / 2, logoSize)
       addText(canvas, f(profile, 'companyName'), {
-        left: 10, top: circleTop + circleR * 2 + 16,
-        fontSize: 22, fontWeight: '800', fill: '#ffffff',
+        left: 10, top: circleTop + circleR * 2 + 28,
+        fontSize: 30, fontWeight: '800', fill: '#ffffff',
         fontFamily: 'Georgia, serif', textAlign: 'center', width: w - 20,
         opacity: isPlaceholder(profile, 'companyName') ? 0.4 : 1,
         elementType: 'companyName',
       })
       addText(canvas, f(profile, 'tagline'), {
-        left: 10, top: circleTop + circleR * 2 + 50, fontSize: 12, fontStyle: 'italic',
+        left: 10, top: circleTop + circleR * 2 + 70, fontSize: 15, fontStyle: 'italic',
         fill: palette.accent, textAlign: 'center', opacity: 0.85,
         fontFamily: 'Inter, sans-serif', width: w - 20,
         elementType: 'tagline',
       })
       // Short fixed-width accent divider below the tagline
-      addLine(canvas, [w / 2 - 30, circleTop + circleR * 2 + 74, w / 2 + 30, circleTop + circleR * 2 + 74], { stroke: palette.accent, strokeWidth: 0.8, opacity: 0.4, selectable: false, evented: false })
+      addLine(canvas, [w / 2 - 30, circleTop + circleR * 2 + 100, w / 2 + 30, circleTop + circleR * 2 + 100], { stroke: palette.accent, strokeWidth: 0.8, opacity: 0.4, selectable: false, evented: false })
       // Address — bottom center, with a pin icon, clearly legible
-      addAddressFooter(canvas, profile, w, h, { ink: '#ffffff', fontSize: 10 })
+      addAddressFooter(canvas, profile, w, h, { ink: '#ffffff', fontSize: 16 })
       addMotifIcon(canvas, palette, w, h, 'br', 36)
     },
 
     async loadBack(canvas, profile, palette, w, h) {
+      // Vertical orientation has no room for the default side-by-side back
+      // layout — details stacked on top, QR centered near the bottom.
       await loadBackSide(canvas, profile, palette, w, h, {
-        bg: palette.primary, ink: '#ffffff', accentColor: palette.accent, qrSide: 'right', accentShape: 'lines',
+        bg: palette.primary, ink: '#ffffff', accentColor: palette.accent, accentShape: 'lines', qrPosition: 'bottom',
       })
     },
   },
@@ -977,48 +1101,58 @@ export const TEMPLATES = [
     svgPreview(pal) {
       return `<svg viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg">
         <rect width="280" height="160" fill="#fff"/>
-        <polygon points="0,0 130,0 0,130" fill="${pal.primary}" opacity="0.9"/>
-        <polygon points="280,160 170,160 280,55" fill="${pal.accent}" opacity="0.7"/>
-        <polygon points="280,160 280,90 210,160" fill="${pal.primary}" opacity="0.4"/>
-        <text x="20" y="120" font-size="20" font-weight="800" fill="${pal.primary}" font-family="system-ui">Company Name</text>
-        <text x="20" y="138" font-size="10" font-style="italic" fill="#888" font-family="system-ui">Your tagline here</text>
-        <text x="20" y="150" font-size="8" fill="#999" font-family="system-ui">123 Business Street, Your City</text>
+        <polygon points="0,0 129,0 0,144" fill="${pal.primary}"/>
+        <polygon points="280,160 101,160 280,22" fill="${pal.accent}" opacity="0.85"/>
+        <polygon points="280,160 280,77 162,160" fill="${pal.primary}" opacity="0.55"/>
+        <text x="129" y="97" font-size="20" font-weight="800" fill="${pal.primary}" font-family="system-ui">Company Name</text>
+        <text x="129" y="112" font-size="10" font-style="italic" fill="#888" font-family="system-ui">Your tagline here</text>
+        <text x="80" y="127" font-size="8" fill="${pal.primary}" font-family="system-ui">123 Business Street, Your City</text>
       </svg>`
     },
 
     async load(canvas, profile, palette, w, h) {
       canvas.backgroundColor = '#ffffff'
-      // Top-left triangle — enlarged for a bolder geometric anchor,
-      // covering roughly half the card alongside the bottom-right shapes.
-      const tl = new Polygon([{ x: 0, y: 0 }, { x: w * 0.5, y: 0 }, { x: 0, y: h * 0.82 }], { fill: palette.primary, selectable: false, evented: false, elementType: 'accentShape' })
+      // Top-left triangle.
+      const tl = new Polygon([{ x: 0, y: 0 }, { x: w * 0.46, y: 0 }, { x: 0, y: h * 0.9 }], { fill: palette.primary, selectable: false, evented: false, elementType: 'accentShape' })
       canvas.add(tl)
-      // Bottom-right triangles — also enlarged, extending further across,
-      // but stopped short of the very bottom edge (like the top-left one)
-      // so the address band centered across the full card width always
-      // lands on the plain white background.
-      const shapesBottom = h * 0.86
-      const br1 = new Polygon([{ x: w, y: shapesBottom }, { x: w * 0.4, y: shapesBottom }, { x: w, y: h * 0.2 }], { fill: palette.accent, opacity: 0.8, selectable: false, evented: false })
+      // Bottom-right shapes now run all the way to the card's true bottom
+      // edge (and right edge) — no blank white strip left underneath them.
+      const br1 = new Polygon([{ x: w, y: h }, { x: w * 0.36, y: h }, { x: w, y: h * 0.14 }], { fill: palette.accent, opacity: 0.85, selectable: false, evented: false })
       canvas.add(br1)
-      const br2 = new Polygon([{ x: w, y: shapesBottom }, { x: w, y: h * 0.55 }, { x: w * 0.62, y: shapesBottom }], { fill: palette.primary, opacity: 0.5, selectable: false, evented: false })
+      const br2 = new Polygon([{ x: w, y: h }, { x: w, y: h * 0.48 }, { x: w * 0.58, y: h }], { fill: palette.primary, opacity: 0.55, selectable: false, evented: false })
       canvas.add(br2)
-      // Logo — tucked into the top-left corner shape, large enough to read
-      await addLogo(canvas, profile, w * 0.20, h * 0.16, 56)
-      // Company Name — on the white diagonal band, well clear of both shapes
+      // Logo — sized to ~40% of the card's shorter side so it actually
+      // reads as the dominant visual element instead of a tiny badge, and
+      // pulled inward from the corner toward the middle of the triangle
+      // (both horizontally and vertically) rather than flush against the
+      // top-left edges. Part of it now sits past the triangle's diagonal
+      // edge onto the white background, which is fine — the logo box
+      // itself is white, so it blends in seamlessly there.
+      const logoSize = h * 0.4
+      await addLogo(canvas, profile, w * 0.10, h * 0.13, logoSize)
+      // Company Name — in the white gap between the two shapes, roughly
+      // centered rather than pinned to either edge. fontSize/width chosen
+      // so "Company Name" fits on one line — the previous width (w*0.38)
+      // was too narrow at fontSize 28, so it wrapped to two lines and ran
+      // straight into the tagline below it.
+      const nameTop = h * 0.34
       addText(canvas, f(profile, 'companyName'), {
-        left: 20, top: h * 0.66,
+        left: w * 0.46, top: nameTop,
         fontSize: 24, fontWeight: '800', fill: palette.primary,
         fontFamily: 'Georgia, serif',
         opacity: isPlaceholder(profile, 'companyName') ? 0.35 : 1,
-        width: w - 40,
+        width: w * 0.42,
         elementType: 'companyName',
       })
       addText(canvas, f(profile, 'tagline'), {
-        left: 20, top: h * 0.84, fontSize: 12, fontStyle: 'italic', fill: '#888',
-        fontFamily: 'Inter, sans-serif', width: w * 0.5, opacity: 0.78,
+        left: w * 0.46, top: nameTop + 34, fontSize: 13, fontStyle: 'italic', fill: '#888',
+        fontFamily: 'Inter, sans-serif', width: w * 0.42, opacity: 0.78,
         elementType: 'tagline',
       })
-      // Address — bottom center, with a pin icon, clearly legible
-      addAddressFooter(canvas, profile, w, h, { ink: palette.primary })
+      // Address — sits directly over the accent band (dark ink stays
+      // legible on both the white background and the accent color), no
+      // white footer strip reserved beneath the shapes anymore.
+      addAddressFooter(canvas, profile, w, h, { ink: palette.primary, fontSize: 14 })
       addMotifIcon(canvas, palette, w, h, 'tr', 28)
     },
 

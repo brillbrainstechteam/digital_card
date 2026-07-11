@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Pencil } from 'lucide-react'
-import { fetchCards, createCard, updateCard, deleteCard } from '../api'
-import { useToast } from '../context/ToastContext'
-import { isBusinessCard } from '../cardTypeUtils'
-import { PageHeader } from './PageHeader'
-import { Sidebar } from './Sidebar'
-import { renderSavedCardThumbnail, renderFaceThumbnail } from '../features/business-card/canvasHelpers'
-import { CardPreviewScreen } from '../features/business-card/CardPreviewScreen'
-import { getTemplate } from '../features/business-card/bcTemplates'
-import '../features/business-card/features/business-card.css'
+import { fetchCards, createCard, updateCard } from '../services/api'
+import { useToast } from '../../../context/ToastContext'
+import { isBusinessCard } from '../../../cardTypeUtils'
+import { PageHeader } from '../../../components/PageHeader'
+import { Sidebar } from '../../../components/Sidebar'
+import { renderSavedCardThumbnail, renderFaceThumbnail } from '../canvasHelpers'
+import { CardPreviewScreen } from './CardPreviewScreen'
+import { getTemplate } from '../bcTemplates'
+import '../businessCard.css'
 
 // Cards are created with a generic placeholder title ("Business Card").
 // Until the user renames one, show the template's own name instead so the
@@ -68,7 +68,7 @@ function CardTitle({ card, onRenamed }) {
     try {
       await updateCard(card.id, { title: trimmed })
       onRenamed(card.id, trimmed)
-    } catch (_) {
+    } catch {
       // silently keep the old title on failure — no need to disrupt the list
     } finally {
       setSaving(false)
@@ -99,9 +99,10 @@ function CardTitle({ card, onRenamed }) {
   )
 }
 
-// Same hover Front/Back toggle as the template gallery (TemplateGallery.jsx)
-// — but rendered from this specific card's own saved frontJson/backJson,
-// not a template default, so edits the user made to either side show up.
+// Front by default, back shown on hover — same behavior as the template
+// gallery (TemplateGallery.jsx) — but rendered from this specific card's
+// own saved frontJson/backJson, not a template default, so edits the user
+// made to either side show up.
 function BusinessCardThumb({ businessCard }) {
   const [liveThumb, setLiveThumb] = useState(null)
   const [backThumb, setBackThumb] = useState(null)
@@ -130,33 +131,12 @@ function BusinessCardThumb({ businessCard }) {
   const src = face === 'back' ? backThumb : frontSrc
 
   return (
-    <>
+    <div
+      className="bc-dash-card-thumb-inner"
+      onMouseEnter={() => { if (backThumb) setFace('back') }}
+      onMouseLeave={() => setFace('front')}
+    >
       {src ? <img src={src} alt={`Business card preview — ${face}`} /> : <span style={{ fontSize: 28 }}>🪪</span>}
-      {backThumb && (
-        <div className="bc-tmpl-face-toggle" onClick={(e) => e.stopPropagation()}>
-          <button type="button" className={face === 'front' ? 'active' : ''} onClick={() => setFace('front')}>
-            Front
-          </button>
-          <button type="button" className={face === 'back' ? 'active' : ''} onClick={() => setFace('back')}>
-            Back
-          </button>
-        </div>
-      )}
-    </>
-  )
-}
-
-function ConfirmDialog({ title, message, actionLabel, onCancel, onConfirm }) {
-  return (
-    <div className="confirm-overlay">
-      <div className="confirm-dialog">
-        <h2>{title}</h2>
-        <p>{message}</p>
-        <div className="confirm-actions">
-          <button className="secondary-button" type="button" onClick={onCancel}>Cancel</button>
-          <button className="primary-button danger-button" type="button" onClick={onConfirm}>{actionLabel}</button>
-        </div>
-      </div>
     </div>
   )
 }
@@ -167,8 +147,10 @@ export function BusinessCardsPage() {
   const [cards, setCards] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [pendingConfirm, setPendingConfirm] = useState(null)
+  // handleCreate below just navigates — card creation is lazy (only happens
+  // on first Save inside the editor), so this never actually flips true;
+  // kept read-only for the button's disabled/label state below.
+  const [creating] = useState(false)
   const [previewCard, setPreviewCard] = useState(null)
   const [activeFilter, setActiveFilter] = useState('all')
 
@@ -195,34 +177,13 @@ export function BusinessCardsPage() {
     navigate('/business-card/new')
   }
 
-  async function confirmDelete(card) {
-    try {
-      await deleteCard(card.id)
-      toast.success('Business card deleted')
-      await loadCards()
-    } catch (err) {
-      toast.error(err.message)
-    } finally {
-      setPendingConfirm(null)
-    }
-  }
-
-  function handleDelete(card) {
-    setPendingConfirm({
-      card,
-      title: 'Delete Business Card?',
-      message: 'This action cannot be undone.',
-      actionLabel: 'Delete',
-    })
-  }
-
   async function handleShare(card) {
     const img = card.card_data?.businessCard?.frontImg
     if (img) {
       try {
         await navigator.clipboard.writeText(img)
         toast.success('Card image link copied to clipboard')
-      } catch (err) {
+      } catch {
         toast.error('Could not copy to clipboard')
       }
       return
@@ -393,13 +354,6 @@ export function BusinessCardsPage() {
                           Edit
                         </button>
                       )}
-                      <button
-                        type="button"
-                        className="text-button card-delete-btn"
-                        onClick={() => handleDelete(card)}
-                      >
-                        Delete
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -408,15 +362,6 @@ export function BusinessCardsPage() {
           </div>
         )}
 
-        {pendingConfirm && (
-          <ConfirmDialog
-            title={pendingConfirm.title}
-            message={pendingConfirm.message}
-            actionLabel={pendingConfirm.actionLabel}
-            onCancel={() => setPendingConfirm(null)}
-            onConfirm={() => confirmDelete(pendingConfirm.card)}
-          />
-        )}
       </section>
     </main>
   )

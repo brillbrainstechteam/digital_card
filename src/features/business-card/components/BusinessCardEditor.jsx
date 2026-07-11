@@ -9,12 +9,13 @@ import {
   Layers, Sliders, Grid2X2, Type, Image, QrCode,
   Square, Star, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   ChevronUp, ChevronDown, Bold, Italic,
-  Minus, Plus, Download, Printer, Save, X,
+  Minus, Download, Printer, Save, X, Eye,
   Heart, Award, Briefcase, Globe, Camera, Coffee, Zap, Shield, Smile, MapPin, Sparkles,
 } from 'lucide-react'
-import { TEMPLATES, getPalette, getCardDimensions, getTemplate, CUSTOM_FABRIC_PROPS, PLACEHOLDER_TEXT, addMotifIcon, loadBackSide, addText, addLogo, addAddressFooter, f, isPlaceholder } from './bcTemplates'
-import { normalizeLegacyOrigins, renderFaceThumbnail } from './canvasHelpers'
-import { FONT_OPTIONS } from '../fontOptions'
+import { TEMPLATES, getPalette, getCardDimensions, getTemplate, CUSTOM_FABRIC_PROPS, PLACEHOLDER_TEXT, loadBackSide, addText, addLogo, addAddressFooter, f, isPlaceholder } from '../bcTemplates'
+import { normalizeLegacyOrigins, renderFaceThumbnail } from '../canvasHelpers'
+import { FONT_OPTIONS } from '../../digital-card/fontOptions'
+import { CardPreviewScreen } from './CardPreviewScreen'
 
 // ── Solid palette for background ─────────────────────────────
 const BG_COLORS = [
@@ -175,7 +176,12 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   const [activeFace, setActiveFace] = useState('front')
   // Every card has both sides by default — no session-level toggle for it.
   const hasBack = true
-  const [faceData, setFaceData]     = useState({ front: null, back: savedBack || null })
+  // Seeded from savedFront/savedBack on mount (both, not just back) — an
+  // existing card opened and previewed/saved without ever switching faces
+  // or making an edit would otherwise have faceData.front stuck at null,
+  // making the front look "missing" (e.g. in the Preview screen) even
+  // though it's right there on the live canvas.
+  const [faceData, setFaceData]     = useState({ front: savedFront || null, back: savedBack || null })
   const [viewingBoth, setViewingBoth] = useState(false)
   // Which face currently has the active selection while in View Both —
   // null when nothing is selected on either card. Drives the Properties
@@ -189,7 +195,8 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   // was already saved before we got here).
   const [hasBeenSaved, setHasBeenSaved]         = useState(!!savedFront)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [exitDialog, setExitDialog]             = useState(null) // { scenario: 'new'|'existing', pendingAction: fn } | null
+  const [exitDialog, setExitDialog]             = useState(null) // { scenario: 'new'|'existing', pendingAction: fn, purpose: 'exit'|'preview' } | null
+  const [showPreview, setShowPreview]           = useState(false)
 
   const [activePanel, setActivePanel]   = useState(null)
   // QR destination — UI/state only for now. TODO: once the QR generation
@@ -208,8 +215,9 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   const [histIdx, setHistIdx]   = useState({ front: -1, back: -1 })
   const [isRestoring, setIsRestoring] = useState(false)
 
-  // Layers
-  const [layers, setLayers] = useState([])
+  // Layers — write-only: kept in sync (syncLayers below) for a future
+  // Layers-panel UI, but nothing currently reads the list back out.
+  const [, setLayers] = useState([])
 
   // Text props (synced from selected object)
   const [textProps, setTextProps] = useState({
@@ -400,10 +408,10 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       qrImg.set({ left: cw - 80, top: ch - 80, selectable: true, originX: 'left', originY: 'top' })
       qrImg.elementType = 'qr'
       cv.add(qrImg)
-    } catch (_) {}
+    } catch {
+      // QR image failed to load — leave the canvas without it.
+    }
   }
-
-  function cv() { return fabricRef.current }
 
   function syncLayers(canvas) {
     if (!canvas) return
@@ -661,7 +669,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     try {
       const obj = (JSON.parse(json).objects || []).find((o) => inferElementType(o, profile) === 'personName')
       return obj?.fontFamily
-    } catch (_) { return null }
+    } catch { return null }
   }
 
   // ── View Both ─────────────────────────────────────────────
@@ -884,7 +892,12 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   }
 
   // ── Add text ──────────────────────────────────────────────
-  function addText(style) {
+  // Named distinctly from the imported bcTemplates `addText` canvas helper
+  // (used by loadBlankFrontSide below) — a same-named local function
+  // declaration here would get hoisted to the top of this component's
+  // scope and silently shadow that import for the entire component body,
+  // breaking every call to the real helper.
+  function addTextPreset(style) {
     if (!fabricRef.current) return
     const presets = {
       heading:  { text: 'Heading',    size: 28, weight: '800' },
@@ -1002,7 +1015,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     const json = faceData[face]
     if (!json) return null
     let parsed
-    try { parsed = JSON.parse(json) } catch (_) { return { live: false, list: [] } }
+    try { parsed = JSON.parse(json) } catch { return { live: false, list: [] } }
     const objs = parsed.objects || []
     return { live: false, list: objs.map((obj, idx) => ({ obj, idx })) }
   }
@@ -1122,7 +1135,9 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       canvas.setActiveObject(img)
       canvas.renderAll()
       snapshot(face, canvas)
-    } catch (_) {}
+    } catch {
+      // Logo failed to load — leave the canvas without it.
+    }
   }
 
   // ── "+ Add Element" menu (Issue 4) ─────────────────────────
@@ -1432,28 +1447,31 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     setHasUnsavedChanges(false)
   }
 
-  // The two visible "Save" buttons — preserves the existing behavior of
-  // saving and then leaving to the business cards list.
-  async function handleSaveAndExit() {
-    await handleSave()
-    onExit()
-  }
-
-  // Gate for Exit / Gallery / any away-navigation: a brand-new card that's
-  // never been saved always confirms (regardless of whether anything was
-  // actually edited — an empty card row already exists in the DB and
-  // shouldn't linger there unconfirmed); an already-saved card only
-  // confirms if there are edits since the last save.
-  function requestExit(pendingAction) {
+  // Gate for Exit / Gallery / Preview / any away-navigation: a brand-new
+  // card that's never been saved always confirms (regardless of whether
+  // anything was actually edited — an empty card row already exists in the
+  // DB and shouldn't linger there unconfirmed); an already-saved card only
+  // confirms if there are edits since the last save. `purpose` only
+  // changes the dialog's wording — Preview needs "save before previewing"
+  // phrasing rather than "save before exiting", since pendingAction opens
+  // the in-editor preview rather than navigating away.
+  function requestExit(pendingAction, purpose = 'exit') {
     if (!hasBeenSaved) {
-      setExitDialog({ scenario: 'new', pendingAction })
+      setExitDialog({ scenario: 'new', pendingAction, purpose })
       return
     }
     if (hasUnsavedChanges) {
-      setExitDialog({ scenario: 'existing', pendingAction })
+      setExitDialog({ scenario: 'existing', pendingAction, purpose })
       return
     }
     pendingAction()
+  }
+
+  // Preview always needs the latest saved state (it reads frontJson/backJson
+  // from the DB, not the live canvas), so unsaved edits must be saved first
+  // — reuses the same save/discard/keep-editing dialog as Exit and Gallery.
+  function handlePreviewClick() {
+    requestExit(() => setShowPreview(true), 'preview')
   }
 
   async function confirmSaveAndExit() {
@@ -1550,6 +1568,27 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     )
   }
 
+  // Reads straight from faceData (the last-saved JSON, guaranteed fresh
+  // here since handlePreviewClick always saves first) rather than the live
+  // canvas — matches exactly what CardPreviewScreen would show if opened
+  // from the saved-cards list.
+  if (showPreview) {
+    return (
+      <CardPreviewScreen
+        card={{
+          title: getTemplate(templateId)?.label || 'Business Card',
+          businessCard: {
+            frontJson: faceData.front,
+            backJson: hasBack ? faceData.back : null,
+            setup: { ...setup, includeBack: hasBack },
+          },
+        }}
+        onClose={() => setShowPreview(false)}
+        onEdit={() => setShowPreview(false)}
+      />
+    )
+  }
+
   // ════════════════════════════════════════════════════════
   // RENDER
   // ════════════════════════════════════════════════════════
@@ -1628,14 +1667,6 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
         <button type="button" className="secondary-button" style={{ padding: '7px 14px', fontSize: 13 }} onClick={() => requestExit(onBack)}>
           ← Gallery
         </button>
-        <button
-          type="button"
-          className="primary-button"
-          style={{ padding: '7px 18px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
-          onClick={handleSaveAndExit}
-        >
-          <Save size={14} /> Save
-        </button>
       </div>
 
       {/* ── Editor Body ───────────────────────────────────── */}
@@ -1701,7 +1732,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
                     { k: 'body',    label: 'Body',        size: 13 },
                     { k: 'caption', label: 'Caption',     size: 10 },
                   ].map(({ k, label, size }) => (
-                    <button key={k} type="button" className="bce-text-style-btn" onClick={() => addText(k)}>
+                    <button key={k} type="button" className="bce-text-style-btn" onClick={() => addTextPreset(k)}>
                       <strong style={{ fontSize: size, lineHeight: 1 }}>{label}</strong>
                       <small>Click to add</small>
                     </button>
@@ -2373,7 +2404,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
           type="button"
           className="secondary-button"
           style={{ padding: '7px 14px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
-          onClick={handleSaveAndExit}
+          onClick={handleSave}
         >
           <Save size={13} /> Save Progress
         </button>
@@ -2392,6 +2423,14 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
           onClick={() => window.print()}
         >
           <Printer size={13} /> Print
+        </button>
+        <button
+          type="button"
+          className="secondary-button"
+          style={{ padding: '7px 14px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={handlePreviewClick}
+        >
+          <Eye size={13} /> Preview
         </button>
 
         <div className="bce-bottombar-space" />
@@ -2434,7 +2473,19 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       {exitDialog && (
         <div className="bc-confirm-overlay">
           <div className="bc-confirm-box">
-            {exitDialog.scenario === 'new' ? (
+            {exitDialog.purpose === 'preview' ? (
+              exitDialog.scenario === 'new' ? (
+                <>
+                  <h3>Save your card?</h3>
+                  <p>You haven't saved this card yet. Save it before previewing?</p>
+                </>
+              ) : (
+                <>
+                  <h3>Unsaved changes</h3>
+                  <p>Preview shows your last saved version. Save your changes first to preview them?</p>
+                </>
+              )
+            ) : exitDialog.scenario === 'new' ? (
               <>
                 <h3>Save your card?</h3>
                 <p>You haven't saved this card yet. Would you like to save it before leaving?</p>
@@ -2453,7 +2504,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
                 {exitDialog.scenario === 'new' ? 'Discard' : 'Discard Changes'}
               </button>
               <button type="button" className="primary-button" onClick={confirmSaveAndExit}>
-                Save & Exit
+                {exitDialog.purpose === 'preview' ? 'Save & Preview' : 'Save & Exit'}
               </button>
             </div>
           </div>

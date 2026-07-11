@@ -42,7 +42,7 @@ export function AppLayout() {
           </NavLink>
 
           <NavLink
-            to="/business-card"
+            to="/business-cards"
             className={({ isActive }) => (isActive ? 'active' : undefined)}
           >
             Business Cards

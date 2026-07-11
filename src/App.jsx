@@ -1,16 +1,29 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
+
 import { useAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
+
 import { Landing } from './components/Landing'
 import { AuthPage } from './components/AuthPage'
 import { SettingsPage } from './components/SettingsPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AppLayout } from './components/AppLayout'
-import { BusinessCardsPage } from './components/features/business-cardsPage'
-import { BusinessCardFlow } from './features/business-card/features/business-cardFlow'
-import { BusinessCardTemplatesPage } from './features/business-card/features/business-cardTemplatesPage'
-import { Dashboard, StudioPage, AnalyticsPage, ActivityPage, PublicCard } from './features/digital-card'
+
+import {
+  BusinessCardsPage,
+  BusinessCardFlow,
+  BusinessCardTemplatesPage,
+} from './features/business-card'
+
+import {
+  Dashboard,
+  StudioPage,
+  AnalyticsPage,
+  ActivityPage,
+  PublicCard,
+} from './features/digital-card'
+
 import { QRStudioPage } from './features/qr/generator/QRStudioPage'
 import { QrScanRedirect } from './features/qr'
 

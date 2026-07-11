@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { ArrowRight, Upload } from 'lucide-react'
-import { uploadImage } from '../api'
-import { extractPaletteFromLogo, detectBackdrop, rgbToHex } from '../theme'
-import { themeFromPalette } from '../themeOptions'
+import { uploadImage } from '../services/api'
+import { extractPaletteFromLogo, detectBackdrop, rgbToHex } from '../../digital-card/theme'
+import { themeFromPalette } from '../../digital-card/themeOptions'
 
 // Same FileReader-based preview pattern SetupWizard.jsx uses — palette
 // extraction runs against this local data URL (not the eventual Cloudinary
@@ -74,7 +74,7 @@ export function DetailsForm({
         setPalette(extractedPalette)
         setTheme((current) => ({ ...current, ...themeFromPalette(extractedPalette) }))
         if (backdrop) setLogoBg(rgbToHex(backdrop))
-      } catch (_) {
+      } catch {
         // Logo too plain/light to detect brand colors — keep template defaults.
       }
 

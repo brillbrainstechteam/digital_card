@@ -92,7 +92,7 @@ export function Landing() {
   }
 
   function handleCreateBusiness() {
-    navigate(isAuthenticated ? '/business-card' : '/login')
+    navigate(isAuthenticated ? '/business-cards' : '/login')
   }
 
   return (

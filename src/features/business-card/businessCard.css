@@ -76,9 +76,12 @@
   justify-content: center;
   overflow: hidden;
 }
-.bc-dash-card:hover .bc-tmpl-face-toggle {
-  opacity: 1;
-  pointer-events: auto;
+.bc-dash-card-thumb-inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .bc-dash-card-thumb img {
   /* contain (not cover) so the full card is always visible — vertical
@@ -481,41 +484,6 @@
   background: #f0ede8;
 }
 
-/* ── Front/Back hover toggle on grid thumbnails ─────────── */
-.bc-tmpl-face-toggle {
-  position: absolute;
-  left: 50%;
-  bottom: 8px;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 2px;
-  background: rgba(17,45,55,0.85);
-  border-radius: 20px;
-  padding: 2px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s;
-}
-.bc-tmpl-card:hover .bc-tmpl-face-toggle {
-  opacity: 1;
-  pointer-events: auto;
-}
-.bc-tmpl-face-toggle button {
-  border: none;
-  background: transparent;
-  color: rgba(255,255,255,0.75);
-  font-size: 10px;
-  font-weight: 700;
-  font-family: inherit;
-  padding: 4px 10px;
-  border-radius: 16px;
-  cursor: pointer;
-  transition: all 0.12s;
-}
-.bc-tmpl-face-toggle button.active {
-  background: #fff;
-  color: var(--navy, #112d37);
-}
 
 /* ── HTML/CSS back-side mockup (hover toggle + preview modal) ──── */
 .bc-back-preview {

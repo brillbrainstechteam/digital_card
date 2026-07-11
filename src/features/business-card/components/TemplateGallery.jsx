@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { ArrowLeft, Search, PlusSquare } from 'lucide-react'
-import { TEMPLATES, TEMPLATE_CATEGORIES, getPalette } from './bcTemplates'
-import { renderTemplateThumbnail, renderTemplateBackThumbnail } from './canvasHelpers'
+import { TEMPLATES, TEMPLATE_CATEGORIES, getPalette } from '../bcTemplates'
+import { renderTemplateThumbnail, renderTemplateBackThumbnail } from '../canvasHelpers'
 
 const DEFAULT_SIZE = 'standard'
 
@@ -161,6 +161,7 @@ export function TemplateGallery({ profile, onBack, onCustomise, onSelectTemplate
                   key={tmpl.id}
                   className="bc-tmpl-card"
                   onClick={() => setPreviewing(tmpl)}
+                  onMouseEnter={() => setFaceById((prev) => ({ ...prev, [tmpl.id]: 'back' }))}
                   onMouseLeave={() => setFaceById((prev) => (prev[tmpl.id] ? { ...prev, [tmpl.id]: 'front' } : prev))}
                 >
                   <div className="bc-tmpl-preview">
@@ -171,22 +172,6 @@ export function TemplateGallery({ profile, onBack, onCustomise, onSelectTemplate
                       : thumbs[tmpl.id]
                         ? <img src={thumbs[tmpl.id]} alt={tmpl.label} />
                         : <div dangerouslySetInnerHTML={{ __html: tmpl.svgPreview(palette) }} />}
-                    <div className="bc-tmpl-face-toggle">
-                      <button
-                        type="button"
-                        className={face === 'front' ? 'active' : ''}
-                        onClick={(e) => { e.stopPropagation(); setFaceById((prev) => ({ ...prev, [tmpl.id]: 'front' })) }}
-                      >
-                        Front
-                      </button>
-                      <button
-                        type="button"
-                        className={face === 'back' ? 'active' : ''}
-                        onClick={(e) => { e.stopPropagation(); setFaceById((prev) => ({ ...prev, [tmpl.id]: 'back' })) }}
-                      >
-                        Back
-                      </button>
-                    </div>
                   </div>
                   <div className="bc-tmpl-info">
                     <h4>{tmpl.label}</h4>

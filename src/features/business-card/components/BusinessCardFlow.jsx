@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { fetchCard, createCard, updateCard, deleteCard } from '../api'
+import { fetchCard, createCard, updateCard, deleteCard } from '../services/api'
 import { DetailsForm }         from './DetailsForm'
 import { SetupDialog }         from './SetupDialog'
 import { TemplateGallery }     from './TemplateGallery'
-import { BusinessCardEditor }  from './features/business-cardEditor'
-import './features/business-card.css'
+import { BusinessCardEditor }  from './BusinessCardEditor'
+import '../businessCard.css'
 
 // Steps: 'details' | 'gallery' | 'setup' | 'editor'
 // The 'new' cardId is a routing sentinel, not a real DB id — no card row
@@ -59,7 +59,7 @@ export function BusinessCardFlow() {
           setProfile(baseProfile)
           setStep('details')
         }
-      } catch (e) {
+      } catch {
         setError('Could not load card data.')
       } finally {
         setLoading(false)

@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createCard, updateCard, fetchCard } from '../api'
+import { createCard, updateCard, fetchCard, deleteCard } from '../services/api'
 import { TemplateGallery } from './TemplateGallery'
 import { SetupDialog } from './SetupDialog'
 import { DetailsForm } from './DetailsForm'
-import { BusinessCardEditor } from './features/business-cardEditor'
-import './features/business-card.css'
+import { BusinessCardEditor } from './BusinessCardEditor'
+import '../businessCard.css'
 
 // Browse-first entry point: gallery (generic placeholders) -> details -> editor.
 // Mirrors BusinessCardFlow's "details first" order in reverse — the card
@@ -78,6 +78,22 @@ export function BusinessCardTemplatesPage() {
     }
   }
 
+  // This flow creates the card row eagerly in handleDetailsSubmit (unlike
+  // BusinessCardFlow, which creates it lazily on first save) — so by the
+  // time the editor's exit-confirmation dialog can show the 'new' scenario,
+  // a real row already exists and must be deleted rather than left as an
+  // orphaned blank draft. Without this, the editor's Discard button had
+  // nothing to call and silently did nothing.
+  async function handleDiscardNew() {
+    try {
+      if (cardId) await deleteCard(cardId)
+    } catch (err) {
+      console.error('Failed to discard unsaved business card', err)
+    } finally {
+      navigate('/business-cards')
+    }
+  }
+
   async function handleExport() {
     try {
       const card = await fetchCard(cardId)
@@ -104,6 +120,7 @@ export function BusinessCardTemplatesPage() {
         onExit={() => navigate('/business-cards')}
         onSave={handleSave}
         onExport={handleExport}
+        onDiscardNew={handleDiscardNew}
       />
     )
   }

@@ -98,7 +98,7 @@ export async function renderFaceThumbnail(json, setup, multiplier = 1) {
     normalizeLegacyOrigins(canvas)
     canvas.renderAll()
     return canvas.toDataURL({ format: 'png', multiplier })
-  } catch (_) {
+  } catch {
     return null
   } finally {
     canvas.dispose()

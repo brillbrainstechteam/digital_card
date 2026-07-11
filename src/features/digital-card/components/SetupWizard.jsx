@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createCard, updateCard, uploadImage } from '../services/api'
-import { defaultProfile, PRESET_DEFAULTS, getVisibilityFlags, ABOUT_MAX_LENGTH } from '../data'
+import { defaultProfile, getVisibilityFlags, ABOUT_MAX_LENGTH } from '../data'
 import { extractPaletteFromLogo, detectBackdrop, rgbToHex } from '../theme'
 import { themeFromPalette } from '../themeOptions'
 
