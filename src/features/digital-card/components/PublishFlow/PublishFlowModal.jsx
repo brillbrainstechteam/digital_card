@@ -45,7 +45,7 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
         address: profile.address || profile.location || '',
         palette: profile.palette,
       }
-      const created = await createCard(`${cardLabel} Business Card`, { productType: 'business' })
+      const created = await createCard(`Built from your digital card - ${cardLabel}`, { productType: 'business' })
       await updateCard(created.id, {
         status: 'draft',
         card_data: {

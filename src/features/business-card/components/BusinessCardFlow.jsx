@@ -212,6 +212,7 @@ export function BusinessCardFlow() {
           key={selection.templateId + selection.setup.size + selection.setup.orientation}
           selection={selection}
           profile={profile}
+          cardId={dbCardId}
           onBack={() => setStep('gallery')}
           onExit={() => navigate('/business-cards')}
           onSave={handleSave}

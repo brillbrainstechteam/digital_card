@@ -14,7 +14,7 @@ export { QrScanRedirect } from './generator/QrScanRedirect'
 export { useQrCode } from './hooks/useQrCode'
 export { useQrDownload } from './hooks/useQrDownload'
 
-export { createDefaultQrSettings, downloadQrCode } from './services/qrEngine'
+export { createDefaultQrSettings, downloadQrCode, renderQrToDataUrl } from './services/qrEngine'
 export {
   fetchCardQr, fetchMyQrCodes, saveCardQr, publishStandaloneQr, removeCardQr, fetchQrAnalytics, fetchOverallQrAnalytics, resolveQrScan,
 } from './services/qrApi'

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import {
   Canvas, Textbox, Rect, Circle, Triangle, Line, FabricImage, Group,
   loadSVGFromString, util,
@@ -12,10 +12,11 @@ import {
   Minus, Download, Printer, Save, X, Eye,
   Heart, Award, Briefcase, Globe, Camera, Coffee, Zap, Shield, Smile, MapPin, Sparkles,
 } from 'lucide-react'
-import { TEMPLATES, getPalette, getCardDimensions, getTemplate, CUSTOM_FABRIC_PROPS, PLACEHOLDER_TEXT, loadBackSide, addText, addLogo, addAddressFooter, f, isPlaceholder } from '../bcTemplates'
+import { TEMPLATES, getPalette, getCardDimensions, getTemplate, CUSTOM_FABRIC_PROPS, PLACEHOLDER_TEXT, loadBackSide, addText, addLogo, addAddressFooter, f, isPlaceholder, computeBackQrRect } from '../bcTemplates'
 import { normalizeLegacyOrigins, renderFaceThumbnail } from '../canvasHelpers'
 import { FONT_OPTIONS } from '../../digital-card/fontOptions'
 import { CardPreviewScreen } from './CardPreviewScreen'
+import { QRCode, createDefaultQrSettings, buildDestinationValue, renderQrToDataUrl } from '../../qr'
 
 // ── Solid palette for background ─────────────────────────────
 const BG_COLORS = [
@@ -24,16 +25,15 @@ const BG_COLORS = [
   '#f4a261','#c98ea6','#7c9eff','#0e7c86','#b45309',
 ]
 
-// ── QR code via free public API ───────────────────────────────
-function getQRUrl(text) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(text || 'https://example.com')}&format=png&margin=4`
-}
-
-// Detected by content (a group containing a Textbox reading "QR"), not a
-// custom flag. Works on both live Fabric objects (children under `_objects`)
-// and plain serialized JSON (children under `objects`) so it can be reused
-// for the inactive face's Elements list, which only has parsed JSON to read.
+// Recognizes a QR object either by its elementType tag (real QR images
+// inserted via addQRPlaceholder are tagged 'qrCode'; template-generated
+// ones are tagged 'qr') or, for legacy/untagged data, by content — a group
+// containing a Textbox reading "QR" (the old static placeholder look).
+// Works on both live Fabric objects (children under `_objects`) and plain
+// serialized JSON (children under `objects`) so it can be reused for the
+// inactive face's Elements list, which only has parsed JSON to read.
 function isQRPlaceholderObj(obj) {
+  if (obj?.elementType === 'qr' || obj?.elementType === 'qrCode') return true
   const children = obj?._objects || obj?.objects
   return obj?.type === 'group' && Array.isArray(children) &&
     children.some((o) => (o.type === 'textbox' || o.type === 'i-text' || o.type === 'text') && o.text === 'QR')
@@ -148,7 +148,7 @@ const STICKER_ICONS = [
   { key: 'sparkles', Icon: Sparkles },
 ]
 
-export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit, onExport, onDiscardNew }) {
+export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave, onExit, onExport, onDiscardNew }) {
   const { templateId, setup, savedFront, savedBack } = selection
   const { w, h } = getCardDimensions(setup.size, setup.orientation)
 
@@ -280,8 +280,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
 
       // Add QR if enabled
       if (setup.includeQR) {
-        const qrSrc = profile.website || profile.slug || 'https://example.com'
-        await addQRToCanvas(cv, qrSrc, w, h)
+        await addQRToCanvas(cv, w, h)
       }
     }
 
@@ -399,17 +398,27 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   }, [hasBeenSaved, hasUnsavedChanges])
 
   // ── Helpers ────────────────────────────────────────────────
-  async function addQRToCanvas(cv, url, cw, ch) {
+  // Used for the Setup dialog's "Include QR" toggle on a fresh Customise
+  // canvas — generates the same real, scannable QR (via features/qr) as
+  // addQRPlaceholder, rather than an external QR API.
+  async function addQRToCanvas(cv, cw, ch) {
     try {
-      const qrImg = await FabricImage.fromURL(getQRUrl(url), { crossOrigin: 'anonymous' })
+      const qrValue = buildQrValue()
+      const dataUrl = await renderQrToDataUrl({
+        ...createDefaultQrSettings(),
+        data: qrValue,
+        size: 240,
+        margin: 8,
+      })
+      const qrImg = await FabricImage.fromURL(dataUrl)
       qrImg.scaleToWidth(60)
       // Same bottom-right placement as addQRPlaceholder — 20px margin off
       // both edges, computed from the canvas dimensions.
       qrImg.set({ left: cw - 80, top: ch - 80, selectable: true, originX: 'left', originY: 'top' })
-      qrImg.elementType = 'qr'
+      qrImg.elementType = 'qrCode'
       cv.add(qrImg)
     } catch {
-      // QR image failed to load — leave the canvas without it.
+      // QR generation failed — leave the canvas without it.
     }
   }
 
@@ -779,7 +788,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     fabricRef.current.backgroundColor = '#ffffff'
     if (tmpl) await tmpl.load(fabricRef.current, profile, palette, w, h)
     if (setup.includeQR) {
-      await addQRToCanvas(fabricRef.current, profile.website || '', w, h)
+      await addQRToCanvas(fabricRef.current, w, h)
     }
     fabricRef.current.renderAll()
     snapshot(activeFace, fabricRef.current)
@@ -1266,17 +1275,95 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
   // `face` is passed explicitly by callers that just awaited switchFace()
   // — the activeFace closure variable is stale at that point — and decides
   // both the default position and which history bucket the snapshot lands in.
-  function addQRPlaceholder(face = activeFace, cv2 = null) {
+  // Turns the selected destination + profile details into the exact string
+  // that gets encoded into the QR (reusing features/qr's own destination
+  // builder — vCard generation, URL schemes, etc. — instead of duplicating
+  // that logic here). 'saveContact' is the default: scanning it saves the
+  // person straight to the visitor's phone contacts, which is what most
+  // people actually want from a physical business card's QR.
+  function buildQrValue() {
+    if (qrDestination === 'customLink') {
+      return buildDestinationValue('custom', { value: qrCustomLink })
+    }
+    if (qrDestination === 'website') {
+      return buildDestinationValue('website', { url: profile.website || '' })
+    }
+    if (qrDestination === 'digitalCard') {
+      // No linked Digital Card URL is available from within the Business
+      // Card editor — fall back to the website field (or the custom link,
+      // if one was entered) rather than fabricating a URL.
+      return buildDestinationValue('digitalCard', { url: qrCustomLink || profile.website || '' })
+    }
+    return buildDestinationValue('saveContact', {
+      fullName: profile.personName || '',
+      companyName: profile.companyName || '',
+      designation: profile.designation || '',
+      phone: profile.phone || '',
+      email: profile.email || '',
+      website: profile.website || '',
+      address: profile.address || '',
+    })
+  }
+
+  // Memoized so the QR panel's live preview only rebuilds its qr-code-styling
+  // instance when the encoded value actually changes — not on every one of
+  // this editor's frequent re-renders (canvas selection, history, etc.),
+  // which otherwise cancels each render's in-flight SVG draw before it
+  // finishes and leaves the preview permanently blank.
+  const panelQrValue = useMemo(
+    () => buildQrValue(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [qrDestination, qrCustomLink, profile],
+  )
+  const panelQrSettings = useMemo(
+    () => ({ ...createDefaultQrSettings(), data: panelQrValue, size: 96 }),
+    [panelQrValue],
+  )
+
+  async function addQRPlaceholder(face = activeFace, cv2 = null) {
     const canvas = cv2 || fabricRef.current
     if (!canvas) return
-    const size = 60
-    // Positions are computed from the canvas dimensions, never hardcoded,
-    // so they hold for every template, size and orientation: bottom-right
-    // corner on the front (out of every template's main composition),
-    // bottom-center on the back.
-    const pos = face === 'back'
-      ? { left: w / 2 - size / 2, top: h - 80 }
-      : { left: w - 80, top: h - 80 }
+    // On the back, restore the QR to wherever the current template's own
+    // loadBack() would have placed it (side-by-side with the contact block,
+    // or stacked, per that template's layout) rather than a generic spot —
+    // otherwise "Remove from Back" + "Add to Back" visibly relocates it.
+    // The front has no template-owned QR to match, so it keeps a fixed
+    // bottom-right corner default.
+    const backRect = face === 'back' && templateId !== 'blank'
+      ? computeBackQrRect(templateId, w, h)
+      : null
+    const size = backRect ? backRect.size : 70
+    const pos = backRect
+      ? { left: backRect.left, top: backRect.top }
+      : face === 'back'
+        ? { left: w / 2 - size / 2, top: h - 90 }
+        : { left: w - 90, top: h - 90 }
+
+    const qrValue = buildQrValue()
+    if (qrValue) {
+      try {
+        const dataUrl = await renderQrToDataUrl({
+          ...createDefaultQrSettings(),
+          data: qrValue,
+          size: 240,
+          margin: 8,
+        })
+        const img = await FabricImage.fromURL(dataUrl)
+        img.set({ left: pos.left, top: pos.top, originX: 'left', originY: 'top' })
+        img.scaleToWidth(size)
+        img.elementType = 'qrCode'
+        canvas.add(img)
+        canvas.setActiveObject(img)
+        canvas.renderAll()
+        snapshot(face, canvas)
+        return
+      } catch {
+        // QR generation failed (e.g. the qr-code-styling library couldn't
+        // render offscreen) — fall through to the static placeholder below
+        // so the user still gets something to position, rather than nothing.
+      }
+    }
+
     const box = new Rect({
       width: size, height: size, fill: '#ffffff',
       stroke: '#9a968d', strokeWidth: 1.5,
@@ -1292,10 +1379,6 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       left: pos.left, top: pos.top,
       originX: 'left', originY: 'top',
     })
-    // TODO:
-    // Replace placeholder QR with generated QR from the QR Generation module.
-    // The selected destination (qrDestination) and custom URL (qrCustomLink)
-    // will be passed into that module in place of this static box.
     group.elementType = 'qrCode'
     canvas.add(group)
     canvas.setActiveObject(group)
@@ -1327,7 +1410,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
       setSelectedObj(null)
       snapshot(face, canvas)
     } else {
-      addQRPlaceholder(face, canvas)
+      await addQRPlaceholder(face, canvas)
     }
   }
 
@@ -1345,7 +1428,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     sourceCanvas.renderAll()
     setSelectedObj(null)
     const targetCanvas = await resolveFaceCanvas(targetFace)
-    addQRPlaceholder(targetFace, targetCanvas)
+    await addQRPlaceholder(targetFace, targetCanvas)
   }
 
   // ── Change 5 property helpers ──────────────────────────────
@@ -1592,6 +1675,7 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     return (
       <CardPreviewScreen
         card={{
+          id: cardId,
           title: getTemplate(templateId)?.label || 'Business Card',
           businessCard: {
             frontJson: currentFaceJson('front'),
@@ -1826,15 +1910,18 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
                 </div>
               )}
 
-              {/* QR — visual placeholder only, no real QR generation yet.
-                  TODO: once the QR Generation module exists, feed it
-                  { qrDestination, qrCustomLink } and swap this static box
-                  for the real encoded image — see addQRPlaceholder(). */}
+              {/* QR — live preview generated by features/qr's own engine
+                  (same module the QR Studio and Digital Card use), reusing
+                  buildDestinationValue for the actual encoded payload
+                  (vCard for Save Contact, URL schemes for the others) —
+                  see buildQrValue() / addQRPlaceholder(). */}
               {activePanel === 'qr' && (
                 <div className="bce-lsec">
                   <div className="bce-lsec-label">QR Code</div>
                   <div className="bce-qr-placeholder-box">
-                    <QrCode size={26} color="var(--muted)" />
+                    {panelQrValue
+                      ? <QRCode settings={panelQrSettings} size={96} />
+                      : <QrCode size={26} color="var(--muted)" />}
                   </div>
 
                   <p className="bce-qr-section-label">Links to</p>
@@ -1865,7 +1952,9 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
                   )}
 
                   <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, margin: '10px 0 14px' }}>
-                    QR code will link to your digital card
+                    {qrDestination === 'saveContact'
+                      ? 'Scanning this saves your contact details straight to the visitor’s phone.'
+                      : 'QR code will link to your ' + (qrDestination === 'website' ? 'website' : qrDestination === 'digitalCard' ? 'digital card' : 'custom link') + '.'}
                   </p>
 
                   <button
@@ -1884,8 +1973,6 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
                   >
                     {faceHasQR('back') ? 'Remove from Back' : 'Add to Back'}
                   </button>
-
-                  <p className="bce-qr-coming-soon">Placeholder only — no QR generated yet</p>
                 </div>
               )}
 

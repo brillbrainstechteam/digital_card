@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Download, FileDown } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowLeft, Download, ShoppingCart } from 'lucide-react'
 import { renderFaceThumbnail } from '../canvasHelpers'
 import { getCardDimensions } from '../bcTemplates'
+import { useCart } from '../../../context/CartContext'
+import { useToast } from '../../../context/ToastContext'
 import '../businessCard.css'
+
+const BUSINESS_CARD_PRICE = 799
 
 function downloadDataUrl(dataUrl, filename) {
   const a = document.createElement('a')
@@ -53,9 +58,21 @@ export function CardPreviewScreen({ card, onEdit, onClose }) {
   const { w: cardW, h: cardH } = getCardDimensions(setup?.size || 'standard', setup?.orientation)
   const cardAspect = `${cardW} / ${cardH}`
 
+  const navigate = useNavigate()
+  const cart = useCart()
+  const toast = useToast()
+  // Only a saved card has a real DB id — the editor's live "Preview"
+  // (before the first Save) passes a card object with no id, so Add to
+  // Cart is disabled there rather than adding a line item with nothing
+  // to actually link to at checkout.
+  const cardId = card.id || null
+  const cartItemId = cardId ? `${cardId}-businessCard` : null
+  const inCart = cartItemId ? cart.hasItem(cartItemId) : false
+
   const [images, setImages] = useState({ front: null, back: null })
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [flipped, setFlipped] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -82,26 +99,26 @@ export function CardPreviewScreen({ card, onEdit, onClose }) {
     }
   }
 
-  async function handleExportPdf() {
-    if (!images.front || exporting) return
-    setExporting(true)
-    try {
-      const { dataUrl, width, height } = await composeSideBySide(images.front, images.back)
-      const { jsPDF } = await import('jspdf')
-      // Fixed page width in points, height scaled to match the composed
-      // image's aspect ratio so the PDF page always fits the card(s) exactly.
-      const ptWidth = 720
-      const ptHeight = (height / width) * ptWidth
-      const pdf = new jsPDF({
-        unit: 'pt',
-        format: [ptWidth, ptHeight],
-        orientation: ptWidth >= ptHeight ? 'landscape' : 'portrait',
-      })
-      pdf.addImage(dataUrl, 'PNG', 0, 0, ptWidth, ptHeight)
-      pdf.save(`${title || 'business-card'}.pdf`)
-    } finally {
-      setExporting(false)
+  function handleAddToCart() {
+    if (!cardId) {
+      toast.error('Save this card first, then add it to your cart')
+      return
     }
+    if (inCart) {
+      navigate('/cart')
+      return
+    }
+    cart.addItem({
+      id: cartItemId,
+      type: 'business-card',
+      path: `/business-card/${cardId}`,
+      name: title || 'Business Card',
+      description: 'Personalized print-ready Business Card',
+      price: `INR ${BUSINESS_CARD_PRICE}`,
+      amount: BUSINESS_CARD_PRICE,
+      publishCardId: cardId,
+    })
+    toast.success('Added to cart')
   }
 
   return (
@@ -121,39 +138,41 @@ export function CardPreviewScreen({ card, onEdit, onClose }) {
       </div>
 
       <div className="bc-preview-body">
-        <div className="bc-lightbox-cards" style={{ marginBottom: 0, maxWidth: 900, width: '100%' }}>
-          <div className="bc-lightbox-card-col">
-            <div className="bc-lightbox-preview">
+        <div
+          className={`bc-flip-zone ${hasBack ? 'bc-flip-zone--flippable' : ''}`}
+          onClick={() => hasBack && setFlipped((current) => !current)}
+        >
+          <div className={`bc-flip-card ${flipped ? 'is-flipped' : ''}`} style={{ aspectRatio: cardAspect }}>
+            <div className="bc-flip-face bc-flip-face--front" style={{ aspectRatio: cardAspect }}>
               {loading ? (
-                <div style={{ width: '100%', aspectRatio: cardAspect, background: '#f0ede8' }} />
+                <div style={{ width: '100%', height: '100%' }} />
               ) : images.front ? (
                 <img src={images.front} alt={`${title} — front`} />
               ) : (
-                <div style={{ width: '100%', aspectRatio: cardAspect, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+                <div className="bc-flip-face--empty" style={{ width: '100%', height: '100%' }}>
                   Nothing saved on this side yet
                 </div>
               )}
             </div>
-            <span className="bc-lightbox-card-label">Front</span>
-          </div>
 
-          {hasBack && (
-            <div className="bc-lightbox-card-col">
-              <div className="bc-lightbox-preview">
+            {hasBack && (
+              <div className="bc-flip-face bc-flip-face--back" style={{ aspectRatio: cardAspect }}>
                 {loading ? (
-                  <div style={{ width: '100%', aspectRatio: cardAspect, background: '#f0ede8' }} />
+                  <div style={{ width: '100%', height: '100%' }} />
                 ) : images.back ? (
                   <img src={images.back} alt={`${title} — back`} />
                 ) : (
-                  <div style={{ width: '100%', aspectRatio: cardAspect, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+                  <div className="bc-flip-face--empty" style={{ width: '100%', height: '100%' }}>
                     Nothing saved on this side yet
                   </div>
                 )}
               </div>
-              <span className="bc-lightbox-card-label">Back</span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
+        {hasBack && (
+          <p className="bc-flip-hint">Click the card to flip to the {flipped ? 'front' : 'back'}</p>
+        )}
       </div>
 
       <div className="bc-preview-actions">
@@ -173,10 +192,11 @@ export function CardPreviewScreen({ card, onEdit, onClose }) {
           type="button"
           className="secondary-button"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          onClick={handleExportPdf}
-          disabled={loading || exporting}
+          onClick={handleAddToCart}
+          disabled={loading || !cardId}
+          title={!cardId ? 'Save this card first to add it to your cart' : undefined}
         >
-          <FileDown size={14} /> {exporting ? 'Exporting…' : 'Export PDF'}
+          <ShoppingCart size={14} /> {inCart ? 'View Cart' : 'Add to Cart'}
         </button>
         <button type="button" className="primary-button" onClick={onEdit}>
           Edit This Card

@@ -1559,3 +1559,55 @@
   flex-shrink: 0;
   padding-top: 14px;
 }
+
+/* ---- Click-to-flip preview (same look as the Digital Card publish
+   flow's sample business card, driven by a click/tap instead of hover —
+   a full preview page has no natural "hover" target on touch devices). ---- */
+.bc-flip-zone {
+  width: 100%;
+  max-width: 480px;
+  perspective: 1800px;
+  margin: auto;
+  flex-shrink: 0;
+}
+.bc-flip-zone.bc-flip-zone--flippable { cursor: pointer; }
+.bc-flip-card {
+  position: relative;
+  width: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1);
+}
+.bc-flip-card.is-flipped { transform: rotateY(180deg); }
+.bc-flip-face {
+  position: relative;
+  width: 100%;
+  backface-visibility: hidden;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(17, 45, 55, 0.2);
+  background: #f0ede8;
+}
+.bc-flip-face img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.bc-flip-face--back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+}
+.bc-flip-face--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted, #657174);
+  font-size: 13px;
+}
+.bc-flip-hint {
+  color: var(--muted, #657174);
+  font-size: 12px;
+  margin-top: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}

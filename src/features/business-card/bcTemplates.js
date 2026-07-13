@@ -11,6 +11,7 @@
 import {
   Textbox, Rect, Circle, Line, FabricImage, Gradient, Polygon, Group,
 } from 'fabric'
+import { buildDestinationValue, createDefaultQrSettings, renderQrToDataUrl } from '../qr'
 
 // ── Card dimensions ──────────────────────────────────────────────
 export const CARD_SIZES = {
@@ -155,16 +156,16 @@ function linearGrad(canvas, x1, y1, x2, y2, c1, c2) {
   })
 }
 
-// Logo sits in a bordered white box by default — same visual treatment as
-// the QR placeholder (white fill, thin border, rounded corners) — instead
-// of a bare floating image, and shows a "LOGO" placeholder box when no logo
-// has been uploaded yet. Pass `{ bordered: false }` for templates that want
-// the raw logo image with no frame around it. The box's footprint always
-// equals `size`×`size`, so every template's surrounding layout math
-// (company name position, etc.) is unaffected regardless of whether a real
-// logo or the placeholder renders.
+// Logo renders as just the raw uploaded image by default — no white box or
+// border behind it. The bordered box only ever appears as a placeholder
+// when there's genuinely no logo image to show yet (so the layout isn't
+// just blank space) — pass `{ bordered: true }` to force the boxed
+// treatment even when an image exists, if a template wants it. The
+// placeholder box's footprint always equals `size`×`size`, so every
+// template's surrounding layout math (company name position, etc.) is
+// unaffected regardless of whether a real logo or the placeholder renders.
 export async function addLogo(canvas, profile, x, y, size, opts = {}) {
-  const { bordered = true } = opts
+  const { bordered = false } = opts
   const src = profile.logo || profile.logoSource
 
   if (!bordered && src) {
@@ -407,7 +408,34 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
     }
   }
 
-  const qrLabel = (size) => {
+  // Builds the actual scannable QR a template ships with by default (a
+  // Save Contact vCard from the profile, matching the editor's own default
+  // destination) rather than a static "QR" placeholder box — so templates
+  // no longer need a manual Remove-from-Back + Add-to-Back round trip in
+  // the editor just to get a real, working QR onto the card.
+  const qrLabel = async (size) => {
+    const qrValue = buildDestinationValue('saveContact', {
+      fullName: profile.personName || '',
+      companyName: profile.companyName || '',
+      designation: profile.designation || '',
+      phone: profile.phone || '',
+      email: profile.email || '',
+      website: profile.website || '',
+      address: profile.address || '',
+    })
+    if (qrValue) {
+      try {
+        const dataUrl = await renderQrToDataUrl({
+          ...createDefaultQrSettings(), data: qrValue, size: 240, margin: 8,
+        })
+        const img = await FabricImage.fromURL(dataUrl)
+        img.scaleToWidth(size)
+        img.set({ originX: 'left', originY: 'top' })
+        return img
+      } catch {
+        // Fall through to the static placeholder box below.
+      }
+    }
     const box = new Rect({
       width: size, height: size, fill: '#ffffff',
       stroke: accentColor, strokeWidth: 1.5, opacity: 0.9,
@@ -428,7 +456,7 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
     const rowW = w * 0.78
     const rowX = (w - rowW) / 2
 
-    const qrGroup = qrLabel(stackQrSize)
+    const qrGroup = await qrLabel(stackQrSize)
     qrGroup.elementType = 'qr'
     const contactBlockH = 34 + 30 + 34 * 3 // name + designation + 3 contact rows, roughly
     const gap = h * 0.05
@@ -505,9 +533,9 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
     contactBottom = contactTop + rowGap * 2
   }
 
-  // QR placeholder — opposite side from the contact block, vertically
-  // centered relative to it, never dead-center on the card.
-  const qrGroup = qrLabel(sideQrSize)
+  // QR — opposite side from the contact block, vertically centered
+  // relative to it, never dead-center on the card.
+  const qrGroup = await qrLabel(sideQrSize)
   qrGroup.elementType = 'qr'
   qrGroup.set({
     left: qrX, top: (blockTop + contactBottom) / 2 - sideQrSize / 2,
@@ -516,6 +544,49 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
   canvas.add(qrGroup)
 
   addMotifIcon(canvas, palette, w, h, qrSide === 'right' ? 'bl' : 'br', 44)
+}
+
+// Per-template back-QR layout, mirroring the opts each template passes into
+// loadBackSide above — kept in sync manually since those opts are inlined
+// per-template rather than read back out of the closures.
+const BACK_QR_OPTS = {
+  'corp-minimal':   { qrSide: 'right', qrPosition: 'side' },
+  'dark-premium':   { qrSide: 'right', qrPosition: 'side' },
+  'gradient-hero':  { qrSide: 'right', qrPosition: 'side' },
+  'split-diagonal': { qrSide: 'left',  qrPosition: 'side' },
+  'side-column':    { qrSide: 'right', qrPosition: 'side' },
+  'top-banner':     { qrSide: 'right', qrPosition: 'side' },
+  'clean-white':    { qrSide: 'right', qrPosition: 'side' },
+  'warm-creative':  { qrSide: 'right', qrPosition: 'side' },
+  'vertical-dark':  { qrPosition: 'bottom' },
+  'geo-corner':     { qrSide: 'left',  qrPosition: 'side' },
+}
+
+// Recomputes the exact spot a template's own loadBack() would place its QR
+// at, using the same formulas as loadBackSide above. Lets the editor restore
+// a QR to its template-curated "default place" (rather than a generic
+// fallback position) after it's been removed and re-added via the QR panel.
+export function computeBackQrRect(templateId, w, h) {
+  const opts = BACK_QR_OPTS[templateId] || { qrSide: 'right', qrPosition: 'side' }
+
+  if (opts.qrPosition !== 'side') {
+    const stackQrSize = Math.max(w, h) < 260 ? 92 : Math.min(w * 0.34, 120)
+    const contactBlockH = 34 + 30 + 34 * 3
+    const gap = h * 0.05
+    const blockTop = h * 0.08
+    const qrTop = opts.qrPosition === 'top'
+      ? h * 0.08
+      : Math.min(h - stackQrSize - h * 0.06, blockTop + contactBlockH + gap)
+    return { left: (w - stackQrSize) / 2, top: qrTop, size: stackQrSize }
+  }
+
+  const sideQrSize = 116
+  const marginX = w * 0.07
+  const qrX = opts.qrSide === 'right' ? w - sideQrSize - marginX : marginX
+  const blockTop = h * 0.16
+  const contactTop = blockTop + 86
+  const contactBottom = contactTop + 32 * 2
+  return { left: qrX, top: (blockTop + contactBottom) / 2 - sideQrSize / 2, size: sideQrSize }
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -549,9 +620,9 @@ export const TEMPLATES = [
       // Bottom band
       addRect(canvas, { left: 0, top: h * 0.72, width: w, height: h * 0.28, fill: palette.primary, opacity: 0.07, selectable: false, evented: false })
       // Logo — large, centered, stacked above the company name (not beside
-      // it) — the primary visual element, no border around it.
+      // it) — the primary visual element.
       const logoSize = 100
-      await addLogo(canvas, profile, w / 2 - logoSize / 2, h * 0.08, logoSize, { bordered: false })
+      await addLogo(canvas, profile, w / 2 - logoSize / 2, h * 0.08, logoSize)
       // Company Name — centered below the logo, sized to dominate the card
       addText(canvas, f(profile, 'companyName'), {
         left: 20, top: h * 0.08 + logoSize + 14,
@@ -580,8 +651,13 @@ export const TEMPLATES = [
     },
 
     async loadBack(canvas, profile, palette, w, h) {
+      // Reverted from align:'horizontal' — splitting a ~58%-width column
+      // into three side-by-side chips left each one only ~47px for text,
+      // nowhere near enough for a phone number or email address, so they
+      // wrapped and overlapped the name/QR above. Vertical stacking (the
+      // layout every other template already uses successfully) actually fits.
       await loadBackSide(canvas, profile, palette, w, h, {
-        bg: '#f8f7f3', ink: palette.primary, accentColor: palette.accent, qrSide: 'right', accentShape: 'circle', align: 'horizontal',
+        bg: '#f8f7f3', ink: palette.primary, accentColor: palette.accent, qrSide: 'right', accentShape: 'circle',
       })
     },
   },
