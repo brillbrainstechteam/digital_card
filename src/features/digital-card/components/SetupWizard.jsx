@@ -3,6 +3,7 @@ import { createCard, updateCard, uploadImage } from '../services/api'
 import { defaultProfile, PRESET_DEFAULTS, getVisibilityFlags, ABOUT_MAX_LENGTH } from '../data'
 import { extractPaletteFromLogo, detectBackdrop, rgbToHex } from '../theme'
 import { themeFromPalette } from '../themeOptions'
+import { useAuth } from '../../../context/AuthContext'
 
 const CURATION_MESSAGES = [
   'Extracting your brand colors...',
@@ -15,6 +16,10 @@ const CURATION_MESSAGES = [
 const DEFAULT_SOCIALS = [
   { platform: 'instagram', url: 'https://instagram.com' },
   { platform: 'linkedin', url: 'https://linkedin.com' },
+  { platform: 'facebook', url: 'https://facebook.com' },
+  { platform: 'twitter', url: 'https://x.com' },
+  { platform: 'youtube', url: 'https://youtube.com' },
+  { platform: 'telegram', url: 'https://telegram.org' },
 ]
 
 function readFile(file) {
@@ -93,6 +98,7 @@ function getWizardSteps(cardType) {
 }
 
 export function SetupWizard({ onCancel, onComplete, toast }) {
+  const { isAuthenticated } = useAuth()
   const [cardType, setCardType] = useState(null)
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
@@ -258,13 +264,21 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
         logoSettings: form.logoSettings,
         branding: { ...defaultProfile.branding, poweredBy: true },
       }
+      // Guests get the fully-designed profile handed straight back — no
+      // account exists yet to save a card record against. The caller
+      // (CreateCardPage) stashes it as the local draft and moves into the
+      // editor; nothing here talks to the backend until Publish.
+      if (!isAuthenticated) {
+        onComplete(null, profile)
+        return
+      }
       const card = await createCard(titleName)
       await updateCard(card.id, {
         title: titleName,
         logo_url: profile.logo,
         card_data: profile,
       })
-      onComplete(card.id)
+      onComplete(card.id, profile)
     } catch (err) {
       setSubmitting(false)
       setStep(totalSteps)

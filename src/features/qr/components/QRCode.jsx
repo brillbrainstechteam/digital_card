@@ -7,9 +7,9 @@ import { useQrCode } from '../hooks/useQrCode'
  * Business Card editors — `<QRCode settings={...} />` — without any of the
  * generation logic being duplicated there.
  */
-export function QRCode({ settings, size, className = '' }) {
+export function QRCode({ settings, size, className = '', lockable = false }) {
   const containerRef = useRef(null)
-  useQrCode(settings, containerRef)
+  useQrCode(settings, containerRef, { lockable })
 
   return (
     <div

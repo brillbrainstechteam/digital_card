@@ -2,13 +2,15 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
 import { useAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
+import { CartProvider } from './context/CartContext'
 import { Landing } from './components/Landing'
 import { AuthPage } from './components/AuthPage'
 import { SettingsPage } from './components/SettingsPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AppLayout } from './components/AppLayout'
-import { Dashboard, StudioPage, AnalyticsPage, ActivityPage, PublicCard } from './features/digital-card'
+import { Dashboard, StudioPage, CreateCardPage, AnalyticsPage, ActivityPage, PublicCard, CardPreviewTemp } from './features/digital-card'
 import { QRStudioPage } from './features/qr/generator/QRStudioPage'
+import { QrCodesListPage } from './features/qr/generator/QrCodesListPage'
 import { QrScanRedirect } from './features/qr'
 
 function GuestRoute({ children }) {
@@ -22,22 +24,29 @@ function App() {
   return (
     <BrowserRouter>
       <ToastProvider>
+      <CartProvider>
         <Routes>
           <Route element={<AppLayout />}>
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<GuestRoute><AuthPage mode="login" /></GuestRoute>} />
             <Route path="/signup" element={<GuestRoute><AuthPage mode="signup" /></GuestRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/qr-studio" element={<ProtectedRoute><QRStudioPage /></ProtectedRoute>} />
+            {/* Guest-accessible: design freely, auth only required on publish. */}
+            <Route path="/qr-studio" element={<QRStudioPage />} />
+            <Route path="/qr-studio/codes" element={<ProtectedRoute><QrCodesListPage /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
             <Route path="/activity" element={<ProtectedRoute><ActivityPage /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="/studio/:cardId" element={<ProtectedRoute><StudioPage /></ProtectedRoute>} />
+            {/* Guest-accessible: no login required to design a card — only to publish it. */}
+            <Route path="/create" element={<CreateCardPage />} />
           </Route>
           <Route path="/card/:slug" element={<PublicCard />} />
+          <Route path="/preview/:token" element={<CardPreviewTemp />} />
           <Route path="/q/:slug" element={<QrScanRedirect />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+      </CartProvider>
       </ToastProvider>
     </BrowserRouter>
   )

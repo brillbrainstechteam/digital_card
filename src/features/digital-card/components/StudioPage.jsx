@@ -1,12 +1,21 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { defaultProfile, getVisibilityFlags } from '../data'
 import { extractPaletteFromLogo, detectBackdrop, rgbToHex } from '../theme'
-import { fetchCard, updateCard, uploadLogo } from '../services/api'
+import { fetchCard, createCard, updateCard, uploadLogo } from '../services/api'
+import { loadDraft, saveDraft, clearDraft } from '../utils/draft'
 import { useHistory } from '../hooks/useHistory'
 import { useToast } from '../../../context/ToastContext'
+import { useAuth } from '../../../context/AuthContext'
 import { createDefaultQrSettings, fetchCardQr, saveCardQr, removeCardQr, QrIntegrationPanel } from '../../qr'
 import { Studio } from './Studio'
+import { PublishFlowModal } from './PublishFlow/PublishFlowModal'
+import { PublishProgress } from './PublishFlow/PublishProgress'
+import { AuthModal } from '../../../components/AuthModal'
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 function ConfirmModal({ message, confirmLabel = 'OK', cancelLabel = 'Cancel', onConfirm, onCancel }) {
   return (
@@ -78,9 +87,16 @@ function LogoThemeDialog({ logo, theme, onThemeChange, onCancel, onConfirm }) {
 export function StudioPage() {
   const { cardId } = useParams()
   const navigate = useNavigate()
+  const { search } = useLocation()
+  const backTo = new URLSearchParams(search).get('from') === 'qr-studio' ? '/qr-studio/codes' : null
   const toast = useToast()
+  const { isAuthenticated } = useAuth()
+  // No :cardId in the URL means this is the guest-accessible /create route —
+  // everything is edited and saved purely in local state / localStorage
+  // until the user actually publishes (see runPublishSequence below).
+  const isGuest = !cardId
   const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!isGuest)
   const [saveStatus, setSaveStatus] = useState({ type: 'idle', text: '' })
   const [paletteStatus, setPaletteStatus] = useState({ type: 'ready', text: 'Auto-matched' })
   const [cardSlug, setCardSlug] = useState(null)
@@ -92,6 +108,15 @@ export function StudioPage() {
   const [qrModalOpen, setQrModalOpen] = useState(false)
   const [qrDraftSettings, setQrDraftSettings] = useState(null)
   const [qrSaving, setQrSaving] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [publishStage, setPublishStage] = useState(null)
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [publishFlowOpen, setPublishFlowOpen] = useState(false)
+  // The real backend card id — starts out equal to the route param for an
+  // existing card, or null for a guest draft until publish creates one. All
+  // API calls key off this, never the raw `cardId` param, so a guest draft
+  // can seamlessly become a real card mid-publish without remounting.
+  const [resolvedCardId, setResolvedCardId] = useState(cardId || null)
   const initialProfileRef = useRef(null)
   const savedSnapshotRef = useRef('')
   const liveEditSnapshotRef = useRef(null)
@@ -124,6 +149,19 @@ export function StudioPage() {
   }, [history])
 
   useEffect(() => {
+    if (isGuest) {
+      // No account, no backend calls — resume a saved draft if one exists,
+      // otherwise start fresh. Nothing here ever touches the server.
+      const draft = loadDraft()
+      const loadedProfile = draft || { ...defaultProfile }
+      initialProfileRef.current = loadedProfile
+      savedSnapshotRef.current = JSON.stringify(loadedProfile)
+      setProfile(loadedProfile)
+      resetEditorProfile(loadedProfile)
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     fetchCard(cardId)
       .then((card) => {
@@ -150,13 +188,34 @@ export function StudioPage() {
       .finally(() => setLoading(false))
 
     fetchCardQr(cardId).then(setQr).catch(() => setQr(null))
-  }, [cardId])
+  }, [cardId, isGuest])
+
+  // Guest drafts autosave to localStorage on every change so a refresh or
+  // an interruption for login never loses work.
+  useEffect(() => {
+    if (!isGuest || !editorProfile) return
+    saveDraft(editorProfile)
+  }, [isGuest, editorProfile])
 
   const handleSave = useCallback(async () => {
     if (!editorProfile) return
+
+    if (isGuest) {
+      // Guests have no card record to save to yet — the autosave effect
+      // above already persisted this to localStorage. Just reflect it.
+      saveDraft(editorProfile)
+      savedSnapshotRef.current = JSON.stringify(editorProfile)
+      liveEditSnapshotRef.current = null
+      history.clear()
+      setHasUnsavedChanges(false)
+      setSaveStatus({ type: 'saved', text: 'Saved' })
+      setTimeout(() => setSaveStatus((s) => s.type === 'saved' ? { type: 'idle', text: '' } : s), 2000)
+      return
+    }
+
     setSaveStatus({ type: 'saving', text: 'Saving...' })
     try {
-      const updated = await updateCard(cardId, {
+      const updated = await updateCard(resolvedCardId, {
         title: editorProfile.brandName,
         logo_url: editorProfile.logo,
         card_data: editorProfile,
@@ -174,7 +233,72 @@ export function StudioPage() {
       toast.error('Save failed: ' + err.message)
       throw err
     }
-  }, [cardId, editorProfile])
+  }, [isGuest, resolvedCardId, editorProfile])
+
+  // The actual publish work, run only once a session exists (either the
+  // user was already logged in, or just finished the AuthModal). Drives
+  // PublishProgress through its stages — each stage holds long enough to
+  // read even when the underlying request is instant — then hands off to
+  // the existing business-card/QR/cart flow.
+  const runPublishSequence = useCallback(async () => {
+    if (!editorProfile) return
+    setPublishing(true)
+    setPublishStage(0) // Saving your design...
+    try {
+      let id = resolvedCardId
+      if (!id) {
+        const created = await createCard(editorProfile.brandName || editorProfile.companyName || 'My Card')
+        id = created.id
+      }
+      await sleep(650)
+      setPublishStage(1) // Curating your customized Business Card...
+      await sleep(900)
+      setPublishStage(2) // Generating your branded QR Code...
+      await sleep(900)
+      setPublishStage(3) // Publishing your content...
+      const updated = await updateCard(id, {
+        title: editorProfile.brandName,
+        logo_url: editorProfile.logo,
+        card_data: editorProfile,
+        status: 'published',
+      })
+      setResolvedCardId(id)
+      setCardSlug(updated.slug)
+      setCardStatus(updated.status)
+      savedSnapshotRef.current = JSON.stringify(editorProfile)
+      liveEditSnapshotRef.current = null
+      history.clear()
+      setHasUnsavedChanges(false)
+      clearDraft()
+      // Cosmetic only — swaps /create for /studio/:id in the address bar
+      // without a router navigation, so nothing here remounts and the
+      // in-progress publish flow is never interrupted.
+      if (isGuest) window.history.replaceState(null, '', `/studio/${id}`)
+
+      await sleep(400)
+      setPublishStage(4) // Done!
+      await sleep(500)
+      setPublishStage(null)
+      toast.success('Card published')
+      setPublishFlowOpen(true)
+    } catch (err) {
+      setPublishStage(null)
+      toast.error('Publish failed: ' + err.message)
+    } finally {
+      setPublishing(false)
+    }
+  }, [isGuest, resolvedCardId, editorProfile])
+
+  // Guests (and anyone whose session has expired) get an auth modal instead
+  // of publishing outright — the draft itself is untouched either way.
+  const handlePublish = useCallback(() => {
+    if (!editorProfile) return
+    if (!isAuthenticated) {
+      setAuthModalOpen(true)
+      return
+    }
+    runPublishSequence()
+  }, [editorProfile, isAuthenticated, runPublishSequence])
 
   const handleDiscardChanges = useCallback(() => {
     if (!savedSnapshotRef.current) return
@@ -474,7 +598,7 @@ export function StudioPage() {
   async function handleSaveQr() {
     setQrSaving(true)
     try {
-      const saved = await saveCardQr(cardId, qrDraftSettings)
+      const saved = await saveCardQr(resolvedCardId, qrDraftSettings)
       setQr(saved)
       toast.success('QR code saved')
       closeQrModal()
@@ -488,7 +612,7 @@ export function StudioPage() {
   async function handleRemoveQr() {
     setQrSaving(true)
     try {
-      await removeCardQr(cardId)
+      await removeCardQr(resolvedCardId)
       setQr(null)
       toast.success('QR code removed')
       closeQrModal()
@@ -582,6 +706,23 @@ export function StudioPage() {
           onCancel={confirmModal.onCancel}
         />
       )}
+      <PublishProgress stage={publishStage} />
+      <AuthModal
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onAuthenticated={() => {
+          setAuthModalOpen(false)
+          runPublishSequence()
+        }}
+      />
+      <PublishFlowModal
+        open={publishFlowOpen}
+        onClose={() => setPublishFlowOpen(false)}
+        profile={editorProfile}
+        cardId={resolvedCardId}
+        existingQr={qr}
+        onQrSaved={setQr}
+      />
       {qrModalOpen && qrDraftSettings && (
         <div className="confirm-overlay" onClick={closeQrModal}>
           <div className="qr-integration-dialog" onClick={(e) => e.stopPropagation()}>
@@ -617,27 +758,31 @@ export function StudioPage() {
       hasQrCode={Boolean(qr)}
       onOpenQrCode={openQrModal}
       onPublicView={() => {
-        if (hasUnsavedChanges) {
-          setConfirmModal({
-            message: 'You have unsaved changes. Save your card before leaving?',
-            onConfirm: () => { setConfirmModal(null); if (cardSlug) window.open(`/card/${cardSlug}`, '_blank') },
-            onCancel: () => setConfirmModal(null),
-          })
-        } else if (cardSlug) {
-          window.open(`/card/${cardSlug}`, '_blank')
+        // A temporary, session-only preview link — works for unsaved/draft
+        // cards and can't be opened by anyone outside this browser tab,
+        // since the data lives only in sessionStorage, never the server.
+        const token = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+        try {
+          sessionStorage.setItem(`bb_preview_${token}`, JSON.stringify(editorProfile))
+          window.open(`/preview/${token}`, '_blank')
+        } catch {
+          toast.error('Could not open preview')
         }
       }}
       onSave={handleSave}
       onDiscard={handleDiscardChanges}
       publicUrl={publicUrl}
       saveStatus={saveStatus}
-      cardId={cardId}
+      cardId={resolvedCardId}
       cardStatus={cardStatus}
+      onPublish={handlePublish}
+      publishing={publishing}
       hasUnsavedChanges={hasUnsavedChanges}
       onUndo={history.undo}
       onRedo={history.redo}
           canUndo={history.canUndo}
           canRedo={history.canRedo}
+          backTo={backTo}
         />
     </>
   )

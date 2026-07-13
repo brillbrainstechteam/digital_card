@@ -1,0 +1,72 @@
+.auth-modal-overlay {
+  align-items: center;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.auth-modal-dialog {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.28);
+  max-width: 420px;
+  padding: 32px;
+  position: relative;
+  width: 100%;
+}
+
+.auth-modal-dialog h2 {
+  color: var(--navy);
+  font-size: 22px;
+  margin: 0 0 6px;
+}
+
+.auth-modal-subtitle {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 20px;
+}
+
+.auth-modal-close {
+  background: #f4f2ed;
+  border: none;
+  border-radius: 999px;
+  color: var(--navy);
+  cursor: pointer;
+  font-size: 20px;
+  height: 34px;
+  line-height: 1;
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  width: 34px;
+}
+
+.auth-modal-close:hover {
+  background: #ebe8e1;
+}
+
+.auth-modal-divider {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 12px;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.auth-modal-divider::before,
+.auth-modal-divider::after {
+  background: #efece5;
+  content: '';
+  flex: 1;
+  height: 1px;
+}
+
+.auth-modal-social {
+  width: 100%;
+}
+
+.auth-modal-social:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}

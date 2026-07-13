@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { QR_PRESETS, BRAND_THEME_PRESET_KEY } from '../presets/presets'
+import { extractPaletteFromLogo } from '../../../features/digital-card/theme'
 
 const GRADIENT_TYPES = [
   { key: null, label: 'Solid' },
@@ -13,16 +15,21 @@ const GRADIENT_TYPES = [
  * Card "QR add-on" would want to reuse as-is later.
  */
 export function QRCustomizationPanel({ settings, onChange, brandTheme = null }) {
+  const [customBrand, setCustomBrand] = useState({ primary: '#000000', surface: '#ffffff' })
+  const [extracting, setExtracting] = useState(false)
+  const [extractedPalette, setExtractedPalette] = useState(null)
+  // Extracted palette takes priority over manual pickers when a logo is uploaded
+  const effectiveBrandTheme = brandTheme ?? extractedPalette ?? customBrand
+
   function patch(partial) {
     onChange({ ...settings, ...partial })
   }
 
   function applyPreset(preset) {
     if (preset.key === BRAND_THEME_PRESET_KEY) {
-      if (!brandTheme) return
       patch({
-        foreground: brandTheme.primary,
-        background: brandTheme.surface,
+        foreground: effectiveBrandTheme.primary,
+        background: effectiveBrandTheme.surface,
         transparentBackground: false,
         gradient: null,
       })
@@ -55,9 +62,28 @@ export function QRCustomizationPanel({ settings, onChange, brandTheme = null }) 
     const file = event.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = () => patch({ logo: String(reader.result) })
+    reader.onload = async () => {
+      const dataUrl = String(reader.result)
+      patch({ logo: dataUrl })
+      // Auto-extract brand palette from the uploaded logo
+      setExtracting(true)
+      setExtractedPalette(null)
+      try {
+        const palette = await extractPaletteFromLogo(dataUrl)
+        setExtractedPalette({ primary: palette.primary, surface: palette.surface })
+      } catch {
+        // Extraction failed silently — manual pickers remain active
+      } finally {
+        setExtracting(false)
+      }
+    }
     reader.readAsDataURL(file)
     event.target.value = ''
+  }
+
+  function handleLogoRemove() {
+    patch({ logo: null })
+    setExtractedPalette(null)
   }
 
   return (
@@ -65,27 +91,52 @@ export function QRCustomizationPanel({ settings, onChange, brandTheme = null }) 
       <div className="qr-section">
         <h3 className="qr-section-title">Presets</h3>
         <div className="qr-preset-grid">
-          {QR_PRESETS.map((preset) => {
-            const disabled = preset.key === BRAND_THEME_PRESET_KEY && !brandTheme
-            return (
-              <button
-                key={preset.key}
-                type="button"
-                className="qr-preset-btn"
-                disabled={disabled}
-                title={disabled ? 'Available when created from a Digital Card' : undefined}
-                onClick={() => applyPreset(preset)}
-              >
-                {preset.label}
-              </button>
-            )
-          })}
+          {QR_PRESETS.map((preset) => (
+            <button
+              key={preset.key}
+              type="button"
+              className="qr-preset-btn"
+              onClick={() => applyPreset(preset)}
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
-        {brandTheme && (
-          <button type="button" className="primary-button qr-apply-brand-btn" onClick={() => applyPreset({ key: BRAND_THEME_PRESET_KEY })}>
-            Apply Brand Theme
-          </button>
+        {!brandTheme && (
+          <div className="qr-brand-inputs">
+            {extracting && (
+              <p className="qr-field-label" style={{ color: '#a36b2a', marginBottom: 8 }}>Extracting brand colors from logo…</p>
+            )}
+            {extractedPalette && !extracting && (
+              <div className="qr-extracted-palette">
+                <p className="qr-field-label" style={{ marginBottom: 6 }}>Extracted from logo</p>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span className="qr-palette-swatch" style={{ background: extractedPalette.primary }} title={extractedPalette.primary} />
+                  <span className="qr-palette-swatch" style={{ background: extractedPalette.surface, border: '1px solid #e8e5df' }} title={extractedPalette.surface} />
+                  <span style={{ color: '#687679', fontSize: 11, fontWeight: 700 }}>Click "Apply Brand Theme" to use these</span>
+                </div>
+              </div>
+            )}
+            {!extractedPalette && !extracting && (
+              <div>
+                <p className="qr-field-label" style={{ marginBottom: 8 }}>Your brand colors</p>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <label className="qr-field qr-field--inline" style={{ flex: 1 }}>
+                    <span className="qr-field-label">Primary</span>
+                    <input type="color" value={customBrand.primary} onChange={(e) => setCustomBrand((b) => ({ ...b, primary: e.target.value }))} />
+                  </label>
+                  <label className="qr-field qr-field--inline" style={{ flex: 1 }}>
+                    <span className="qr-field-label">Background</span>
+                    <input type="color" value={customBrand.surface} onChange={(e) => setCustomBrand((b) => ({ ...b, surface: e.target.value }))} />
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
         )}
+        <button type="button" className="primary-button qr-apply-brand-btn" onClick={() => applyPreset({ key: BRAND_THEME_PRESET_KEY })}>
+          Apply Brand Theme
+        </button>
       </div>
 
       <div className="qr-section">
@@ -159,7 +210,7 @@ export function QRCustomizationPanel({ settings, onChange, brandTheme = null }) 
         {settings.logo ? (
           <div className="qr-logo-preview-row">
             <img src={settings.logo} alt="Logo preview" className="qr-logo-thumb" />
-            <button type="button" className="secondary-button" onClick={() => patch({ logo: null })}>Remove Logo</button>
+            <button type="button" className="secondary-button" onClick={handleLogoRemove}>Remove Logo</button>
           </div>
         ) : (
           <label className="qr-upload-btn">

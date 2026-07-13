@@ -1,0 +1,87 @@
+.qr-preview-notice {
+  align-items: flex-start;
+  background: #fff7e6;
+  border: 1px solid #f2d896;
+  border-radius: 12px;
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.qr-preview-notice-icon {
+  align-items: center;
+  color: #a3760a;
+  display: flex;
+  flex: none;
+  padding-top: 2px;
+}
+
+.qr-preview-notice p {
+  color: #7a5b00;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.qr-preview-notice strong {
+  color: #5c4400;
+}
+
+.qr-dev-mode-badge {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  padding: 5px 8px 5px 12px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.qr-dev-mode-badge--on {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #4338ca;
+}
+
+.qr-dev-mode-badge--on span {
+  color: #6366f1;
+  font-weight: 600;
+}
+
+.qr-dev-mode-badge--off {
+  background: #f4f2ed;
+  border: 1px solid #e8e5df;
+  color: #6b6558;
+}
+
+.qr-dev-mode-badge--off span {
+  color: #8a8377;
+  font-weight: 600;
+}
+
+.qr-dev-mode-toggle {
+  background: rgba(255, 255, 255, 0.6);
+  border: none;
+  border-radius: 999px;
+  color: inherit;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 9px;
+}
+
+.qr-dev-mode-badge--on .qr-dev-mode-toggle:hover {
+  background: #fff;
+}
+
+.qr-dev-mode-badge--off .qr-dev-mode-toggle {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.qr-dev-mode-badge--off .qr-dev-mode-toggle:hover {
+  background: rgba(0, 0, 0, 0.12);
+}

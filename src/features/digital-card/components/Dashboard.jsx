@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchCards, deleteCard, unarchiveCard } from '../services/api'
+import { fetchCards, createCard, updateCard, deleteCard, unarchiveCard } from '../services/api'
 import { useToast } from '../../../context/ToastContext'
 import { SetupWizard } from './SetupWizard'
 import { PageHeader } from '../../../components/PageHeader'
 import { Sidebar } from '../../../components/Sidebar'
+import { clearDraft, loadDraft } from '../utils/draft'
 
 function ConfirmDialog({ title, message, actionLabel, onCancel, onConfirm }) {
   return (
@@ -71,6 +72,7 @@ const FILTERS = ['all', 'draft', 'published', 'archived']
 export function Dashboard() {
   const navigate = useNavigate()
   const toast = useToast()
+  const guestDraftImportedRef = useRef(false)
   const [cards, setCards] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -80,10 +82,31 @@ export function Dashboard() {
   const [shareCard, setShareCard] = useState(null)
   const [activeFilter, setActiveFilter] = useState('all')
 
+  async function importGuestDraftIfNeeded() {
+    if (guestDraftImportedRef.current) return false
+    guestDraftImportedRef.current = true
+
+    const draft = loadDraft()
+    if (!draft) return false
+
+    const title = draft.personName || draft.companyName || draft.brandName || 'My Card'
+    const created = await createCard(title)
+    await updateCard(created.id, {
+      title,
+      logo_url: draft.logo,
+      card_data: draft,
+      status: 'draft',
+    })
+    clearDraft()
+    toast.success('Your saved card draft has been restored.')
+    return true
+  }
+
   async function loadCards() {
     setLoading(true)
     setError('')
     try {
+      await importGuestDraftIfNeeded()
       setCards(await fetchCards())
     } catch (err) {
       setError(err.message)

@@ -384,7 +384,18 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
             <span>{buttonLabels.whatsapp}</span>
           </a>}
           {profile.showSaveContactButton !== false && (
-            <button className="save-contact" type="button" onClick={() => setShowSaveModal(true)}>
+            <button
+              className="save-contact"
+              type="button"
+              onClick={() => {
+                if (profile.saveContactRequireForm === false) {
+                  buildContactFile(profile)
+                  track('save_contact')
+                } else {
+                  setShowSaveModal(true)
+                }
+              }}
+            >
               <ActionIcon type="save" />
               {buttonLabels.saveContact}
             </button>

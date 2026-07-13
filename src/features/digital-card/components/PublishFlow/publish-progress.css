@@ -1,0 +1,88 @@
+.publish-progress-overlay {
+  align-items: center;
+}
+
+.publish-progress-dialog {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.28);
+  max-width: 380px;
+  padding: 32px;
+  width: 100%;
+}
+
+.publish-progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.publish-progress-row {
+  align-items: center;
+  color: #b9b4a9;
+  display: flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 12px;
+  transition: color 0.2s ease;
+}
+
+.publish-progress-row--active {
+  color: var(--navy);
+}
+
+.publish-progress-row--done {
+  color: #2f7a4d;
+}
+
+.publish-progress-icon {
+  align-items: center;
+  background: #f4f2ed;
+  border-radius: 999px;
+  display: flex;
+  flex: none;
+  font-size: 12px;
+  font-weight: 800;
+  height: 22px;
+  justify-content: center;
+  width: 22px;
+}
+
+.publish-progress-row--done .publish-progress-icon {
+  background: #eaf3ec;
+  color: #2f7a4d;
+}
+
+.publish-progress-row--active .publish-progress-icon {
+  background: var(--navy);
+}
+
+.publish-progress-spinner {
+  animation: publish-progress-spin 0.8s linear infinite;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  border-top-color: #fff;
+  display: block;
+  height: 11px;
+  width: 11px;
+}
+
+@keyframes publish-progress-spin {
+  to { transform: rotate(360deg); }
+}
+
+.publish-progress-bar {
+  background: #f2efe9;
+  border-radius: 999px;
+  height: 6px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.publish-progress-bar-fill {
+  background: var(--navy);
+  border-radius: 999px;
+  height: 100%;
+  transition: width 0.5s ease;
+}

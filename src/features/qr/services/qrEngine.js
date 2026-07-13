@@ -1,4 +1,5 @@
 import QRCodeStyling from 'qr-code-styling'
+import { isQrUnlocked, PREVIEW_QR_URL } from './qrAccess'
 
 // The single QR "settings" schema used across the whole platform. Every
 // consumer (QR Studio, Digital Card add-on, future Business Card add-on)
@@ -35,18 +36,43 @@ function buildGradient(gradient) {
   }
 }
 
+// qr-code-styling gives every finder-pattern corner (the three "eyes") its
+// own gradient, scoped to that corner's own tiny bounding box — not a
+// shared sweep across the whole code. Applying our gradient object to
+// cornersSquareOptions/cornersDotOptions the same way we do for dotsOptions
+// therefore renders as three small, disconnected color blobs instead of
+// one continuous gradient, which reads as broken. Using a flat color for
+// the corners — the gradient's first stop — is what makes a gradient QR
+// actually look like one coherent gradient (this is also how most
+// branded-QR tools style it).
+function cornerColorFor(gradient) {
+  return gradient?.colors?.[0] || '#000000'
+}
+
 // Maps our reusable settings schema onto qr-code-styling's Options shape.
 // This is the ONLY place that should know about qr-code-styling's API —
 // swapping the underlying library later only requires changing this file.
-export function buildQrCodeOptions(settings) {
+//
+// `lockable: true` is how a caller opts a QR into the preview-vs-real gate
+// — it's used by every card-linked QR surface (the paid add-on: publish
+// flow, card editor, My QR Codes, the public card view) but deliberately
+// NOT by the standalone QR Studio, which is a free, unrestricted tool with
+// no card/purchase attached. Whether a caller is rendering the live
+// preview, saving to the backend, or generating a download, all of those
+// paths funnel through here, so gating `data` in this one spot guarantees
+// the real destination can never leak out before the QR add-on is
+// unlocked (dev mode or a real purchase) for anything that opts in.
+export function buildQrCodeOptions(settings, { lockable = false } = {}) {
   const dotsGradient = buildGradient(settings.gradient)
+  const unlocked = !lockable || isQrUnlocked({ purchased: settings.purchased })
+  const data = unlocked ? (settings.data || ' ') : PREVIEW_QR_URL
 
   return {
     type: 'svg',
     width: settings.size,
     height: settings.size,
     margin: settings.margin,
-    data: settings.data || ' ', // qr-code-styling needs non-empty data to render a placeholder
+    data, // qr-code-styling needs non-empty data to render a placeholder
     image: settings.logo || undefined,
     qrOptions: {
       errorCorrectionLevel: settings.errorCorrectionLevel || 'H',
@@ -59,42 +85,44 @@ export function buildQrCodeOptions(settings) {
     dotsOptions: dotsGradient
       ? { type: settings.dotsType || 'square', gradient: dotsGradient }
       : { type: settings.dotsType || 'square', color: settings.foreground },
-    cornersSquareOptions: dotsGradient
-      ? { type: 'square', gradient: dotsGradient }
-      : { type: 'square', color: settings.foreground },
-    cornersDotOptions: dotsGradient
-      ? { type: 'square', gradient: dotsGradient }
-      : { type: 'square', color: settings.foreground },
+    cornersSquareOptions: {
+      type: 'square',
+      color: dotsGradient ? cornerColorFor(settings.gradient) : settings.foreground,
+    },
+    cornersDotOptions: {
+      type: 'square',
+      color: dotsGradient ? cornerColorFor(settings.gradient) : settings.foreground,
+    },
     backgroundOptions: settings.transparentBackground
       ? { color: 'rgba(0,0,0,0)' }
       : { color: settings.background },
   }
 }
 
-export function createQrCodeInstance(settings) {
-  return new QRCodeStyling(buildQrCodeOptions(settings))
+export function createQrCodeInstance(settings, { lockable = false } = {}) {
+  return new QRCodeStyling(buildQrCodeOptions(settings, { lockable }))
 }
 
 // Renders a fresh, offscreen instance and returns the raw Blob for the
 // requested format. Used for downloads so the visible preview instance is
 // never mutated by export concerns.
-export async function renderQrToBlob(settings, extension) {
-  const instance = new QRCodeStyling(buildQrCodeOptions(settings))
+export async function renderQrToBlob(settings, extension, { lockable = false } = {}) {
+  const instance = new QRCodeStyling(buildQrCodeOptions(settings, { lockable }))
   return instance.getRawData(extension)
 }
 
-export async function downloadQrCode(settings, { extension, fileName = 'qr-code' }) {
-  if (extension === 'pdf') return downloadQrAsPdf(settings, fileName)
-  const instance = new QRCodeStyling(buildQrCodeOptions(settings))
+export async function downloadQrCode(settings, { extension, fileName = 'qr-code', lockable = false } = {}) {
+  if (extension === 'pdf') return downloadQrAsPdf(settings, fileName, { lockable })
+  const instance = new QRCodeStyling(buildQrCodeOptions(settings, { lockable }))
   return instance.download({ name: fileName, extension })
 }
 
-async function downloadQrAsPdf(settings, fileName) {
+async function downloadQrAsPdf(settings, fileName, { lockable = false } = {}) {
   const { jsPDF } = await import('jspdf')
   // Render at a high fixed resolution regardless of the on-screen preview
   // size so the exported PDF is always crisp.
   const exportSettings = { ...settings, size: 1024 }
-  const blob = await renderQrToBlob(exportSettings, 'png')
+  const blob = await renderQrToBlob(exportSettings, 'png', { lockable })
   const dataUrl = await blobToDataUrl(blob)
   const pdf = new jsPDF({ unit: 'pt', format: [360, 360] })
   pdf.addImage(dataUrl, 'PNG', 20, 20, 320, 320)

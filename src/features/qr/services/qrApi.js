@@ -9,8 +9,23 @@ export async function fetchCardQr(cardId) {
   return data.data.qr
 }
 
+// Powers the QR Studio sidebar's "My QR Codes" list — every QR code the
+// user has saved across all of their cards.
+export async function fetchMyQrCodes() {
+  const { data } = await client.get('/qr')
+  return data.data.qrs
+}
+
 export async function saveCardQr(cardId, settings) {
   const { data } = await client.put(`/qr/card/${cardId}`, { settings })
+  return data.data.qr
+}
+
+// The standalone QR Studio's "Publish" action — creates a new, card-less
+// QR record (card_id stays null) so a design can be finalized, added to
+// the cart, and listed under "My QR Codes" without needing a Digital Card.
+export async function publishStandaloneQr(settings) {
+  const { data } = await client.post('/qr', { settings })
   return data.data.qr
 }
 

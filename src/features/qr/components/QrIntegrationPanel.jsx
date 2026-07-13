@@ -3,6 +3,7 @@ import { QRCode } from './QRCode'
 import { QRCustomizationPanel } from './QRCustomizationPanel'
 import { QRWarnings } from './QRWarnings'
 import { DestinationPicker } from './DestinationPicker'
+import { QrPreviewNotice, QrDevModeBadge } from './QrLockStatus'
 import { buildDestinationValue } from '../utils/destinations'
 import '../qr-studio.css'
 
@@ -44,6 +45,7 @@ export function QrIntegrationPanel({
     <div className="qr-integration-panel">
       <div className="qr-integration-columns">
         <div className="qr-integration-controls">
+          <QrDevModeBadge />
           <div className="qr-section">
             <h3 className="qr-section-title">Destination</h3>
             <DestinationPicker
@@ -55,8 +57,9 @@ export function QrIntegrationPanel({
           <QRCustomizationPanel settings={settings} onChange={onSettingsChange} brandTheme={brandTheme} />
         </div>
         <div className="qr-integration-preview">
-          <QRCode settings={liveSettings} size={220} />
+          <QRCode settings={liveSettings} size={220} lockable />
           <QRWarnings settings={liveSettings} />
+          <QrPreviewNotice settings={settings} />
         </div>
       </div>
       <div className="qr-integration-actions">

@@ -7,10 +7,24 @@ async function getCardQr(req, res, next) {
   } catch (err) { next(err) }
 }
 
+async function listQrs(req, res, next) {
+  try {
+    const qrs = await qrService.listUserQrs(req.user.id)
+    res.json({ success: true, data: { qrs } })
+  } catch (err) { next(err) }
+}
+
 async function upsertCardQr(req, res, next) {
   try {
     const qr = await qrService.upsertCardQr(req.user.id, req.params.cardId, req.body.settings || {})
     res.json({ success: true, message: 'QR code saved', data: { qr } })
+  } catch (err) { next(err) }
+}
+
+async function createStandaloneQr(req, res, next) {
+  try {
+    const qr = await qrService.createStandaloneQr(req.user.id, req.body.settings || {})
+    res.status(201).json({ success: true, message: 'QR code published', data: { qr } })
   } catch (err) { next(err) }
 }
 
@@ -59,4 +73,4 @@ async function resolveScan(req, res, next) {
   } catch (err) { next(err) }
 }
 
-module.exports = { getCardQr, upsertCardQr, deleteCardQr, getAnalytics, getCardAnalytics, getOverallAnalytics, resolveScan }
+module.exports = { getCardQr, listQrs, upsertCardQr, createStandaloneQr, deleteCardQr, getAnalytics, getCardAnalytics, getOverallAnalytics, resolveScan }

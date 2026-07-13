@@ -7,7 +7,13 @@ import { QRWarnings } from '../components/QRWarnings'
 import { DestinationPicker } from '../components/DestinationPicker'
 import { useQrDownload } from '../hooks/useQrDownload'
 import { createDefaultQrSettings } from '../services/qrEngine'
-import { buildDestinationValue } from '../utils/destinations'
+import { publishStandaloneQr } from '../services/qrApi'
+import { buildDestinationValue, DESTINATION_TYPES } from '../utils/destinations'
+import { useCart } from '../../../context/CartContext'
+import { useToast } from '../../../context/ToastContext'
+import { useAuth } from '../../../context/AuthContext'
+import { AuthModal } from '../../../components/AuthModal'
+import { QrPreviewNotice, QrDevModeBadge } from '../components/QrLockStatus'
 import '../qr-studio.css'
 
 /**
@@ -26,6 +32,11 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
   const [settings, setSettings] = useState(createDefaultQrSettings)
   const [destinationType, setDestinationType] = useState(initialDestination?.type || 'website')
   const [destinationFields, setDestinationFields] = useState(initialDestination?.fields || { url: '' })
+  const [publishing, setPublishing] = useState(false)
+  const [showAuth, setShowAuth] = useState(false)
+  const { addItem } = useCart()
+  const toast = useToast()
+  const { isAuthenticated } = useAuth()
 
   const data = useMemo(
     () => buildDestinationValue(destinationType, destinationFields),
@@ -40,9 +51,54 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
     setDestinationFields(fields)
   }
 
+  // Designing here is always free — "Publish" is the paid step. It finalizes
+  // this design as a real, card-less QR record (so it shows up under "My QR
+  // Codes" like any other) and adds it to the cart; the QR itself follows
+  // the same preview-vs-real gate as any other card-linked QR from there on.
+  async function doPublish() {
+    setPublishing(true)
+    try {
+      const qr = await publishStandaloneQr(liveSettings)
+      addItem({
+        id: `qr-${qr.id}`,
+        type: 'qr',
+        qrId: qr.id,
+        path: '/qr-studio/codes',
+        name: `Custom QR Code — ${DESTINATION_TYPES.find((d) => d.key === destinationType)?.label ?? 'QR'}`,
+        description: 'Branded QR code generated in QR Studio',
+        price: '₹X',
+      })
+      toast.success('QR code published — added to cart')
+    } catch (err) {
+      toast.error(err.message || 'Could not publish this QR code')
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  function handlePublish() {
+    if (!data) {
+      toast.error('Add a destination before publishing this QR code.')
+      return
+    }
+    if (!isAuthenticated) {
+      setShowAuth(true)
+      return
+    }
+    doPublish()
+  }
+
   return (
+    <>
+    <AuthModal
+      open={showAuth}
+      onClose={() => setShowAuth(false)}
+      onAuthenticated={() => { setShowAuth(false); doPublish() }}
+      title="Log in to publish your QR"
+      subtitle="Your design is saved — we just need an account to publish it."
+    />
     <main className="studio studio-workspace">
-      <Sidebar mode="app" activeApp="qrstudio" />
+      <Sidebar mode="app" section="qr" activeApp="qrstudio" />
       <section className="editor-panel">
         <PageHeader
           badge="QR STUDIO"
@@ -66,9 +122,14 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
           <span>Live preview</span>
         </div>
         <div className="qr-preview-canvas">
-          <QRCode settings={liveSettings} size={280} />
+          <QRCode settings={liveSettings} size={280} lockable />
         </div>
+        <QrPreviewNotice />
+        <QrDevModeBadge />
         <QRWarnings settings={liveSettings} />
+        <button type="button" className="primary-button qr-publish-btn" disabled={publishing} onClick={handlePublish}>
+          {publishing ? 'Publishing...' : 'Publish QR & Add to Cart'}
+        </button>
         <div className="qr-download-row">
           <button type="button" className="secondary-button" disabled={pending === 'png'} onClick={() => download('png')}>
             {pending === 'png' ? 'Preparing...' : 'Download PNG'}
@@ -82,5 +143,6 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
         </div>
       </aside>
     </main>
+    </>
   )
 }

@@ -79,7 +79,7 @@ const HeroAnimation = () => {
       }}
       transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
       style={{ perspective: 1200, transformStyle: "preserve-3d" }}
-      className="relative w-[310px] h-[640px] transition-transform duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)]"
+      className="relative w-[248px] h-[512px] transition-transform duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)]"
     >
       {/* Phone Frame */}
       <div className="absolute inset-0 bg-[#0a0a0a] rounded-[3rem] border-[8px] border-[#1a1a1a] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] overflow-hidden">

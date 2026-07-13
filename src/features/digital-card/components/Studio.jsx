@@ -447,14 +447,17 @@ function VisibilityToggle({ checked, onChange, label }) {
   )
 }
 
-function ButtonSettingRow({ title, checked, onToggle, value, onChange, onBegin, onCommit }) {
+function ButtonSettingRow({ title, checked, onToggle, value, onChange, onBegin, onCommit, colorControl = null, textColorControl = null }) {
   return (
     <div className="button-setting-row">
       <label className="button-setting-toggle-row">
         <span>Show {title} Button</span>
-        <span className="switch">
-          <input type="checkbox" checked={checked} onChange={(event) => onToggle(event.target.checked)} />
-          <span />
+        <span className="button-setting-toggle-controls">
+          {colorControl}
+          <span className="switch">
+            <input type="checkbox" checked={checked} onChange={(event) => onToggle(event.target.checked)} />
+            <span />
+          </span>
         </span>
       </label>
       {checked && (
@@ -467,6 +470,7 @@ function ButtonSettingRow({ title, checked, onToggle, value, onChange, onBegin, 
             onCommit={onCommit}
             maxLength={BUTTON_LABEL_MAX_LENGTH}
           />
+          {textColorControl && <div className="button-setting-text-color">{textColorControl}</div>}
         </div>
       )}
     </div>
@@ -566,7 +570,7 @@ function CommitInput({ value, onChange, placeholder }) {
   )
 }
 
-function SocialEditor({ social, onChange, onRemove }) {
+function SocialEditor({ social, onChange, onRemove, onMove, isFirst, isLast, colorControl }) {
   const platform = SOCIAL_PLATFORMS.find((p) => p.key === social.platform)
   return (
     <div className="link-editor social-editor">
@@ -580,9 +584,18 @@ function SocialEditor({ social, onChange, onRemove }) {
           <span />
         </label>
         <span className="social-platform-label">{platform?.label ?? social.platform}</span>
-        <button className="remove reorder" type="button" onClick={onRemove} aria-label="Remove">
-          ×
-        </button>
+        {colorControl}
+        <div className="reorder">
+          <button type="button" disabled={isFirst} onClick={() => onMove(-1)} aria-label="Move social up">
+            ↑
+          </button>
+          <button type="button" disabled={isLast} onClick={() => onMove(1)} aria-label="Move social down">
+            ↓
+          </button>
+          <button className="remove" type="button" onClick={onRemove} aria-label="Remove">
+            ×
+          </button>
+        </div>
       </div>
       <CommitInput
         value={social.url}
@@ -709,6 +722,9 @@ export function Studio({
   onDiscard,
   hasQrCode,
   onOpenQrCode,
+  onPublish,
+  publishing,
+  backTo = null,
 }) {
   const [activePanel, setActivePanel] = useState('design')
   const commitTimerRef = useRef(null)
@@ -931,6 +947,16 @@ export function Studio({
     }))
   }
 
+  function moveSocial(index, direction) {
+    setProfile((current) => {
+      const socials = [...current.socials]
+      const target = index + direction
+      if (target < 0 || target >= socials.length) return current
+      ;[socials[index], socials[target]] = [socials[target], socials[index]]
+      return { ...current, socials }
+    })
+  }
+
   function moveLink(index, direction) {
     setProfile((current) => {
       const links = [...current.links]
@@ -976,9 +1002,10 @@ export function Studio({
         hasUnsavedChanges={hasUnsavedChanges}
         onSave={onSave}
         onDiscard={onDiscard}
+        backTo={backTo}
       />
       <section className="editor-panel">
-        {['design', 'colors', 'fonts'].includes(activePanel) && (
+        {(
           <PageHeader
             badge="CARD STUDIO"
             title="Design your card"
@@ -995,8 +1022,7 @@ export function Studio({
                     className="primary-button save-card-button"
                     type="button"
                     onClick={onSave}
-                    disabled={!cardId || saveStatus?.type === 'saving'}
-                    title={!cardId ? 'No card loaded from server' : ''}
+                    disabled={saveStatus?.type === 'saving'}
                   >
                     {saveStatus?.type === 'saving' ? 'Saving...' : saveStatus?.type === 'saved' ? 'Saved!' : 'Save Card'}
                   </button>
@@ -1042,7 +1068,7 @@ export function Studio({
         </section>
         )}
 
-        {activePanel === 'design' && profile.showLogo !== false && (
+        {activePanel === 'settings' && profile.showLogo !== false && (
         <section className="editor-section theme-box">
           <div className="editor-title">
             <h2>Logo</h2>
@@ -1145,21 +1171,36 @@ export function Studio({
               label="Person Name"
               value={profile.personName || profile.brandName}
               onChange={(value) => updateProfile('personName', value)}
-              colorControl={<VisibilityToggle label="Person Name" checked={profile.showPersonName !== false} onChange={(v) => updateVisibility('showPersonName', v)} />}
+              colorControl={(
+                <span className="field-color-controls">
+                  <VisibilityToggle label="Person Name" checked={profile.showPersonName !== false} onChange={(v) => updateVisibility('showPersonName', v)} />
+                  <ColorField {...liveControlProps} {...applyColorProps} label="Person Name" value={profile.theme?.headingText || profile.palette.ink} onChange={(value) => updateTheme('headingText', value)} />
+                </span>
+              )}
             />
             <Field
               {...liveControlProps}
               label="Designation"
               value={profile.designation || ''}
               onChange={(value) => updateProfile('designation', value)}
-              colorControl={<VisibilityToggle label="Designation" checked={profile.showDesignation !== false} onChange={(v) => updateVisibility('showDesignation', v)} />}
+              colorControl={(
+                <span className="field-color-controls">
+                  <VisibilityToggle label="Designation" checked={profile.showDesignation !== false} onChange={(v) => updateVisibility('showDesignation', v)} />
+                  <ColorField {...liveControlProps} {...applyColorProps} label="Designation" value={profile.theme?.designationText || profile.palette.ink} onChange={(value) => updateTheme('designationText', value)} />
+                </span>
+              )}
             />
             <Field
               {...liveControlProps}
               label="Location"
               value={profile.location}
               onChange={(value) => updateProfile('location', value)}
-              colorControl={<VisibilityToggle label="Location" checked={profile.showLocation !== false} onChange={(v) => updateVisibility('showLocation', v)} />}
+              colorControl={(
+                <span className="field-color-controls">
+                  <VisibilityToggle label="Location" checked={profile.showLocation !== false} onChange={(v) => updateVisibility('showLocation', v)} />
+                  <ColorField {...liveControlProps} {...applyColorProps} label="Location" value={profile.theme?.locationText || profile.palette.ink} onChange={(value) => updateTheme('locationText', value)} />
+                </span>
+              )}
             />
           </div>
         </section>
@@ -1174,7 +1215,12 @@ export function Studio({
               label="Company Name"
               value={profile.companyName || ''}
               onChange={(value) => updateProfile('companyName', value)}
-              colorControl={<VisibilityToggle label="Company Name" checked={profile.showCompanyName !== false} onChange={(v) => updateVisibility('showCompanyName', v)} />}
+              colorControl={(
+                <span className="field-color-controls">
+                  <VisibilityToggle label="Company Name" checked={profile.showCompanyName !== false} onChange={(v) => updateVisibility('showCompanyName', v)} />
+                  <ColorField {...liveControlProps} {...applyColorProps} label="Company Name" value={profile.theme?.companyNameText || profile.palette.ink} onChange={(value) => updateTheme('companyNameText', value)} />
+                </span>
+              )}
             />
             {profile.showProfilePhoto === false && profile.showPersonName === false && (
               <Field
@@ -1182,7 +1228,12 @@ export function Studio({
                 label="Location"
                 value={profile.location}
                 onChange={(value) => updateProfile('location', value)}
-                colorControl={<VisibilityToggle label="Location" checked={profile.showLocation !== false} onChange={(v) => updateVisibility('showLocation', v)} />}
+                colorControl={(
+                  <span className="field-color-controls">
+                    <VisibilityToggle label="Location" checked={profile.showLocation !== false} onChange={(v) => updateVisibility('showLocation', v)} />
+                    <ColorField {...liveControlProps} {...applyColorProps} label="Location" value={profile.theme?.locationText || profile.palette.ink} onChange={(value) => updateTheme('locationText', value)} />
+                  </span>
+                )}
               />
             )}
             <Field
@@ -1190,7 +1241,12 @@ export function Studio({
               label="Tagline"
               value={profile.tagline}
               onChange={(value) => updateProfile('tagline', value)}
-              colorControl={<VisibilityToggle label="Tagline" checked={profile.showTagline !== false} onChange={(v) => updateVisibility('showTagline', v)} />}
+              colorControl={(
+                <span className="field-color-controls">
+                  <VisibilityToggle label="Tagline" checked={profile.showTagline !== false} onChange={(v) => updateVisibility('showTagline', v)} />
+                  <ColorField {...liveControlProps} {...applyColorProps} label="Tagline" value={profile.theme?.taglineText || profile.palette.ink} onChange={(value) => updateTheme('taglineText', value)} />
+                </span>
+              )}
             />
             <Field
               {...liveControlProps}
@@ -1199,7 +1255,12 @@ export function Studio({
               onChange={(value) => updateProfile('about', value)}
               multiline
               maxLength={ABOUT_MAX_LENGTH}
-              colorControl={<VisibilityToggle label="About" checked={profile.showAbout !== false} onChange={(v) => updateVisibility('showAbout', v)} />}
+              colorControl={(
+                <span className="field-color-controls">
+                  <VisibilityToggle label="About" checked={profile.showAbout !== false} onChange={(v) => updateVisibility('showAbout', v)} />
+                  <ColorField {...liveControlProps} {...applyColorProps} label="About" value={profile.theme?.aboutText || profile.palette.ink} onChange={(value) => updateTheme('aboutText', value)} />
+                </span>
+              )}
             />
           </div>
         </section>
@@ -1250,6 +1311,8 @@ export function Studio({
               onChange={(value) => updateButtonLabel('call', value)}
               onBegin={beginLiveEdit}
               onCommit={() => commitButtonLabel('call')}
+              colorControl={<ColorField {...liveControlProps} {...applyColorProps} label="Call Button" value={profile.theme?.callButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('callButton', value)} />}
+              textColorControl={<ColorField {...liveControlProps} {...applyColorProps} label="Call Button Text" value={profile.theme?.callButtonText || autoTextFor(profile.theme?.callButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('callButtonText', value)} />}
             />
             <ButtonSettingRow
               title="Email"
@@ -1259,6 +1322,8 @@ export function Studio({
               onChange={(value) => updateButtonLabel('email', value)}
               onBegin={beginLiveEdit}
               onCommit={() => commitButtonLabel('email')}
+              colorControl={<ColorField {...liveControlProps} {...applyColorProps} label="Email Button" value={profile.theme?.emailButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('emailButton', value)} />}
+              textColorControl={<ColorField {...liveControlProps} {...applyColorProps} label="Email Button Text" value={profile.theme?.emailButtonText || autoTextFor(profile.theme?.emailButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('emailButtonText', value)} />}
             />
             <ButtonSettingRow
               title="WhatsApp"
@@ -1268,6 +1333,8 @@ export function Studio({
               onChange={(value) => updateButtonLabel('whatsapp', value)}
               onBegin={beginLiveEdit}
               onCommit={() => commitButtonLabel('whatsapp')}
+              colorControl={<ColorField {...liveControlProps} {...applyColorProps} label="WhatsApp Button" value={profile.theme?.whatsappButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('whatsappButton', value)} />}
+              textColorControl={<ColorField {...liveControlProps} {...applyColorProps} label="WhatsApp Button Text" value={profile.theme?.whatsappButtonText || autoTextFor(profile.theme?.whatsappButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('whatsappButtonText', value)} />}
             />
             <ButtonSettingRow
               title="Website"
@@ -1277,49 +1344,22 @@ export function Studio({
               onChange={(value) => updateButtonLabel('website', value)}
               onBegin={beginLiveEdit}
               onCommit={() => commitButtonLabel('website')}
+              colorControl={<ColorField {...liveControlProps} {...applyColorProps} label="Website Button" value={profile.theme?.websiteButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('websiteButton', value)} />}
+              textColorControl={<ColorField {...liveControlProps} {...applyColorProps} label="Website Button Text" value={profile.theme?.websiteButtonText || autoTextFor(profile.theme?.websiteButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('websiteButtonText', value)} />}
             />
-            <ButtonSettingRow
-              title="Save Contact"
-              checked={profile.showSaveContactButton !== false}
-              onToggle={(v) => updateVisibility('showSaveContactButton', v)}
-              value={profile.buttonLabels?.saveContact ?? BUTTON_LABEL_DEFAULTS.saveContact}
-              onChange={(value) => updateButtonLabel('saveContact', value)}
-              onBegin={beginLiveEdit}
-              onCommit={() => commitButtonLabel('saveContact')}
-            />
-
-            <div className="button-setting-row">
-              <label className="button-setting-toggle-row">
-                <span>Enable Subscribe</span>
-                <span className="switch">
-                  <input
-                    type="checkbox"
-                    checked={profile.showSubscribe === true}
-                    onChange={(event) => updateVisibility('showSubscribe', event.target.checked)}
-                  />
-                  <span />
-                </span>
-              </label>
-              {profile.showSubscribe === true && (
-                <div className="button-setting-expand">
-                  <p className="field-hint">
-                    This displays Subscribe as fixed text and lets visitors join using only their email
-                    address.
-                  </p>
-                </div>
-              )}
-            </div>
 
             <div className="button-setting-row">
               <label className="button-setting-toggle-row">
                 <span>Enable Google Maps</span>
-                <span className="switch">
-                  <input
-                    type="checkbox"
-                    checked={profile.showGoogleMaps === true}
-                    onChange={(event) => updateVisibility('showGoogleMaps', event.target.checked)}
-                  />
-                  <span />
+                <span className="button-setting-toggle-controls">
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={profile.showGoogleMaps === true}
+                      onChange={(event) => updateVisibility('showGoogleMaps', event.target.checked)}
+                    />
+                    <span />
+                  </span>
                 </span>
               </label>
               {profile.showGoogleMaps === true && (
@@ -1330,6 +1370,9 @@ export function Studio({
                     value={profile.googleMapsUrl}
                     onChange={(value) => updateProfile('googleMapsUrl', value)}
                   />
+                  <div className="button-setting-text-color">
+                    <ColorField {...liveControlProps} {...applyColorProps} label="Get Directions Text" value={profile.theme?.googleMapsButtonText || profile.theme?.subscribeButtonText || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('googleMapsButtonText', value)} />
+                  </div>
                 </div>
               )}
             </div>
@@ -1337,23 +1380,88 @@ export function Studio({
         </section>
         )}
 
-        {activePanel === 'design' && (
+
+        {activePanel === 'leads' && (
         <section className="editor-section">
-          <h2>QR Code</h2>
-          <p className="settings-description">
-            {hasQrCode
-              ? 'Your QR code is live on this card\'s public view.'
-              : 'Add a branded QR code that appears on this card\'s public view.'}
-          </p>
-          <button type="button" className="primary-button" onClick={onOpenQrCode}>
-            {hasQrCode ? 'Edit QR Code' : 'Add QR Code'}
-          </button>
+          <h2>Save Contact</h2>
+          <p className="settings-description">Choose whether visitors fill a form before downloading your contact, or download it directly.</p>
+          <div className="button-settings-list">
+            <ButtonSettingRow
+              title="Save Contact"
+              checked={profile.showSaveContactButton !== false}
+              onToggle={(v) => updateVisibility('showSaveContactButton', v)}
+              value={profile.buttonLabels?.saveContact ?? BUTTON_LABEL_DEFAULTS.saveContact}
+              onChange={(value) => updateButtonLabel('saveContact', value)}
+              onBegin={beginLiveEdit}
+              onCommit={() => commitButtonLabel('saveContact')}
+              colorControl={<ColorField {...liveControlProps} {...applyColorProps} label="Save Contact Button" value={profile.theme?.saveContactButton || profile.palette.accent} onChange={(value) => updateTheme('saveContactButton', value)} />}
+              textColorControl={<ColorField {...liveControlProps} {...applyColorProps} label="Save Contact Button Text" value={profile.theme?.saveContactButtonText || autoTextFor(profile.theme?.saveContactButton || profile.palette.accent)} onChange={(value) => updateTheme('saveContactButtonText', value)} />}
+            />
+            {profile.showSaveContactButton !== false && (
+              <div className="button-setting-row">
+                <label className="button-setting-toggle-row">
+                  <span>Require visitors to fill a form</span>
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={profile.saveContactRequireForm !== false}
+                      onChange={(event) => updateVisibility('saveContactRequireForm', event.target.checked)}
+                    />
+                    <span />
+                  </span>
+                </label>
+                <div className="button-setting-expand">
+                  <p className="field-hint">
+                    {profile.saveContactRequireForm !== false
+                      ? 'Visitors enter their name and phone before your contact card downloads — this also captures them as a lead.'
+                      : 'Your contact card downloads immediately with no form and no lead captured.'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </section>
         )}
 
-        {activePanel === 'design' && (
+        {activePanel === 'leads' && (
+        <section className="editor-section">
+          <h2>Subscribe</h2>
+          <p className="settings-description">Let visitors join your mailing list using just their email address.</p>
+          <div className="button-settings-list">
+            <div className="button-setting-row">
+              <label className="button-setting-toggle-row">
+                <span>Enable Subscribe</span>
+                <span className="button-setting-toggle-controls">
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={profile.showSubscribe === true}
+                      onChange={(event) => updateVisibility('showSubscribe', event.target.checked)}
+                    />
+                    <span />
+                  </span>
+                </span>
+              </label>
+              {profile.showSubscribe === true && (
+                <div className="button-setting-expand">
+                  <p className="field-hint">
+                    This displays Subscribe as fixed text and lets visitors join using only their email
+                    address.
+                  </p>
+                  <div className="button-setting-text-color">
+                    <ColorField {...liveControlProps} {...applyColorProps} label="Subscribe Text" value={profile.theme?.subscribeButtonText || profile.theme?.websiteButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('subscribeButtonText', value)} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+        )}
+
+        {activePanel === 'social' && (
         <section className="editor-section">
           <h2>Social Links</h2>
+          <p className="settings-description">Add, remove, recolor and reorder the social icons shown on your card.</p>
           <div className="social-add-grid">
             {SOCIAL_PLATFORMS.filter(
               (p) => !profile.socials.some((s) => s.platform === p.key)
@@ -1375,6 +1483,18 @@ export function Studio({
                 social={social}
                 onChange={(values) => updateSocial(index, values)}
                 onRemove={() => removeSocial(index)}
+                onMove={(direction) => moveSocial(index, direction)}
+                isFirst={index === 0}
+                isLast={index === profile.socials.length - 1}
+                colorControl={(
+                  <ColorField
+                    {...liveControlProps}
+                    {...applyColorProps}
+                    label={SOCIAL_PLATFORMS.find((p) => p.key === social.platform)?.label ?? social.platform}
+                    value={profile.theme?.[`${social.platform}Button`] || profile.theme?.primaryButton || profile.palette.primary}
+                    onChange={(value) => updateTheme(`${social.platform}Button`, value)}
+                  />
+                )}
               />
             ))}
           </div>
@@ -1400,6 +1520,9 @@ export function Studio({
         {activePanel === 'colors' && (
         <section className="editor-section customize-panel">
           <h2>Customize</h2>
+          <p className="settings-description">
+            General, card-wide colors. Text and button colors now live next to their field in Design, Leads and Social Links.
+          </p>
           <div className="customize-color-groups">
             <div className="customize-color-group">
               <h3>Card</h3>
@@ -1407,54 +1530,7 @@ export function Studio({
                 <InlineColorControl {...liveControlProps} label="Card Background" value={profile.theme?.cardBackground || profile.palette.surface} onChange={(value) => updateTheme('cardBackground', value)} />
                 <ColorField {...liveControlProps} {...applyColorProps} label="Border" value={profile.theme?.borderColor || profile.palette.accent} onChange={(value) => updateTheme('borderColor', value)} />
                 <ColorField {...liveControlProps} {...applyColorProps} label="Button Border" value={profile.theme?.buttonBorder || '#00000000'} onChange={(value) => updateTheme('buttonBorder', value)} />
-              </div>
-            </div>
-            <div className="customize-color-group">
-              <h3>Personal Information</h3>
-              <div className="theme-color-grid">
-                <ColorField {...liveControlProps} {...applyColorProps} label="Person Name" value={profile.theme?.headingText || profile.palette.ink} onChange={(value) => updateTheme('headingText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Designation" value={profile.theme?.designationText || profile.palette.ink} onChange={(value) => updateTheme('designationText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Company Name" value={profile.theme?.companyNameText || profile.palette.ink} onChange={(value) => updateTheme('companyNameText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Tagline" value={profile.theme?.taglineText || profile.palette.ink} onChange={(value) => updateTheme('taglineText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Location" value={profile.theme?.locationText || profile.palette.ink} onChange={(value) => updateTheme('locationText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="About" value={profile.theme?.aboutText || profile.palette.ink} onChange={(value) => updateTheme('aboutText', value)} />
-              </div>
-            </div>
-            <div className="customize-color-group">
-              <h3>Action Buttons</h3>
-              <div className="theme-color-grid">
-                <ColorField {...liveControlProps} {...applyColorProps} label="Call Button" value={profile.theme?.callButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('callButton', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Email Button" value={profile.theme?.emailButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('emailButton', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="WhatsApp Button" value={profile.theme?.whatsappButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('whatsappButton', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Save Contact Button" value={profile.theme?.saveContactButton || profile.palette.accent} onChange={(value) => updateTheme('saveContactButton', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Website Button" value={profile.theme?.websiteButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('websiteButton', value)} />
-              </div>
-            </div>
-            <div className="customize-color-group">
-              <h3>Button Text</h3>
-              <div className="theme-color-grid">
-                <ColorField {...liveControlProps} {...applyColorProps} label="Call Button Text" value={profile.theme?.callButtonText || autoTextFor(profile.theme?.callButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('callButtonText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Email Button Text" value={profile.theme?.emailButtonText || autoTextFor(profile.theme?.emailButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('emailButtonText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="WhatsApp Button Text" value={profile.theme?.whatsappButtonText || autoTextFor(profile.theme?.whatsappButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('whatsappButtonText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Save Contact Button Text" value={profile.theme?.saveContactButtonText || autoTextFor(profile.theme?.saveContactButton || profile.palette.accent)} onChange={(value) => updateTheme('saveContactButtonText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Subscribe Text" value={profile.theme?.subscribeButtonText || profile.theme?.websiteButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('subscribeButtonText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Website Button Text" value={profile.theme?.websiteButtonText || autoTextFor(profile.theme?.websiteButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('websiteButtonText', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Get Directions Text" value={profile.theme?.googleMapsButtonText || profile.theme?.subscribeButtonText || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('googleMapsButtonText', value)} />
-              </div>
-            </div>
-            <div className="customize-color-group">
-              <h3>Social Icons</h3>
-              <div className="theme-color-grid">
-                {SOCIAL_PLATFORMS.map((platform) => (
-                  <ColorField
-                    key={platform.key}
-                    label={platform.label}
-                    value={profile.theme?.[`${platform.key}Button`] || profile.theme?.primaryButton || profile.palette.primary}
-                    onChange={(value) => updateTheme(`${platform.key}Button`, value)}
-                    {...liveControlProps}
-                    {...applyColorProps}
-                  />
-                ))}
+                <ColorField {...liveControlProps} {...applyColorProps} label="Powered by BrillBrains" value={profile.theme?.footerText || profile.palette.ink} onChange={(value) => updateTheme('footerText', value)} />
               </div>
             </div>
           </div>
@@ -1484,9 +1560,20 @@ export function Studio({
       <aside className="preview-panel">
         <div className="preview-toolbar">
           <span>{hasUnsavedChanges ? 'Live preview - Unsaved changes' : 'Live preview'}</span>
-          <button className="secondary-button" type="button" onClick={onPublicView}>
-            Open public view
-          </button>
+          <div className="preview-toolbar-actions">
+            {cardStatus === 'published' ? (
+              <span className="preview-published-badge">Published</span>
+            ) : (
+              onPublish && (
+                <button className="secondary-button" type="button" onClick={onPublish} disabled={publishing}>
+                  {publishing ? 'Publishing...' : 'Publish'}
+                </button>
+              )
+            )}
+            <button className="secondary-button" type="button" onClick={onPublicView}>
+              Open public view
+            </button>
+          </div>
         </div>
         <ScaledCardPreview profile={profile} />
       </aside>

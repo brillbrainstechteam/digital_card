@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchCards } from '../features/digital-card/services/api'
+import { fetchMyQrCodes } from '../features/qr/services/qrApi'
 import { useAuth } from '../context/AuthContext'
 import { PageHeader } from './PageHeader'
 import { Sidebar } from './Sidebar'
@@ -31,6 +32,7 @@ export function SettingsPage() {
   const navigate = useNavigate()
   const { user, logout, deleteAccount } = useAuth()
   const [cardStats, setCardStats] = useState({ total: 0, draft: 0, published: 0, archived: 0 })
+  const [qrCount, setQrCount] = useState(0)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState('')
@@ -45,6 +47,9 @@ export function SettingsPage() {
           archived: cards.filter((card) => card.status === 'archived').length,
         })
       })
+      .catch(() => {})
+    fetchMyQrCodes()
+      .then((qrs) => setQrCount(qrs.length))
       .catch(() => {})
   }, [])
 
@@ -103,6 +108,7 @@ export function SettingsPage() {
                   <div><dt>Draft Cards</dt><dd>{cardStats.draft}</dd></div>
                   <div><dt>Published Cards</dt><dd>{cardStats.published}</dd></div>
                   <div><dt>Archived Cards</dt><dd>{cardStats.archived}</dd></div>
+                  <div><dt>QR Codes</dt><dd>{qrCount}</dd></div>
                 </dl>
               </div>
               <div className="profile-page-section profile-page-actions">

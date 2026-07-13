@@ -205,11 +205,28 @@
   flex: none;
 }
 
+.qr-palette-swatch {
+  border-radius: 50%;
+  display: inline-block;
+  flex: none;
+  height: 22px;
+  width: 22px;
+}
+
+.qr-extracted-palette {
+  margin-bottom: 8px;
+}
+
+.qr-publish-btn {
+  margin-top: 16px;
+  width: 100%;
+}
+
 .qr-download-row {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .qr-download-row button {
@@ -284,4 +301,23 @@
   .qr-integration-preview {
     position: static;
   }
+}
+
+/* ─── My QR Codes list (QR Studio sidebar) ─────────────────────────── */
+
+.qr-codes-list-item {
+  align-items: center;
+  gap: 16px;
+}
+
+.qr-codes-list-thumb {
+  align-items: center;
+  background: #fbfaf8;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  flex: none;
+  height: 64px;
+  justify-content: center;
+  width: 64px;
 }

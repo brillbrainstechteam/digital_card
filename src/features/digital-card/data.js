@@ -93,6 +93,7 @@ export const defaultProfile = {
   whatsapp: '+918104258910',
   location: 'India',
   googleMapsUrl: '',
+  saveContactRequireForm: true,
   buttonLabels: {
     call: 'Call',
     email: 'Email',

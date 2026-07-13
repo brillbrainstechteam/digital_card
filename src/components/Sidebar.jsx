@@ -1,16 +1,29 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 const APP_ITEMS = [
   { key: 'cards', label: 'Digital Cards', path: '/dashboard' },
-  { key: 'qrstudio', label: 'QR Studio', path: '/qr-studio' },
   { key: 'analytics', label: 'Analytics', path: '/analytics' },
   { key: 'activity', label: 'Activity', path: '/activity' },
   { key: 'settings', label: 'Settings', path: '/settings' },
 ]
 
+// QR Studio gets its own nav list — it's a separate product area, not part
+// of the Digital Card sidebar's app switcher.
+const QR_APP_ITEMS = [
+  { key: 'qrstudio', label: 'QR Studio', path: '/qr-studio' },
+  { key: 'qrcodes', label: 'My QR Codes', path: '/qr-studio/codes' },
+  { key: 'settings', label: 'Settings', path: '/settings' },
+]
+
+const BACK_ITEM = { key: 'cards', label: 'Digital Cards', path: '/dashboard' }
+
 const EDITOR_ITEMS = [
   { key: 'design', label: 'Design' },
+  { key: 'leads', label: 'Leads' },
+  { key: 'social', label: 'Social Links' },
+  { key: 'settings', label: 'Logo Settings' },
   { key: 'colors', label: 'Colors' },
   { key: 'fonts', label: 'Fonts' },
 ]
@@ -35,14 +48,18 @@ function UnsavedChangesModal({ onSave, onDiscard, onCancel, busy }) {
 
 export function Sidebar({
   mode,
+  section = 'cards',
   activeApp,
   activeEditor,
   onEditorNav,
   hasUnsavedChanges = false,
   onSave,
   onDiscard,
+  backTo = null,
 }) {
+  const appItems = section === 'qr' ? QR_APP_ITEMS : APP_ITEMS
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [pendingPath, setPendingPath] = useState(null)
   const [busy, setBusy] = useState(false)
 
@@ -89,19 +106,17 @@ export function Sidebar({
       )}
       <aside className="editor-sidebar">
         <div className="editor-sidebar-nav">
-          <span className="sidebar-group-label">Application</span>
-          {APP_ITEMS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={mode === 'app' && activeApp === item.key ? 'active' : ''}
-              onClick={() => handleAppNav(item)}
-            >
-              {item.label}
-            </button>
-          ))}
-          {mode === 'editor' && (
+          {mode === 'editor' ? (
             <>
+              <span className="sidebar-group-label">Application</span>
+              <button type="button" onClick={() => handleAppNav(BACK_ITEM)}>
+                ← {BACK_ITEM.label}
+              </button>
+              {backTo && (
+                <button type="button" onClick={() => handleAppNav({ path: backTo })}>
+                  ← QR Studio
+                </button>
+              )}
               <div className="sidebar-divider" />
               <span className="sidebar-group-label">Card Editor</span>
               {EDITOR_ITEMS.map((item) => (
@@ -115,6 +130,38 @@ export function Sidebar({
                 </button>
               ))}
             </>
+          ) : (
+            <>
+              <span className="sidebar-group-label">Application</span>
+              {appItems.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={activeApp === item.key ? 'active' : ''}
+                  onClick={() => handleAppNav(item)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </>
+          )}
+          {user && (
+            <div className="editor-sidebar-profile-wrap">
+              <button
+                type="button"
+                className="editor-sidebar-profile"
+                onClick={() => navigate('/settings')}
+                title={user.email}
+              >
+                <span className="sidebar-avatar">
+                  {(user.name || user.email || '?')[0].toUpperCase()}
+                </span>
+                <span className="sidebar-profile-text">
+                  <strong className="sidebar-profile-name">{user.name || user.email}</strong>
+                  {user.name && <span className="sidebar-profile-email">{user.email}</span>}
+                </span>
+              </button>
+            </div>
           )}
         </div>
       </aside>

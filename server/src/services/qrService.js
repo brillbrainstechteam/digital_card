@@ -22,6 +22,20 @@ async function getCardQr(userId, cardId) {
   return result.rows[0] || null
 }
 
+// Powers the QR Studio sidebar's "My QR Codes" list — every QR the user
+// has ever saved, each one card-linked, newest first.
+async function listUserQrs(userId) {
+  const result = await pool.query(
+    `SELECT qr.*, c.title AS card_title, c.slug AS card_slug, c.status AS card_status
+     FROM qr_codes qr
+     LEFT JOIN cards c ON c.id = qr.card_id
+     WHERE qr.user_id = $1
+     ORDER BY qr.updated_at DESC`,
+    [userId]
+  )
+  return result.rows
+}
+
 // A card can have at most one QR code — enforced here (check-then-write,
 // guarded by the DB's unique partial index as a safety net) and by the
 // unique index on qr_codes(card_id).
@@ -48,6 +62,27 @@ async function upsertCardQr(userId, cardId, settings) {
     `INSERT INTO qr_codes (id, user_id, card_id, slug, settings)
      VALUES ($1, $2, $3, $4, $5) RETURNING *`,
     [crypto.randomUUID(), userId, cardId, slug, JSON.stringify(settings)]
+  )
+  return result.rows[0]
+}
+
+// The "Publish" action in the standalone QR Studio — a QR with no card
+// attached (card_id stays NULL, already supported by the schema/unique
+// index). Each publish creates a new row rather than upserting, since
+// unlike a card's QR (capped at one), a user can publish as many
+// standalone QR codes as they like.
+async function createStandaloneQr(userId, settings) {
+  let slug = generateSlug()
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const dupe = await pool.query('SELECT id FROM qr_codes WHERE slug = $1', [slug])
+    if (dupe.rows.length === 0) break
+    slug = generateSlug()
+  }
+
+  const result = await pool.query(
+    `INSERT INTO qr_codes (id, user_id, card_id, slug, settings)
+     VALUES ($1, $2, NULL, $3, $4) RETURNING *`,
+    [crypto.randomUUID(), userId, slug, JSON.stringify(settings)]
   )
   return result.rows[0]
 }
@@ -209,7 +244,9 @@ async function getQrAnalytics(userId, { qrId, cardId } = {}) {
 
 module.exports = {
   getCardQr,
+  listUserQrs,
   upsertCardQr,
+  createStandaloneQr,
   deleteCardQr,
   getQrBySlugPublic,
   recordScan,

@@ -39,7 +39,7 @@ export function QRStudioShowcase() {
   const navigate = useNavigate()
 
   function handleTryQrStudio() {
-    navigate(isAuthenticated ? '/qr-studio' : '/login')
+    navigate('/qr-studio')
   }
 
   return (
