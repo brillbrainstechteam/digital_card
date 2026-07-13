@@ -6,9 +6,9 @@ import { useToast } from '../../../context/ToastContext'
 import { isBusinessCard } from '../../../cardTypeUtils'
 import { PageHeader } from '../../../components/PageHeader'
 import { Sidebar } from '../../../components/Sidebar'
-import { renderSavedCardThumbnail, renderFaceThumbnail } from '../canvasHelpers'
+import { renderSavedCardThumbnail, renderFaceThumbnail, renderTemplateThumbnail } from '../canvasHelpers'
 import { CardPreviewScreen } from './CardPreviewScreen'
-import { getTemplate } from '../bcTemplates'
+import { getTemplate, getPalette } from '../bcTemplates'
 import '../businessCard.css'
 
 // Cards are created with a generic placeholder title ("Business Card").
@@ -23,10 +23,24 @@ function templateLabel(businessCard) {
   return getTemplate(businessCard?.templateId)?.label || DEFAULT_TITLE
 }
 
+// Cards created from the Digital Card publish flow (PublishFlowModal.jsx)
+// start out as just a template + the digital card's profile — no
+// frontJson/backJson exists until the user actually opens the editor, so
+// their thumbnail is blank until then (see BusinessCardThumb's template
+// fallback below). They're always labeled by where they came from, rather
+// than the generic auto-generated title, so the connection back to the
+// source Digital Card stays visible in the list regardless of what the
+// card was auto-titled at creation time.
 function displayTitle(card) {
+  const businessCard = card.card_data.businessCard
+  if (businessCard?.personalizedFromDigitalCard) {
+    const p = businessCard.profile || {}
+    const sourceName = p.companyName || p.brandName || p.personName || 'Digital Card'
+    return `Built from your digital card - ${sourceName}`
+  }
   return card.title && card.title !== DEFAULT_TITLE
     ? card.title
-    : templateLabel(card.card_data.businessCard)
+    : templateLabel(businessCard)
 }
 
 // Business Cards aren't "published" like Digital Cards — they're designed
@@ -105,6 +119,7 @@ function CardTitle({ card, onRenamed }) {
 // made to either side show up.
 function BusinessCardThumb({ businessCard }) {
   const [liveThumb, setLiveThumb] = useState(null)
+  const [templateThumb, setTemplateThumb] = useState(null)
   const [backThumb, setBackThumb] = useState(null)
   const [tried, setTried] = useState(false)
   const [face, setFace] = useState('front')
@@ -112,6 +127,7 @@ function BusinessCardThumb({ businessCard }) {
   useEffect(() => {
     let cancelled = false
     setLiveThumb(null)
+    setTemplateThumb(null)
     setBackThumb(null)
     setTried(false)
     setFace('front')
@@ -121,13 +137,26 @@ function BusinessCardThumb({ businessCard }) {
     renderFaceThumbnail(businessCard?.backJson, businessCard?.setup)
       .then((url) => { if (!cancelled) setBackThumb(url) })
       .catch(() => {})
+    // Cards created via the Digital Card publish flow (or any card never
+    // opened in the editor yet) have a template + profile chosen but no
+    // frontJson/frontImg rendered yet — render the template directly with
+    // that profile instead of falling straight through to the placeholder
+    // icon, so the list shows what the card will actually look like.
+    if (!businessCard?.frontJson && !businessCard?.frontImg && businessCard?.templateId && businessCard.templateId !== 'blank') {
+      const tmpl = getTemplate(businessCard.templateId)
+      const profile = businessCard.profile || {}
+      renderTemplateThumbnail(tmpl, profile, getPalette(profile), businessCard.setup?.size)
+        .then((url) => { if (!cancelled) setTemplateThumb(url) })
+        .catch(() => {})
+    }
     return () => { cancelled = true }
   }, [businessCard])
 
   // Prefer a freshly re-rendered thumbnail (always matches current saved
-  // content); fall back to the cached snapshot only if re-render fails or
-  // there's no frontJson (older saves), and finally to a placeholder icon.
-  const frontSrc = liveThumb || (tried ? businessCard?.frontImg : null)
+  // content); fall back to the cached snapshot if re-render fails or
+  // there's no frontJson (older saves); then the template-with-profile
+  // render for never-opened cards; and finally a placeholder icon.
+  const frontSrc = liveThumb || (tried ? businessCard?.frontImg : null) || templateThumb
   const src = face === 'back' ? backThumb : frontSrc
 
   return (

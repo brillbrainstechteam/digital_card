@@ -121,6 +121,16 @@ export async function renderQrToBlob(settings, extension, { lockable = false } =
   return instance.getRawData(extension)
 }
 
+// Renders a fresh, offscreen instance and returns a data URL — for
+// consumers that need to embed the QR as an actual image somewhere other
+// than a live <QRCode> preview (e.g. dropping a real, scannable QR onto a
+// Fabric.js canvas in the Business Card editor) rather than triggering a
+// file download.
+export async function renderQrToDataUrl(settings, extension = 'png', { lockable = false } = {}) {
+  const blob = await renderQrToBlob(settings, extension, { lockable })
+  return blobToDataUrl(blob)
+}
+
 export async function downloadQrCode(settings, { extension, fileName = 'qr-code', lockable = false } = {}) {
   if (extension === 'pdf') return downloadQrAsPdf(settings, fileName, { lockable })
   const instance = new QRCodeStyling(buildQrCodeOptions(settings, { lockable }))
