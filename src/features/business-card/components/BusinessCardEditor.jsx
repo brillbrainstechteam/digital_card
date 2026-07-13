@@ -1568,18 +1568,34 @@ export function BusinessCardEditor({ selection, profile, onBack, onSave, onExit,
     )
   }
 
-  // Reads straight from faceData (the last-saved JSON, guaranteed fresh
-  // here since handlePreviewClick always saves first) rather than the live
-  // canvas — matches exactly what CardPreviewScreen would show if opened
-  // from the saved-cards list.
+  // Reads whichever face is currently live straight off its Fabric canvas
+  // (not out of `faceData` state) so the preview can never show blank/stale
+  // content for the active face regardless of React state-update timing —
+  // faceData is only used as a fallback for the face that ISN'T currently
+  // live (the inactive face outside View Both). This mirrors handleSave's
+  // own capture logic exactly, so what Preview shows always matches what a
+  // save right now would persist.
+  function currentFaceJson(face) {
+    if (face === activeFace && fabricRef.current) {
+      return JSON.stringify(fabricRef.current.toObject(CUSTOM_FABRIC_PROPS))
+    }
+    if (viewingBoth && secondaryFabricRef.current) {
+      const secondaryFace = activeFace === 'front' ? 'back' : 'front'
+      if (face === secondaryFace) {
+        return JSON.stringify(secondaryFabricRef.current.toObject(CUSTOM_FABRIC_PROPS))
+      }
+    }
+    return faceData[face] || null
+  }
+
   if (showPreview) {
     return (
       <CardPreviewScreen
         card={{
           title: getTemplate(templateId)?.label || 'Business Card',
           businessCard: {
-            frontJson: faceData.front,
-            backJson: hasBack ? faceData.back : null,
+            frontJson: currentFaceJson('front'),
+            backJson: hasBack ? currentFaceJson('back') : null,
             setup: { ...setup, includeBack: hasBack },
           },
         }}
