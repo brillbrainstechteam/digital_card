@@ -1,13 +1,29 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
+
 import { useAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
+
 import { Landing } from './components/Landing'
 import { AuthPage } from './components/AuthPage'
 import { SettingsPage } from './components/SettingsPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AppLayout } from './components/AppLayout'
-import { Dashboard, StudioPage, AnalyticsPage, ActivityPage, PublicCard } from './features/digital-card'
+
+import {
+  BusinessCardsPage,
+  BusinessCardFlow,
+  BusinessCardTemplatesPage,
+} from './features/business-card'
+
+import {
+  Dashboard,
+  StudioPage,
+  AnalyticsPage,
+  ActivityPage,
+  PublicCard,
+} from './features/digital-card'
+
 import { QRStudioPage } from './features/qr/generator/QRStudioPage'
 import { QrScanRedirect } from './features/qr'
 
@@ -33,6 +49,9 @@ function App() {
             <Route path="/activity" element={<ProtectedRoute><ActivityPage /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="/studio/:cardId" element={<ProtectedRoute><StudioPage /></ProtectedRoute>} />
+            <Route path="/business-cards" element={<ProtectedRoute><BusinessCardsPage /></ProtectedRoute>} />
+            <Route path="/business-cards/templates" element={<ProtectedRoute><BusinessCardTemplatesPage /></ProtectedRoute>} />
+            <Route path="/business-card/:cardId" element={<ProtectedRoute><BusinessCardFlow /></ProtectedRoute>} />
           </Route>
           <Route path="/card/:slug" element={<PublicCard />} />
           <Route path="/q/:slug" element={<QrScanRedirect />} />

@@ -10,8 +10,8 @@ export async function fetchCard(id) {
   return data.data.card
 }
 
-export async function createCard(title) {
-  const { data } = await client.post('/cards', { title })
+export async function createCard(title, cardData) {
+  const { data } = await client.post('/cards', { title, card_data: cardData })
   return data.data.card
 }
 

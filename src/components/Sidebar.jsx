@@ -9,6 +9,12 @@ const APP_ITEMS = [
   { key: 'settings', label: 'Settings', path: '/settings' },
 ]
 
+const BUSINESS_ITEMS = [
+  { key: 'business', label: 'Your Business Cards', path: '/business-cards' },
+  { key: 'templates', label: 'Templates', path: '/business-cards/templates' },
+  { key: 'settings', label: 'Settings', path: '/settings' },
+]
+
 const EDITOR_ITEMS = [
   { key: 'design', label: 'Design' },
   { key: 'colors', label: 'Colors' },
@@ -35,6 +41,7 @@ function UnsavedChangesModal({ onSave, onDiscard, onCancel, busy }) {
 
 export function Sidebar({
   mode,
+  product = 'digital',
   activeApp,
   activeEditor,
   onEditorNav,
@@ -45,6 +52,8 @@ export function Sidebar({
   const navigate = useNavigate()
   const [pendingPath, setPendingPath] = useState(null)
   const [busy, setBusy] = useState(false)
+  const appItems = product === 'business' ? BUSINESS_ITEMS : APP_ITEMS
+  const appGroupLabel = product === 'business' ? 'Business Card' : 'Digital Card'
 
   function handleAppNav(item) {
     if (item.key === activeApp && mode === 'app') return
@@ -89,8 +98,8 @@ export function Sidebar({
       )}
       <aside className="editor-sidebar">
         <div className="editor-sidebar-nav">
-          <span className="sidebar-group-label">Application</span>
-          {APP_ITEMS.map((item) => (
+          <span className="sidebar-group-label">{appGroupLabel}</span>
+          {appItems.map((item) => (
             <button
               key={item.key}
               type="button"

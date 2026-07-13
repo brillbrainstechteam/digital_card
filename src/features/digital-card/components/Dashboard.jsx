@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+
 import { fetchCards, deleteCard, unarchiveCard } from '../services/api'
 import { useToast } from '../../../context/ToastContext'
+import { isDigitalCard } from '../../../cardTypeUtils'
+
 import { SetupWizard } from './SetupWizard'
 import { PageHeader } from '../../../components/PageHeader'
 import { Sidebar } from '../../../components/Sidebar'
@@ -84,7 +87,7 @@ export function Dashboard() {
     setLoading(true)
     setError('')
     try {
-      setCards(await fetchCards())
+      setCards((await fetchCards()).filter(isDigitalCard))
     } catch (err) {
       setError(err.message)
     } finally {

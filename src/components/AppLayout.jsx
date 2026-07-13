@@ -6,7 +6,9 @@ export function AppLayout() {
   const { isAuthenticated, user } = useAuth()
   const location = useLocation()
   const isHomePage = location.pathname === '/'
-  const [homeScrolled, setHomeScrolled] = useState(() => typeof window !== 'undefined' && window.scrollY > 12)
+  const [homeScrolled, setHomeScrolled] = useState(
+    () => typeof window !== 'undefined' && window.scrollY > 12
+  )
 
   useEffect(() => {
     if (!isHomePage) {
@@ -30,18 +32,45 @@ export function AppLayout() {
           <img src="/logo.png" alt="BB" className="product-mark-icon" />
           <strong>Digital Card</strong>
         </Link>
+
         <nav aria-label="Main navigation">
-          <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'active' : undefined}>Digital Cards</NavLink>
-          <NavLink to="/qr-studio" className={({ isActive }) => isActive ? 'active' : undefined}>QR Studio</NavLink>
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) => (isActive ? 'active' : undefined)}
+          >
+            Digital Cards
+          </NavLink>
+
+          <NavLink
+            to="/business-cards"
+            className={({ isActive }) => (isActive ? 'active' : undefined)}
+          >
+            Business Cards
+          </NavLink>
+
+          <NavLink
+            to="/qr-studio"
+            className={({ isActive }) => (isActive ? 'active' : undefined)}
+          >
+            QR Studio
+          </NavLink>
         </nav>
+
         {isAuthenticated ? (
           <div className="topbar-user">
-            {user?.name && <span className="topbar-greeting">Hi, {user.name.split(' ')[0]}</span>}
+            {user?.name && (
+              <span className="topbar-greeting">
+                Hi, {user.name.split(' ')[0]}
+              </span>
+            )}
           </div>
         ) : (
-          <Link to="/login" className="topbar-action">Log in</Link>
+          <Link to="/login" className="topbar-action">
+            Log in
+          </Link>
         )}
       </header>
+
       <Outlet />
     </div>
   )

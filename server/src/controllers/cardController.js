@@ -2,7 +2,7 @@ const cardService = require('../services/cardService')
 
 async function createCard(req, res, next) {
   try {
-    const card = await cardService.createCard(req.user.id, { title: req.body.title })
+    const card = await cardService.createCard(req.user.id, { title: req.body.title, card_data: req.body.card_data })
     res.status(201).json({
       success: true,
       message: 'Card created successfully',

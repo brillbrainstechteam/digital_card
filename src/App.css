@@ -105,6 +105,61 @@
   cursor: default;
 }
 
+/* ─── Header product toggle (Dashboard / Business Cards only) ──── */
+
+.header-product-toggle {
+  display: inline-flex;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.header-product-toggle .header-product-pill {
+  border-radius: 999px;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 18px;
+  text-decoration: none;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.header-product-toggle .header-product-pill:hover {
+  background: #f4f2ed;
+}
+
+.header-product-toggle .header-product-pill.active,
+.header-product-toggle .header-product-pill.active:hover {
+  background: var(--navy);
+  color: #fff;
+}
+
+/* ─── Guest actions on the landing page navbar ─────────── */
+
+.topbar-guest-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.topbar-ghost-link {
+  color: var(--navy);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 11px 18px;
+  text-decoration: none;
+  border-radius: 999px;
+  transition: background 160ms ease;
+}
+
+.topbar-ghost-link:hover {
+  background: #ebe8e1;
+}
+
 /* ─── Card switcher ────────────────────────────────────── */
 
 .card-switcher {
@@ -3064,6 +3119,7 @@
 .status-draft { background: #fef3c7; color: #92400e; }
 .status-published { background: #d1fae5; color: #065f46; }
 .status-archived { background: #e5e7eb; color: #4b5563; }
+.status-completed { background: #d1fae5; color: #065f46; }
 
 .card-list-actions {
   display: flex;

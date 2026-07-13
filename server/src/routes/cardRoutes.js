@@ -12,7 +12,10 @@ router.get('/:id', authenticate, cardController.getCard)
 router.post(
   '/',
   authenticate,
-  [body('title').trim().notEmpty().withMessage('Title is required')],
+  [
+    body('title').trim().notEmpty().withMessage('Title is required'),
+    body('card_data').optional().isObject().withMessage('card_data must be a JSON object'),
+  ],
   validate,
   cardController.createCard
 )
