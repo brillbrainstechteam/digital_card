@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { CartDrawer } from './CartDrawer'
 
@@ -8,7 +8,9 @@ export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const isHomePage = location.pathname === '/'
-  const [homeScrolled, setHomeScrolled] = useState(() => typeof window !== 'undefined' && window.scrollY > 12)
+  const [homeScrolled, setHomeScrolled] = useState(
+    () => typeof window !== 'undefined' && window.scrollY > 12,
+  )
 
   useEffect(() => {
     if (!isHomePage) {
@@ -25,44 +27,61 @@ export function AppLayout() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [isHomePage])
 
-  // Handle hash scroll after navigation to homepage
   useEffect(() => {
     if (isHomePage && location.hash) {
-      const el = document.querySelector(location.hash)
-      if (el) el.scrollIntoView({ behavior: 'smooth' })
+      document.querySelector(location.hash)?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [isHomePage, location.hash])
 
   function scrollToSection(sectionId) {
-    if (isHomePage) {
-      const el = document.getElementById(sectionId)
-      if (!el) return
-      const navH = document.querySelector('.topbar')?.offsetHeight ?? 76
-      const top = el.getBoundingClientRect().top + window.scrollY - navH
-      window.scrollTo({ top, behavior: 'smooth' })
-    } else {
+    if (!isHomePage) {
       navigate(`/#${sectionId}`)
+      return
     }
+
+    const element = document.getElementById(sectionId)
+    if (!element) return
+    const navHeight = document.querySelector('.topbar')?.offsetHeight ?? 76
+    const top = element.getBoundingClientRect().top + window.scrollY - navHeight
+    window.scrollTo({ top, behavior: 'smooth' })
   }
 
   return (
     <div className={`app-shell${isHomePage ? ' app-shell--home' : ''}`}>
-      <header className="topbar">
+      <header className={`topbar${isHomePage && !homeScrolled ? ' topbar--home-hidden' : ''}`}>
         <Link to="/" className="product-mark">
           <img src="/logo.png" alt="BB" className="product-mark-icon" />
           <strong>Digital Card</strong>
         </Link>
+
         <nav aria-label="Main navigation">
-          <button type="button" className="topbar-nav-btn" onClick={() => scrollToSection('digital-cards')}>
-            Digital Cards
-          </button>
-          <button type="button" className="topbar-nav-comingsoon" onClick={() => scrollToSection('business-cards')}>
-            Business Cards
-          </button>
-          <button type="button" className="topbar-nav-btn" onClick={() => scrollToSection('qr-studio')}>
-            QR Studio
-          </button>
+          {isHomePage ? (
+            <>
+              <button type="button" className="topbar-nav-btn" onClick={() => scrollToSection('digital-cards')}>
+                Digital Cards
+              </button>
+              <button type="button" className="topbar-nav-btn" onClick={() => scrollToSection('business-cards')}>
+                Business Cards
+              </button>
+              <button type="button" className="topbar-nav-btn" onClick={() => scrollToSection('qr-studio')}>
+                QR Studio
+              </button>
+            </>
+          ) : (
+            <>
+              <NavLink to="/dashboard" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                Digital Cards
+              </NavLink>
+              <NavLink to="/business-cards" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                Business Cards
+              </NavLink>
+              <NavLink to="/qr-studio" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                QR Studio
+              </NavLink>
+            </>
+          )}
         </nav>
+
         {isAuthenticated ? (
           <div className="topbar-user">
             <CartDrawer />
@@ -72,6 +91,7 @@ export function AppLayout() {
           <Link to="/login" className="topbar-action">Log in</Link>
         )}
       </header>
+
       <Outlet />
     </div>
   )

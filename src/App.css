@@ -153,6 +153,61 @@
   top: 4px;
 }
 
+/* ─── Header product toggle (Dashboard / Business Cards only) ──── */
+
+.header-product-toggle {
+  display: inline-flex;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.header-product-toggle .header-product-pill {
+  border-radius: 999px;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 18px;
+  text-decoration: none;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.header-product-toggle .header-product-pill:hover {
+  background: #f4f2ed;
+}
+
+.header-product-toggle .header-product-pill.active,
+.header-product-toggle .header-product-pill.active:hover {
+  background: var(--navy);
+  color: #fff;
+}
+
+/* ─── Guest actions on the landing page navbar ─────────── */
+
+.topbar-guest-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.topbar-ghost-link {
+  color: var(--navy);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 11px 18px;
+  text-decoration: none;
+  border-radius: 999px;
+  transition: background 160ms ease;
+}
+
+.topbar-ghost-link:hover {
+  background: #ebe8e1;
+}
+
 /* ─── Card switcher ────────────────────────────────────── */
 
 .card-switcher {
@@ -385,6 +440,62 @@
 .hero-preview {
   display: flex;
   justify-content: center;
+}
+
+.business-card-home-mockup {
+  aspect-ratio: 1.75 / 1;
+  background: linear-gradient(135deg, var(--navy) 0%, #26425a 100%);
+  border-radius: 16px;
+  box-shadow: 0 24px 48px -18px rgba(15, 35, 55, 0.45);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  max-width: 100%;
+  padding: 26px 28px;
+  width: 340px;
+}
+
+.business-card-home-logo {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 9px;
+  display: flex;
+  font-size: 12px;
+  font-weight: 800;
+  height: 34px;
+  justify-content: center;
+  margin-bottom: 18px;
+  width: 34px;
+}
+
+.business-card-home-name {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.business-card-home-role {
+  font-size: 12px;
+  margin-top: 4px;
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
+.business-card-home-contact {
+  align-items: flex-end;
+  display: flex;
+  font-size: 11px;
+  justify-content: space-between;
+  line-height: 1.6;
+  opacity: 0.8;
+}
+
+.business-card-home-qr {
+  background: #fff;
+  border-radius: 4px;
+  height: 30px;
+  width: 30px;
 }
 
 .qr-showcase {
@@ -3171,6 +3282,7 @@
 .status-draft { background: #fef3c7; color: #92400e; }
 .status-published { background: #d1fae5; color: #065f46; }
 .status-archived { background: #e5e7eb; color: #4b5563; }
+.status-completed { background: #d1fae5; color: #065f46; }
 
 .card-list-actions {
   display: flex;

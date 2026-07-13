@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createCard, updateCard, uploadImage } from '../services/api'
-import { defaultProfile, PRESET_DEFAULTS, getVisibilityFlags, ABOUT_MAX_LENGTH } from '../data'
+import { defaultProfile, getVisibilityFlags, ABOUT_MAX_LENGTH } from '../data'
 import { extractPaletteFromLogo, detectBackdrop, rgbToHex } from '../theme'
 import { themeFromPalette } from '../themeOptions'
 import { useAuth } from '../../../context/AuthContext'
@@ -276,7 +276,13 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
       await updateCard(card.id, {
         title: titleName,
         logo_url: profile.logo,
-        card_data: profile,
+        // productType distinguishes Digital Cards from Business Cards (which
+        // share the same `cards` table) so each product's dashboard only
+        // ever lists its own cards. NOTE: this is deliberately NOT named
+        // `cardType` — that key already exists on the digital-card profile
+        // itself (professional/creative style selector) and must not be
+        // overwritten.
+        card_data: { ...profile, productType: 'digital' },
       })
       onComplete(card.id, profile)
     } catch (err) {
