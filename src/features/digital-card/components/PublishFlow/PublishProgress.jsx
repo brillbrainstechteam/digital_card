@@ -4,8 +4,8 @@ const STAGES = [
   'Saving your design...',
   'Curating your customized Business Card...',
   'Generating your branded QR Code...',
-  'Publishing your content...',
-  'Done!',
+  'Preparing secure checkout...',
+  'Ready for payment!',
 ]
 
 // Presentational only — StudioPage drives `stage` (0..STAGES.length-1)

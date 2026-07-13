@@ -22,8 +22,8 @@ export function logoutRequest() {
   sessionStorage.clear()
 }
 
-export async function deleteAccountRequest() {
-  await client.delete('/auth/me')
+export async function deleteAccountRequest(feedback) {
+  await client.delete('/auth/me', { data: feedback })
   clearToken()
   sessionStorage.clear()
 }

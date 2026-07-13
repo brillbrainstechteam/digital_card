@@ -140,7 +140,20 @@ export function QRCustomizationPanel({ settings, onChange, brandTheme = null }) 
       </div>
 
       <div className="qr-section">
-        <h3 className="qr-section-title">Colors</h3>
+        <h3 className="qr-section-title">Color style</h3>
+        <div className="qr-gradient-type-row">
+          {GRADIENT_TYPES.map((g) => (
+            <button
+              key={g.label}
+              type="button"
+              className={`qr-gradient-type-btn ${(settings.gradient?.type ?? null) === g.key ? 'active' : ''}`}
+              onClick={() => handleGradientTypeChange(g.key)}
+            >
+              {g.label}
+            </button>
+          ))}
+        </div>
+        {!settings.gradient && (<>
         <label className="qr-field qr-field--inline">
           <span className="qr-field-label">Foreground</span>
           <input
@@ -166,22 +179,7 @@ export function QRCustomizationPanel({ settings, onChange, brandTheme = null }) 
           />
           <span>Transparent background</span>
         </label>
-      </div>
-
-      <div className="qr-section">
-        <h3 className="qr-section-title">Gradient</h3>
-        <div className="qr-gradient-type-row">
-          {GRADIENT_TYPES.map((g) => (
-            <button
-              key={g.label}
-              type="button"
-              className={`qr-gradient-type-btn ${(settings.gradient?.type ?? null) === g.key ? 'active' : ''}`}
-              onClick={() => handleGradientTypeChange(g.key)}
-            >
-              {g.label}
-            </button>
-          ))}
-        </div>
+        </>)}
         {settings.gradient && (
           <>
             <label className="qr-field qr-field--inline">
@@ -202,6 +200,16 @@ export function QRCustomizationPanel({ settings, onChange, brandTheme = null }) 
               </label>
             )}
           </>
+        )}
+        {settings.gradient && (
+          <label className="qr-field qr-field--checkbox">
+            <input
+              type="checkbox"
+              checked={settings.transparentBackground}
+              onChange={(e) => patch({ transparentBackground: e.target.checked })}
+            />
+            <span>Transparent background</span>
+          </label>
         )}
       </div>
 

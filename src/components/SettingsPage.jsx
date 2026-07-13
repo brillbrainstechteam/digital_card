@@ -7,23 +7,42 @@ import { PageHeader } from './PageHeader'
 import { Sidebar } from './Sidebar'
 
 function DeleteAccountModal({ onCancel, onConfirm, busy, error }) {
+  const [reason, setReason] = useState('')
+  const [details, setDetails] = useState('')
+
   return (
     <div className="confirm-overlay">
-      <div className="confirm-dialog account-delete-dialog">
+      <form className="confirm-dialog account-delete-dialog" onSubmit={(event) => { event.preventDefault(); onConfirm({ reason, details }) }}>
         <h2>Delete Account?</h2>
         <p>
           This action is permanent.
           <br />
           Deleting your account will remove your profile, cards, and associated data.
         </p>
+        <label className="field deletion-feedback-field">
+          <span>Why are you deleting your account?</span>
+          <select value={reason} onChange={(event) => setReason(event.target.value)} required>
+            <option value="">Select a reason</option>
+            <option value="not_useful">I no longer need the service</option>
+            <option value="too_expensive">The pricing does not work for me</option>
+            <option value="missing_features">I am missing an important feature</option>
+            <option value="privacy">Privacy or data concerns</option>
+            <option value="temporary">I only need to leave temporarily</option>
+            <option value="other">Another reason</option>
+          </select>
+        </label>
+        <label className="field deletion-feedback-field">
+          <span>Anything else we should know? <small>Optional</small></span>
+          <textarea value={details} onChange={(event) => setDetails(event.target.value)} maxLength={1000} rows={3} placeholder="Your feedback will help us improve." />
+        </label>
         {error && <p className="modal-error">{error}</p>}
         <div className="confirm-actions">
           <button className="secondary-button" type="button" onClick={onCancel} disabled={busy}>Cancel</button>
-          <button className="danger-button" type="button" onClick={onConfirm} disabled={busy}>
+          <button className="danger-button" type="submit" disabled={busy || !reason}>
             {busy ? 'Deleting...' : 'Delete Account'}
           </button>
         </div>
-      </div>
+      </form>
     </div>
   )
 }
@@ -58,11 +77,11 @@ export function SettingsPage() {
     navigate('/login', { replace: true })
   }
 
-  async function handleDeleteAccount() {
+  async function handleDeleteAccount(feedback) {
     setDeleteBusy(true)
     setDeleteError('')
     try {
-      await deleteAccount()
+      await deleteAccount(feedback)
       navigate('/login', { replace: true })
     } catch (error) {
       setDeleteError(error.message || 'Delete account failed.')

@@ -25,7 +25,12 @@ export async function saveCardQr(cardId, settings) {
 // QR record (card_id stays null) so a design can be finalized, added to
 // the cart, and listed under "My QR Codes" without needing a Digital Card.
 export async function publishStandaloneQr(settings) {
-  const { data } = await client.post('/qr', { settings })
+  const { data } = await client.post('/qr', { settings: { ...settings, purchased: false } })
+  return data.data.qr
+}
+
+export async function activateQrPurchase(qrId) {
+  const { data } = await client.patch(`/qr/${qrId}/activate`)
   return data.data.qr
 }
 

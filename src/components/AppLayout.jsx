@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Outlet, Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { CartDrawer } from './CartDrawer'
@@ -8,25 +8,6 @@ export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const isHomePage = location.pathname === '/'
-  const [homeScrolled, setHomeScrolled] = useState(
-    () => typeof window !== 'undefined' && window.scrollY > 12,
-  )
-
-  useEffect(() => {
-    if (!isHomePage) {
-      setHomeScrolled(true)
-      return undefined
-    }
-
-    function handleScroll() {
-      setHomeScrolled(window.scrollY > 12)
-    }
-
-    handleScroll()
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [isHomePage])
-
   useEffect(() => {
     if (isHomePage && location.hash) {
       document.querySelector(location.hash)?.scrollIntoView({ behavior: 'smooth' })
@@ -48,7 +29,7 @@ export function AppLayout() {
 
   return (
     <div className={`app-shell${isHomePage ? ' app-shell--home' : ''}`}>
-      <header className={`topbar${isHomePage && !homeScrolled ? ' topbar--home-hidden' : ''}`}>
+      <header className="topbar">
         <Link to="/" className="product-mark">
           <img src="/logo.png" alt="BB" className="product-mark-icon" />
           <strong>Digital Card</strong>
@@ -84,8 +65,8 @@ export function AppLayout() {
 
         {isAuthenticated ? (
           <div className="topbar-user">
-            <CartDrawer />
             {user?.name && <span className="topbar-greeting">Hi, {user.name.split(' ')[0]}</span>}
+            <CartDrawer />
           </div>
         ) : (
           <Link to="/login" className="topbar-action">Log in</Link>

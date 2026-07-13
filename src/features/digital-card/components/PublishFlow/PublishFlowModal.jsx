@@ -1,33 +1,31 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { SampleBusinessCard } from './SampleBusinessCard'
 import { QrStep } from './QrStep'
-import { CartStep } from './CartStep'
 import { createTempPreviewLink } from '../../utils/previewLink'
 import { saveCardQr } from '../../../qr'
+import { createCard, updateCard } from '../../../business-card/services/api'
+import { TEMPLATES } from '../../../business-card/bcTemplates'
 import { useToast } from '../../../../context/ToastContext'
 import { useCart } from '../../../../context/CartContext'
 import './publish-flow.css'
 
-const STEP_LABELS = ['Business Card', 'QR Code', 'Cart']
+const STEP_LABELS = ['Business Card', 'QR Code']
+const CURATED_TEMPLATE = 'corp-minimal'
+const CURATED_SETUP = { size: 'standard', orientation: 'horizontal' }
 
-// The end-to-end "sellable" flow that opens the moment a Digital Card is
-// published: curated sample business card -> QR code (pointed at a
-// temporary preview link, never the real slug) -> cart with a placeholder
-// total. Nothing here talks to a payment gateway yet — Checkout is a stub
-// the business can wire up once that's ready.
-//
-// Nothing is added to the shared cart until the user has been through every
-// step — the business card choice and the QR settings are only held as
-// local state along the way. All of it (digital card + QR + business card,
-// if chosen) lands in CartContext together the moment the flow reaches the
-// Cart step, not the instant the modal opens.
 export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, onQrSaved }) {
+  const navigate = useNavigate()
   const toast = useToast()
-  const { items: cartItems, addItem, removeItem } = useCart()
+  const { addItem } = useCart()
   const [stepIndex, setStepIndex] = useState(0)
   const [wantsBusinessCard, setWantsBusinessCard] = useState(true)
   const [savedQrSettings, setSavedQrSettings] = useState(existingQr?.settings ?? null)
   const [savingQr, setSavingQr] = useState(false)
+  const [businessCardId, setBusinessCardId] = useState(null)
+  const [creatingBusinessCard, setCreatingBusinessCard] = useState(false)
+  const [templateId, setTemplateId] = useState(CURATED_TEMPLATE)
+  const [editingTemplate, setEditingTemplate] = useState(false)
 
   const previewUrl = useMemo(() => (open ? createTempPreviewLink(profile) : null), [open, profile])
   const cardLabel = profile.companyName || profile.brandName || 'Digital Card'
@@ -38,50 +36,106 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
     setStepIndex(Math.max(0, Math.min(STEP_LABELS.length - 1, index)))
   }
 
+  async function ensureBusinessCard() {
+    if (businessCardId) return businessCardId
+    setCreatingBusinessCard(true)
+    try {
+      const businessProfile = {
+        ...profile,
+        address: profile.address || profile.location || '',
+        palette: profile.palette,
+      }
+      const created = await createCard(`${cardLabel} Business Card`, { productType: 'business' })
+      await updateCard(created.id, {
+        status: 'draft',
+        card_data: {
+          productType: 'business',
+          sourceDigitalCardId: cardId,
+          businessCard: {
+            templateId,
+            setup: CURATED_SETUP,
+            profile: businessProfile,
+            personalizedFromDigitalCard: true,
+          },
+        },
+      })
+      setBusinessCardId(created.id)
+      return created.id
+    } finally {
+      setCreatingBusinessCard(false)
+    }
+  }
+
+  async function handleEditBusinessCard() {
+    try {
+      const id = await ensureBusinessCard()
+      onClose()
+      navigate(`/business-card/${id}`)
+    } catch (error) {
+      toast.error(error.message || 'Could not create the personalized Business Card')
+    }
+  }
+
   async function handleQrContinue(settings) {
     setSavingQr(true)
-    let qrSaved = false
     try {
-      const saved = await saveCardQr(cardId, settings)
-      setSavedQrSettings(saved.settings)
-      onQrSaved?.(saved)
-      qrSaved = true
-      toast.success('QR code saved')
-    } catch (err) {
-      toast.error(err.message || 'Could not save the QR code — you can add it later from the studio')
+      let qrSaved = false
+      let savedQrId = null
+      try {
+        const saved = await saveCardQr(cardId, { ...settings, purchased: false })
+        setSavedQrSettings(saved.settings)
+        onQrSaved?.(saved)
+        qrSaved = true
+        savedQrId = saved.id
+      } catch (error) {
+        toast.error(error.message || 'Could not save the QR code. You can add it later from the studio.')
+      }
+
+      addItem({
+        id: `${cardId}-digitalCard`,
+        type: 'digital-card',
+        path: `/studio/${cardId}`,
+        name: cardLabel,
+        description: 'Digital business card pending payment confirmation',
+        price: 'INR 499',
+        amount: 499,
+        publishCardId: cardId,
+      })
+
+      if (wantsBusinessCard) {
+        const id = await ensureBusinessCard()
+        addItem({
+          id: `${cardId}-businessCard`,
+          type: 'business-card',
+          path: `/business-card/${id}`,
+          name: `${cardLabel} Business Card`,
+          description: 'Personalized print-ready Business Card',
+          price: 'INR 799',
+          amount: 799,
+          publishCardId: id,
+        })
+      }
+
+      if (qrSaved) {
+        addItem({
+          id: `${cardId}-qr`,
+          type: 'card-qr',
+          path: `/studio/${cardId}?from=qr-studio`,
+          name: 'Custom QR Code',
+          description: 'Branded QR code linked to your Digital Card',
+          price: 'INR 299',
+          amount: 299,
+          qrId: savedQrId,
+        })
+      }
+
+      onClose()
+      navigate('/cart')
+    } catch (error) {
+      toast.error(error.message || 'Could not prepare your cart')
     } finally {
       setSavingQr(false)
     }
-
-    // Only now — after the business card decision and the QR step are both
-    // done — do these items actually land in the cart.
-    addItem({
-      id: `${cardId}-digitalCard`,
-      type: 'digital-card',
-      path: `/studio/${cardId}`,
-      name: cardLabel,
-      description: 'Published digital business card',
-      price: '₹X',
-    })
-    if (wantsBusinessCard) {
-      addItem({
-        id: `${cardId}-businessCard`,
-        name: 'Custom Business Card',
-        description: 'Printed card matching your digital theme',
-        price: '₹X',
-      })
-    }
-    if (qrSaved) {
-      addItem({
-        id: `${cardId}-qr`,
-        type: 'card-qr',
-        path: `/studio/${cardId}?from=qr-studio`,
-        name: 'Custom QR Code',
-        description: 'Branded QR code linking to your digital card',
-        price: '₹X',
-      })
-    }
-    goTo(2)
   }
 
   return (
@@ -89,16 +143,13 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
       <div
         className={`publish-flow-dialog ${stepIndex === 1 ? 'publish-flow-dialog--wide' : ''}`}
         style={{ maxWidth: stepIndex === 1 ? 1040 : 720 }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
       >
         <button type="button" className="publish-flow-close" onClick={onClose} aria-label="Close">×</button>
 
         <div className="publish-flow-steps">
           {STEP_LABELS.map((label, index) => (
-            <div
-              key={label}
-              className={`publish-flow-step-pill ${index === stepIndex ? 'active' : index < stepIndex ? 'done' : ''}`}
-            >
+            <div key={label} className={`publish-flow-step-pill ${index === stepIndex ? 'active' : index < stepIndex ? 'done' : ''}`}>
               <span className="publish-flow-step-num">{index < stepIndex ? '✓' : index + 1}</span>
               {label}
             </div>
@@ -107,15 +158,31 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
 
         {stepIndex === 0 && (
           <div className="publish-flow-business-card-step">
-            <h2>Card published! Here's your business card.</h2>
-            <p>We've automatically curated a matching business card using your digital card's theme and logo.</p>
-            <SampleBusinessCard profile={profile} onEdit={() => toast.info('The business card editor is coming soon')} />
+            <h2>Your personalized Business Card is ready</h2>
+            <p>It uses a live Business Card template with your details, logo, and extracted theme.</p>
+            <SampleBusinessCard profile={profile} templateId={templateId} onEdit={handleEditBusinessCard} />
+            <div className="publish-flow-template-controls">
+              <button type="button" className="secondary-button" onClick={() => setEditingTemplate((current) => !current)}>
+                {editingTemplate ? 'Close Templates' : 'Edit Template'}
+              </button>
+              {editingTemplate && (
+                <label className="field publish-flow-template-field">
+                  <span>Business Card Template</span>
+                  <select value={templateId} onChange={(event) => setTemplateId(event.target.value)}>
+                    {TEMPLATES.map((template) => (
+                      <option key={template.id} value={template.id}>{template.label}</option>
+                    ))}
+                  </select>
+                  <small>The preview updates immediately when you choose a template.</small>
+                </label>
+              )}
+            </div>
             <div className="publish-flow-actions">
               <button type="button" className="secondary-button" onClick={() => { setWantsBusinessCard(false); goTo(1) }}>
                 Skip for now
               </button>
-              <button type="button" className="primary-button" onClick={() => { setWantsBusinessCard(true); goTo(1) }}>
-                Add to Cart &amp; Continue
+              <button type="button" className="primary-button" disabled={creatingBusinessCard} onClick={() => { setWantsBusinessCard(true); goTo(1) }}>
+                {creatingBusinessCard ? 'Creating...' : 'Add to Cart & Continue'}
               </button>
             </div>
           </div>
@@ -124,7 +191,7 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
         {stepIndex === 1 && previewUrl && (
           <>
             <h2 className="publish-flow-qr-heading">Create your QR code</h2>
-            <p className="publish-flow-qr-subheading">Style it to match your brand — it's ready to print or share as soon as you're done.</p>
+            <p className="publish-flow-qr-subheading">Customize the QR code now. All products publish after demo payment confirmation.</p>
             <QrStep
               profile={profile}
               previewUrl={previewUrl}
@@ -134,16 +201,6 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
               onContinue={handleQrContinue}
             />
           </>
-        )}
-
-        {stepIndex === 2 && (
-          <CartStep
-            items={cartItems}
-            total={cartItems.length ? '₹X' : '₹0'}
-            onRemove={removeItem}
-            onCheckout={() => toast.info('Checkout is coming soon — payment gateway integration in progress.')}
-            onContinueEditing={onClose}
-          />
         )}
       </div>
     </div>

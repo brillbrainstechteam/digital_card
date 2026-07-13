@@ -9,6 +9,8 @@ import { AuthPage } from './components/AuthPage'
 import { SettingsPage } from './components/SettingsPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AppLayout } from './components/AppLayout'
+import { CartPage } from './components/CartPage'
+import { CheckoutPage } from './components/CheckoutPage'
 import {
   Dashboard,
   StudioPage,
@@ -50,6 +52,8 @@ function App() {
               <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
               <Route path="/activity" element={<ProtectedRoute><ActivityPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+              <Route path="/cart" element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
+              <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
               <Route path="/studio/:cardId" element={<ProtectedRoute><StudioPage /></ProtectedRoute>} />
               <Route path="/create" element={<CreateCardPage />} />
               <Route path="/business-cards" element={<ProtectedRoute><BusinessCardsPage /></ProtectedRoute>} />

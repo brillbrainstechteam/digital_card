@@ -87,6 +87,23 @@ async function createStandaloneQr(userId, settings) {
   return result.rows[0]
 }
 
+async function activateQrPurchase(userId, qrId) {
+  const owned = await pool.query(
+    'SELECT settings FROM qr_codes WHERE id = $1 AND user_id = $2',
+    [qrId, userId]
+  )
+  if (owned.rows.length === 0) throw new AppError('QR code not found', 404)
+  const settings = { ...(owned.rows[0].settings || {}), purchased: true }
+  const result = await pool.query(
+    `UPDATE qr_codes
+     SET settings = $1, updated_at = NOW()
+     WHERE id = $2 AND user_id = $3
+     RETURNING *`,
+    [JSON.stringify(settings), qrId, userId]
+  )
+  return result.rows[0]
+}
+
 async function deleteCardQr(userId, cardId) {
   await getCardOwned(cardId, userId)
   await pool.query('DELETE FROM qr_codes WHERE card_id = $1', [cardId])
@@ -97,14 +114,17 @@ async function deleteCardQr(userId, cardId) {
 
 async function getQrBySlugPublic(slug) {
   const result = await pool.query(
-    `SELECT qr.id, qr.card_id, qr.slug, c.slug AS card_slug, c.status AS card_status
+    `SELECT qr.id, qr.card_id, qr.slug, qr.settings, c.slug AS card_slug, c.status AS card_status
      FROM qr_codes qr
      LEFT JOIN cards c ON c.id = qr.card_id
      WHERE qr.slug = $1`,
     [slug]
   )
   if (result.rows.length === 0) throw new AppError('QR code not found', 404)
-  return result.rows[0]
+  const qr = result.rows[0]
+  if (qr.settings?.purchased !== true) throw new AppError('QR code is awaiting payment', 404)
+  if (qr.card_id && qr.card_status !== 'published') throw new AppError('QR code is not published', 404)
+  return qr
 }
 
 function parseUserAgent(uaString) {
@@ -247,6 +267,7 @@ module.exports = {
   listUserQrs,
   upsertCardQr,
   createStandaloneQr,
+  activateQrPurchase,
   deleteCardQr,
   getQrBySlugPublic,
   recordScan,

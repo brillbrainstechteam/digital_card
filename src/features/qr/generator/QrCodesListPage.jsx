@@ -7,7 +7,6 @@ import { QRCode } from '../components/QRCode'
 import { QrDevModeBadge } from '../components/QrLockStatus'
 import { fetchMyQrCodes } from '../services/qrApi'
 import { createDefaultQrSettings, downloadQrCode } from '../services/qrEngine'
-import { useQrDevModeEnabled } from '../services/qrAccess'
 import '../qr-studio.css'
 
 function formatDate(iso) {
@@ -26,7 +25,6 @@ export function QrCodesListPage() {
   // Read once here (not per row inside the .map below — hooks can't be
   // called in a loop) so every row's lock state updates together the
   // instant the Developer Mode badge's toggle flips.
-  const devModeEnabled = useQrDevModeEnabled()
 
   useEffect(() => {
     fetchMyQrCodes()
@@ -90,7 +88,7 @@ export function QrCodesListPage() {
         ) : (
           <div className="card-list qr-codes-list">
             {qrs.map((qr) => {
-              const unlocked = devModeEnabled || Boolean(qr.settings?.purchased)
+              const unlocked = Boolean(qr.settings?.purchased) && (!qr.card_id || qr.card_status === 'published')
               return (
                 <div key={qr.id} className="card-list-item qr-codes-list-item">
                   <div className="qr-codes-list-thumb">

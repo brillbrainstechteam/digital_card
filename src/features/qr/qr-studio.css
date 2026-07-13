@@ -166,7 +166,33 @@
   border-radius: 16px;
   display: flex;
   justify-content: center;
-  padding: 20px;
+  padding: 14px;
+}
+
+.qr-studio-preview {
+  gap: 10px;
+  height: calc(100vh - 76px);
+  overflow: hidden;
+  padding-bottom: 14px;
+  padding-top: 14px;
+}
+
+.qr-studio-preview .preview-toolbar {
+  min-height: 36px;
+}
+
+.qr-studio-preview .qr-preview-canvas {
+  flex: 0 0 auto;
+}
+
+.qr-studio-preview .qr-warnings {
+  margin-top: 4px;
+  max-height: 90px;
+  overflow: auto;
+}
+
+.qr-studio-preview .qr-publish-btn {
+  margin-top: 4px;
 }
 
 .qr-code-surface {

@@ -26,12 +26,22 @@ export function createDefaultQrSettings() {
 
 function buildGradient(gradient) {
   if (!gradient) return undefined
+  const start = gradient.colors?.[0] || '#000000'
+  const end = gradient.colors?.[1] || '#000000'
+  const parse = (color) => color.match(/[a-f\d]{2}/gi)?.map((part) => parseInt(part, 16)) || [0, 0, 0]
+  const toHex = (value) => Math.round(value).toString(16).padStart(2, '0')
+  const from = parse(start)
+  const to = parse(end)
+  const blend = (amount) => `#${from.map((value, index) => toHex(value + (to[index] - value) * amount)).join('')}`
   return {
     type: gradient.type || 'linear',
     rotation: ((gradient.rotation ?? 0) * Math.PI) / 180,
     colorStops: [
-      { offset: 0, color: gradient.colors?.[0] || '#000000' },
-      { offset: 1, color: gradient.colors?.[1] || '#000000' },
+      { offset: 0, color: start },
+      { offset: 0.25, color: blend(0.25) },
+      { offset: 0.5, color: blend(0.5) },
+      { offset: 0.75, color: blend(0.75) },
+      { offset: 1, color: end },
     ],
   }
 }

@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs')
+const crypto = require('crypto')
 const jwt = require('jsonwebtoken')
 const { pool } = require('../config/database')
 const env = require('../config/env')
@@ -66,4 +67,35 @@ async function getUserById(id) {
   return result.rows[0]
 }
 
-module.exports = { signup, login, getUserById }
+async function deleteAccount(userId, { reason, details }) {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS account_deletion_feedback (
+        id UUID PRIMARY KEY,
+        user_id UUID NOT NULL,
+        email TEXT,
+        reason TEXT NOT NULL,
+        details TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`
+    )
+    const userResult = await client.query('SELECT email FROM users WHERE id = $1', [userId])
+    if (userResult.rows.length === 0) throw new AppError('User not found', 404)
+    await client.query(
+      `INSERT INTO account_deletion_feedback (id, user_id, email, reason, details)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [crypto.randomUUID(), userId, userResult.rows[0].email, reason, details || null]
+    )
+    await client.query('DELETE FROM users WHERE id = $1', [userId])
+    await client.query('COMMIT')
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
+module.exports = { signup, login, getUserById, deleteAccount }

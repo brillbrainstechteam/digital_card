@@ -5,7 +5,6 @@ import { QRCode } from '../components/QRCode'
 import { QRCustomizationPanel } from '../components/QRCustomizationPanel'
 import { QRWarnings } from '../components/QRWarnings'
 import { DestinationPicker } from '../components/DestinationPicker'
-import { useQrDownload } from '../hooks/useQrDownload'
 import { createDefaultQrSettings } from '../services/qrEngine'
 import { publishStandaloneQr } from '../services/qrApi'
 import { buildDestinationValue, DESTINATION_TYPES } from '../utils/destinations'
@@ -44,7 +43,6 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
   )
 
   const liveSettings = useMemo(() => ({ ...settings, data }), [settings, data])
-  const { download, pending } = useQrDownload(liveSettings, 'qr-code')
 
   function handleDestinationChange(type, fields) {
     setDestinationType(type)
@@ -66,6 +64,7 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
         path: '/qr-studio/codes',
         name: `Custom QR Code — ${DESTINATION_TYPES.find((d) => d.key === destinationType)?.label ?? 'QR'}`,
         description: 'Branded QR code generated in QR Studio',
+        amount: 299,
         price: '₹X',
       })
       toast.success('QR code published — added to cart')
@@ -117,12 +116,12 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
         </section>
       </section>
 
-      <aside className="preview-panel">
+      <aside className="preview-panel qr-studio-preview">
         <div className="preview-toolbar">
           <span>Live preview</span>
         </div>
         <div className="qr-preview-canvas">
-          <QRCode settings={liveSettings} size={280} lockable />
+          <QRCode settings={liveSettings} size={220} lockable />
         </div>
         <QrPreviewNotice />
         <QrDevModeBadge />
@@ -130,17 +129,6 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
         <button type="button" className="primary-button qr-publish-btn" disabled={publishing} onClick={handlePublish}>
           {publishing ? 'Publishing...' : 'Publish QR & Add to Cart'}
         </button>
-        <div className="qr-download-row">
-          <button type="button" className="secondary-button" disabled={pending === 'png'} onClick={() => download('png')}>
-            {pending === 'png' ? 'Preparing...' : 'Download PNG'}
-          </button>
-          <button type="button" className="secondary-button" disabled={pending === 'svg'} onClick={() => download('svg')}>
-            {pending === 'svg' ? 'Preparing...' : 'Download SVG'}
-          </button>
-          <button type="button" className="secondary-button" disabled={pending === 'pdf'} onClick={() => download('pdf')}>
-            {pending === 'pdf' ? 'Preparing...' : 'Download PDF'}
-          </button>
-        </div>
       </aside>
     </main>
     </>

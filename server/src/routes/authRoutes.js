@@ -33,4 +33,15 @@ router.post(
 
 router.get('/me', authenticate, authController.getMe)
 
+router.delete(
+  '/me',
+  authenticate,
+  [
+    body('reason').isIn(['not_useful', 'too_expensive', 'missing_features', 'privacy', 'temporary', 'other']).withMessage('Please select a deletion reason'),
+    body('details').optional({ values: 'falsy' }).trim().isLength({ max: 1000 }).withMessage('Additional feedback must be under 1000 characters'),
+  ],
+  validate,
+  authController.deleteAccount
+)
+
 module.exports = router

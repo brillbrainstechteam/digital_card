@@ -40,4 +40,16 @@ async function getMe(req, res, next) {
   }
 }
 
-module.exports = { signup, login, getMe }
+async function deleteAccount(req, res, next) {
+  try {
+    await authService.deleteAccount(req.user.id, {
+      reason: req.body.reason,
+      details: req.body.details || '',
+    })
+    res.json({ success: true, message: 'Account deleted successfully' })
+  } catch (err) {
+    next(err)
+  }
+}
+
+module.exports = { signup, login, getMe, deleteAccount }

@@ -7,6 +7,44 @@ import { fetchQrAnalytics, fetchOverallQrAnalytics } from '../../qr'
 
 const POLL_INTERVAL = 15000
 
+const SAMPLE_SUMMARY = {
+  totalViews: 1284,
+  totalQrScans: 316,
+  totalLeads: 87,
+  totalSubscribers: 142,
+  totalButtonClicks: 694,
+  conversionRate: 6.8,
+  topPerformingAction: 'whatsapp',
+  lastActivity: new Date().toISOString(),
+  buttonClicks: { call: 96, email: 74, whatsapp: 238, website: 151, save_contact: 87, instagram: 48 },
+}
+
+const SAMPLE_LEADS = [
+  { id: 'sample-1', visitor_name: 'Aarav Sharma', business_name: 'Northstar Studio', email: 'aarav@example.com', phone: '+91 98765 43210', created_at: new Date().toISOString() },
+  { id: 'sample-2', visitor_name: 'Meera Patel', business_name: 'Vertex Labs', email: 'meera@example.com', phone: '+91 99887 76655', created_at: new Date(Date.now() - 86400000).toISOString() },
+]
+
+const SAMPLE_ACTIVITY = [
+  { event_type: 'view', created_at: new Date().toISOString(), metadata: {} },
+  { event_type: 'button_click', created_at: new Date(Date.now() - 600000).toISOString(), metadata: { button: 'whatsapp' } },
+  { event_type: 'lead_created', created_at: new Date(Date.now() - 1800000).toISOString(), metadata: { visitor_name: 'Aarav Sharma' } },
+]
+
+const SAMPLE_SUBSCRIBERS = [
+  { id: 'sample-sub-1', email: 'hello@example.com', subscribed_at: new Date().toISOString() },
+  { id: 'sample-sub-2', email: 'team@example.com', subscribed_at: new Date(Date.now() - 86400000).toISOString() },
+]
+
+const SAMPLE_QR = {
+  totalScans: 316,
+  uniqueScans: 241,
+  deviceBreakdown: { Mobile: 252, Desktop: 64 },
+  browserBreakdown: { Chrome: 211, Safari: 105 },
+  osBreakdown: { Android: 168, iOS: 84, Windows: 64 },
+  countryBreakdown: { India: 268, 'United States': 48 },
+  recentScans: [],
+}
+
 const BUTTON_LABELS = {
   call: 'Call', email: 'Email', whatsapp: 'WhatsApp',
   website: 'Website', save_contact: 'Save Contact', google_maps: 'Google Maps',
@@ -184,6 +222,7 @@ export function AnalyticsPage() {
   const [exportingSubscribers, setExportingSubscribers] = useState(false)
   const [qrAnalytics, setQrAnalytics] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showSample, setShowSample] = useState(false)
   const pollRef = useRef(null)
 
   // Leads filter state
@@ -198,6 +237,8 @@ export function AnalyticsPage() {
   const [dateTo, setDateTo] = useState('')
   const [sortBy, setSortBy] = useState('newest')
   const [visibleColumns, setVisibleColumns] = useState(loadVisibleColumns)
+  const selectedCard = cards.find((card) => String(card.id) === String(selectedCardId))
+  const leadCaptureEnabled = selectedCardId === 'all' || selectedCard?.card_data?.saveContactRequireForm !== false
 
   useEffect(() => {
     try { localStorage.setItem(LEADS_COLUMNS_STORAGE_KEY, JSON.stringify(visibleColumns)) } catch { /* ignore */ }
@@ -226,13 +267,17 @@ export function AnalyticsPage() {
   leadsParamsRef.current = { search, page, limit, dateRange, dateFrom, dateTo, sortBy }
 
   const fetchLeads = useCallback(async () => {
+    if (showSample || !leadCaptureEnabled) {
+      if (!showSample) { setLeads([]); setLeadsTotal(0) }
+      return
+    }
     try {
       const res = await fetchAnalyticsLeads(selectedCardId, leadsParamsRef.current)
       setLeads(res.leads)
       setLeadsTotal(res.total)
     } catch { /* silent */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCardId, search, page, limit, dateRange, dateFrom, dateTo, sortBy])
+  }, [selectedCardId, search, page, limit, dateRange, dateFrom, dateTo, sortBy, showSample, leadCaptureEnabled])
 
   const loadAll = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -244,9 +289,9 @@ export function AnalyticsPage() {
         fetchAnalyticsSubscribers(selectedCardId, { limit: 5 }),
         (selectedCardId === 'all' ? fetchOverallQrAnalytics() : fetchQrAnalytics({ cardId: selectedCardId })).catch(() => null),
       ])
-      setSummary(summaryData)
-      setLeads(leadsData.leads)
-      setLeadsTotal(leadsData.total)
+      setSummary(leadCaptureEnabled ? summaryData : { ...summaryData, totalLeads: 0 })
+      setLeads(leadCaptureEnabled ? leadsData.leads : [])
+      setLeadsTotal(leadCaptureEnabled ? leadsData.total : 0)
       setActivity(activityData.events || [])
       setSubscribers(subscribersData.subscribers || [])
       setQrAnalytics(qrData)
@@ -256,19 +301,32 @@ export function AnalyticsPage() {
       if (!silent) setLoading(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCardId])
+  }, [selectedCardId, leadCaptureEnabled])
 
   // Full reload on card change only
-  useEffect(() => { loadAll(false) }, [selectedCardId]) // eslint-disable-line
+  useEffect(() => {
+    if (showSample) {
+      setSummary(SAMPLE_SUMMARY)
+      setLeads(SAMPLE_LEADS)
+      setLeadsTotal(SAMPLE_LEADS.length)
+      setActivity(SAMPLE_ACTIVITY)
+      setSubscribers(SAMPLE_SUBSCRIBERS)
+      setQrAnalytics(SAMPLE_QR)
+      setLoading(false)
+    } else {
+      loadAll(false)
+    }
+  }, [selectedCardId, showSample]) // eslint-disable-line
 
   // Silent leads refresh on filter change
-  useEffect(() => { fetchLeads() }, [fetchLeads])
+  useEffect(() => { if (!showSample) fetchLeads() }, [fetchLeads, showSample])
 
   // Polling
   useEffect(() => {
+    if (showSample) return undefined
     pollRef.current = setInterval(() => loadAll(true), POLL_INTERVAL)
     return () => clearInterval(pollRef.current)
-  }, [loadAll])
+  }, [loadAll, showSample])
 
   const totalPages = Math.max(1, Math.ceil(leadsTotal / limit))
 
@@ -301,11 +359,17 @@ export function AnalyticsPage() {
           title="Track your card performance"
           subtitle="Views, leads, button clicks and activity across your digital cards."
           actions={(
-            <select className="analytics-card-filter" value={selectedCardId}
-              onChange={(e) => { setSelectedCardId(e.target.value); setPage(1) }}>
-              <option value="all">All Cards</option>
-              {cards.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-            </select>
+            <div className="analytics-header-actions">
+              <label className="analytics-sample-toggle">
+                <input type="checkbox" checked={showSample} onChange={(event) => setShowSample(event.target.checked)} />
+                <span>View sample analytics</span>
+              </label>
+              <select className="analytics-card-filter" value={selectedCardId} disabled={showSample}
+                onChange={(e) => { setSelectedCardId(e.target.value); setPage(1) }}>
+                <option value="all">All Cards</option>
+                {cards.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+              </select>
+            </div>
           )}
         />
 
@@ -318,7 +382,7 @@ export function AnalyticsPage() {
             {[
               ['Total Views', summary.totalViews],
               ['QR Scans', summary.totalQrScans ?? 0],
-              ['Total Leads', summary.totalLeads],
+              ...((showSample || leadCaptureEnabled) ? [['Total Leads', summary.totalLeads]] : []),
               ['Total Subscribers', summary.totalSubscribers],
               ['Button Clicks', summary.totalButtonClicks],
               ['Conversion %', `${summary.conversionRate}%`],
@@ -457,7 +521,7 @@ export function AnalyticsPage() {
           </section>
 
           {/* Leads */}
-          <section className="editor-section">
+          {(showSample || leadCaptureEnabled) && <section className="editor-section">
             <div className="editor-title">
               <h2>Leads</h2>
               <div className="leads-header-actions">
@@ -542,7 +606,7 @@ export function AnalyticsPage() {
                 </div>
               </>
             )}
-          </section>
+          </section>}
         </>
         )}
       </section>

@@ -1,4 +1,7 @@
+import { useNavigate } from 'react-router-dom'
+
 export function BusinessCardShowcase() {
+  const navigate = useNavigate()
   return (
     <section className="biz-showcase">
       <div className="biz-flip-wrap">
@@ -50,9 +53,9 @@ export function BusinessCardShowcase() {
           <button
             className="primary-button"
             type="button"
-            onClick={() => alert('Business Cards are coming soon! Stay tuned.')}
+            onClick={() => navigate('/business-cards')}
           >
-            Coming Soon
+            Create Business Card
           </button>
         </div>
         <div className="feature-row">

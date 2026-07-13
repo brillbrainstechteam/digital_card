@@ -6,6 +6,7 @@ const router = Router()
 
 router.get('/', authenticate, qrController.listQrs)
 router.post('/', authenticate, qrController.createStandaloneQr)
+router.patch('/:qrId/activate', authenticate, qrController.activatePurchase)
 router.get('/card/:cardId', authenticate, qrController.getCardQr)
 router.put('/card/:cardId', authenticate, qrController.upsertCardQr)
 router.delete('/card/:cardId', authenticate, qrController.deleteCardQr)

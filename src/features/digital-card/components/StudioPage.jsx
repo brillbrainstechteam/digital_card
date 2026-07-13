@@ -255,12 +255,12 @@ export function StudioPage() {
       await sleep(900)
       setPublishStage(2) // Generating your branded QR Code...
       await sleep(900)
-      setPublishStage(3) // Publishing your content...
+      setPublishStage(3) // Preparing checkout...
       const updated = await updateCard(id, {
         title: editorProfile.brandName,
         logo_url: editorProfile.logo,
         card_data: editorProfile,
-        status: 'published',
+        status: 'draft',
       })
       setResolvedCardId(id)
       setCardSlug(updated.slug)
@@ -279,7 +279,7 @@ export function StudioPage() {
       setPublishStage(4) // Done!
       await sleep(500)
       setPublishStage(null)
-      toast.success('Card published')
+      toast.success('Card prepared for checkout')
       setPublishFlowOpen(true)
     } catch (err) {
       setPublishStage(null)

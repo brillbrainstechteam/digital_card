@@ -28,6 +28,13 @@ async function createStandaloneQr(req, res, next) {
   } catch (err) { next(err) }
 }
 
+async function activatePurchase(req, res, next) {
+  try {
+    const qr = await qrService.activateQrPurchase(req.user.id, req.params.qrId)
+    res.json({ success: true, message: 'QR code activated', data: { qr } })
+  } catch (err) { next(err) }
+}
+
 async function deleteCardQr(req, res, next) {
   try {
     await qrService.deleteCardQr(req.user.id, req.params.cardId)
@@ -73,4 +80,4 @@ async function resolveScan(req, res, next) {
   } catch (err) { next(err) }
 }
 
-module.exports = { getCardQr, listQrs, upsertCardQr, createStandaloneQr, deleteCardQr, getAnalytics, getCardAnalytics, getOverallAnalytics, resolveScan }
+module.exports = { getCardQr, listQrs, upsertCardQr, createStandaloneQr, activatePurchase, deleteCardQr, getAnalytics, getCardAnalytics, getOverallAnalytics, resolveScan }

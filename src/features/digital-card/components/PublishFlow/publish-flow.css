@@ -238,6 +238,52 @@
   margin-top: 4px;
 }
 
+.sample-bcard-template-face {
+  background: #fff;
+  overflow: hidden;
+  padding: 0;
+}
+
+.sample-bcard-template-face canvas {
+  display: block;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.sample-bcard-template-back {
+  transform: rotateY(180deg);
+}
+
+.sample-bcard-loading {
+  opacity: 0.6;
+}
+
+.publish-flow-template-controls {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(100%, 420px);
+}
+
+.publish-flow-template-field {
+  width: 100%;
+}
+
+.publish-flow-template-field select {
+  background: #fbfaf8;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--navy);
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.publish-flow-template-field small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 /* ---- QR step ---- */
 
 .publish-flow-qr-columns {

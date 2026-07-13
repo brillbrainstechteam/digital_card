@@ -40,8 +40,8 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
-  const deleteAccount = useCallback(async () => {
-    await deleteAccountRequest()
+  const deleteAccount = useCallback(async (feedback) => {
+    await deleteAccountRequest(feedback)
     setUser(null)
   }, [])
 

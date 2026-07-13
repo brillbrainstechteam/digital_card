@@ -23,7 +23,7 @@ const BUSINESS_ITEMS = [
 
 const EDITOR_ITEMS = [
   { key: 'design', label: 'Design' },
-  { key: 'leads', label: 'Leads' },
+  { key: 'buttons', label: 'Button Settings' },
   { key: 'social', label: 'Social Links' },
   { key: 'settings', label: 'Logo Settings' },
   { key: 'colors', label: 'Colors' },

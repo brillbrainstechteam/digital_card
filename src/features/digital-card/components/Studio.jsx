@@ -1298,7 +1298,7 @@ export function Studio({
         </section>
         )}
 
-        {activePanel === 'design' && (
+        {activePanel === 'buttons' && (
         <section className="editor-section">
           <h2>Button Settings</h2>
           <p className="settings-description">Choose which buttons appear on your card and customize their labels.</p>
@@ -1381,7 +1381,7 @@ export function Studio({
         )}
 
 
-        {activePanel === 'leads' && (
+        {activePanel === 'buttons' && (
         <section className="editor-section">
           <h2>Save Contact</h2>
           <p className="settings-description">Choose whether visitors fill a form before downloading your contact, or download it directly.</p>
@@ -1423,7 +1423,7 @@ export function Studio({
         </section>
         )}
 
-        {activePanel === 'leads' && (
+        {activePanel === 'buttons' && (
         <section className="editor-section">
           <h2>Subscribe</h2>
           <p className="settings-description">Let visitors join your mailing list using just their email address.</p>
