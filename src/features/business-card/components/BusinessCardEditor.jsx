@@ -13,7 +13,7 @@ import {
   Heart, Award, Briefcase, Globe, Camera, Coffee, Zap, Shield, Smile, MapPin, Sparkles,
 } from 'lucide-react'
 import { TEMPLATES, getPalette, getCardDimensions, getTemplate, CUSTOM_FABRIC_PROPS, PLACEHOLDER_TEXT, loadBackSide, addText, addLogo, addAddressFooter, f, isPlaceholder, computeBackQrRect } from '../bcTemplates'
-import { normalizeLegacyOrigins, renderFaceThumbnail } from '../canvasHelpers'
+import { normalizeLegacyOrigins, renderFaceThumbnail, waitForFonts } from '../canvasHelpers'
 import { FONT_OPTIONS } from '../../digital-card/fontOptions'
 import { CardPreviewScreen } from './CardPreviewScreen'
 import { QRCode, createDefaultQrSettings, buildDestinationValue, renderQrToDataUrl } from '../../qr'
@@ -284,6 +284,12 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
       }
     }
 
+    // Canvas text rasterizes with whatever webfont is already loaded at
+    // renderAll() time and won't repaint itself once one finishes
+    // downloading — wait so a template's Google Font (Playfair Display,
+    // Montserrat, Poppins, etc.) doesn't silently render as the browser
+    // default on a cold page load.
+    await waitForFonts()
     cv.renderAll()
     snapshot('front', cv)
     syncLayers(cv)

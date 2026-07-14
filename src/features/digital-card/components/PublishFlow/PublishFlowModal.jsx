@@ -11,7 +11,7 @@ import { useCart } from '../../../../context/CartContext'
 import './publish-flow.css'
 
 const STEP_LABELS = ['Business Card', 'QR Code']
-const CURATED_TEMPLATE = 'corp-minimal'
+const CURATED_TEMPLATE = 'corp-bright'
 const CURATED_SETUP = { size: 'standard', orientation: 'horizontal' }
 
 export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, onQrSaved }) {
@@ -160,11 +160,16 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
           <div className="publish-flow-business-card-step">
             <h2>Your personalized Business Card is ready</h2>
             <p>It uses a live Business Card template with your details, logo, and extracted theme.</p>
-            <SampleBusinessCard profile={profile} templateId={templateId} onEdit={handleEditBusinessCard} />
+            <SampleBusinessCard profile={profile} templateId={templateId} />
             <div className="publish-flow-template-controls">
-              <button type="button" className="secondary-button" onClick={() => setEditingTemplate((current) => !current)}>
-                {editingTemplate ? 'Close Templates' : 'Edit Template'}
-              </button>
+              <div className="publish-flow-template-row">
+                <button type="button" className="secondary-button" onClick={() => setEditingTemplate((current) => !current)}>
+                  {editingTemplate ? 'Close Templates' : 'Change Template'}
+                </button>
+                <button type="button" className="secondary-button" onClick={handleEditBusinessCard}>
+                  Edit This Business Card
+                </button>
+              </div>
               {editingTemplate && (
                 <label className="field publish-flow-template-field">
                   <span>Business Card Template</span>

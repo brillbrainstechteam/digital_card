@@ -5,49 +5,6 @@ import { renderTemplateThumbnail, renderTemplateBackThumbnail } from '../canvasH
 
 const DEFAULT_SIZE = 'standard'
 
-// Same relative-luminance threshold the Fabric templates use for picking
-// ink color against a given background — kept here too since this preview
-// is plain HTML/CSS, not a Fabric render, so it can't reuse their palette.text.
-function contrastInk(bg) {
-  const hex = (bg || '#ffffff').replace('#', '')
-  if (hex.length !== 6) return '#1a1a1a'
-  const r = parseInt(hex.slice(0, 2), 16)
-  const g = parseInt(hex.slice(2, 4), 16)
-  const b = parseInt(hex.slice(4, 6), 16)
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return luminance > 0.55 ? '#1a1a1a' : '#ffffff'
-}
-
-// Loading-state placeholder only — shown for the instant before the real
-// per-template back thumbnail (rendered from the template's own loadBack,
-// see renderTemplateBackThumbnail in canvasHelpers.js) finishes generating.
-// Every template's actual back differs in bg/ink/QR-side/accent-shape, so
-// this generic mockup must never be the thing users compare templates by.
-function BackPreviewCard({ profile, palette, orientation, large }) {
-  const bg = palette.primary || '#1f2d3d'
-  const ink = contrastInk(bg)
-  return (
-    <div
-      className={`bc-back-preview${large ? ' bc-back-preview--lg' : ''}`}
-      style={{ background: bg, color: ink, aspectRatio: orientation === 'vertical' ? '4/7' : '7/4' }}
-    >
-      <div className="bc-back-preview-accent" style={{ background: palette.accent }} />
-      <div className="bc-back-preview-main">
-        <div className="bc-back-preview-contact">
-          <div className="bc-back-preview-name">{profile?.personName || 'Your Name'}</div>
-          <div className="bc-back-preview-designation">{profile?.designation || 'Your Title'}</div>
-          <div className="bc-back-preview-lines">
-            <div>{profile?.phone || '+91 XXXXX XXXXX'}</div>
-            <div>{profile?.email || 'email@example.com'}</div>
-            <div>{profile?.website || 'www.example.com'}</div>
-          </div>
-        </div>
-        <div className="bc-back-preview-qr">QR</div>
-      </div>
-    </div>
-  )
-}
-
 export function TemplateGallery({ profile, onBack, onCustomise, onSelectTemplate }) {
   const [search, setSearch]     = useState('')
   const [category, setCategory] = useState('all')
@@ -77,17 +34,40 @@ export function TemplateGallery({ profile, onBack, onCustomise, onSelectTemplate
       if (!thumbs[tmpl.id]) {
         renderTemplateThumbnail(tmpl, profile, palette, DEFAULT_SIZE)
           .then((url) => { if (!cancelled) setThumbs((prev) => ({ ...prev, [tmpl.id]: url })) })
-          .catch(() => {})
+          .catch((err) => console.error(`[TemplateGallery] front thumbnail failed for "${tmpl.id}":`, err))
       }
       if (!backThumbs[tmpl.id]) {
         renderTemplateBackThumbnail(tmpl, profile, palette, DEFAULT_SIZE)
           .then((url) => { if (!cancelled && url) setBackThumbs((prev) => ({ ...prev, [tmpl.id]: url })) })
-          .catch(() => {})
+          .catch((err) => console.error(`[TemplateGallery] back thumbnail failed for "${tmpl.id}":`, err))
       }
     })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, profile])
+
+  // The bulk effect above renders all 10+ templates' thumbnails in whatever
+  // order they appear in `filtered`, so the one the user actually clicked
+  // "compare" on can end up waiting behind several others still in flight —
+  // the exact gap where the generic BackPreviewCard fallback below was
+  // showing instead of the real design. Rendering the opened template's own
+  // pair immediately (independent of that queue) closes that gap.
+  useEffect(() => {
+    if (!previewing) return
+    let cancelled = false
+    if (!thumbs[previewing.id]) {
+      renderTemplateThumbnail(previewing, profile, palette, DEFAULT_SIZE)
+        .then((url) => { if (!cancelled) setThumbs((prev) => ({ ...prev, [previewing.id]: url })) })
+        .catch((err) => console.error(`[TemplateGallery] priority front thumbnail failed for "${previewing.id}":`, err))
+    }
+    if (!backThumbs[previewing.id]) {
+      renderTemplateBackThumbnail(previewing, profile, palette, DEFAULT_SIZE)
+        .then((url) => { if (!cancelled && url) setBackThumbs((prev) => ({ ...prev, [previewing.id]: url })) })
+        .catch((err) => console.error(`[TemplateGallery] priority back thumbnail failed for "${previewing.id}":`, err))
+    }
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewing])
 
   function handleConfirmPreview() {
     if (!previewing) return
@@ -168,7 +148,7 @@ export function TemplateGallery({ profile, onBack, onCustomise, onSelectTemplate
                     {face === 'back'
                       ? backThumbs[tmpl.id]
                         ? <img src={backThumbs[tmpl.id]} alt={`${tmpl.label} back`} />
-                        : <BackPreviewCard profile={profile} palette={palette} orientation={tmpl.orientation} />
+                        : <div className="bc-lightbox-preview-loading"><span className="bc-spinner" /></div>
                       : thumbs[tmpl.id]
                         ? <img src={thumbs[tmpl.id]} alt={tmpl.label} />
                         : <div dangerouslySetInnerHTML={{ __html: tmpl.svgPreview(palette) }} />}
@@ -218,7 +198,17 @@ export function TemplateGallery({ profile, onBack, onCustomise, onSelectTemplate
                 <div className="bc-lightbox-preview">
                   {backThumbs[previewing.id]
                     ? <img src={backThumbs[previewing.id]} alt={`${previewing.label} back`} />
-                    : <BackPreviewCard profile={profile} palette={palette} orientation={previewing.orientation} large />}
+                    // Was BackPreviewCard — a generic, non-per-template mockup
+                    // that looked like a real (wrong) design rather than a
+                    // loading state. An honest spinner never misrepresents
+                    // what the template actually looks like while its real
+                    // back thumbnail (rendered above, on priority) finishes.
+                    : (
+                      <div className="bc-lightbox-preview-loading">
+                        <span className="bc-spinner" />
+                        <span>Rendering back design…</span>
+                      </div>
+                    )}
                 </div>
                 <span className="bc-lightbox-card-label">Back</span>
               </div>

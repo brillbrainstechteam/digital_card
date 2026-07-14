@@ -407,41 +407,49 @@
   height: calc(100vh - 58px);
 }
 
+/* Styled to match the app's shared Sidebar card (.editor-sidebar in
+   App.css) — white rounded card, same label/button treatment — so this
+   in-page category filter reads as visually consistent with the rest of
+   the app's navigation, without actually duplicating the app-level
+   Business Card nav (redundant on a page already inside that section). */
 .bc-gallery-sidebar {
-  width: 180px;
+  width: 220px;
   flex-shrink: 0;
-  border-right: 1px solid var(--line, #e5e3dd);
+  align-self: flex-start;
   background: #fff;
-  padding: 18px 0;
+  border: 1px solid #edeae4;
+  border-radius: 18px;
+  margin: 18px;
+  padding: 16px;
   overflow-y: auto;
 }
 
 .bc-sidebar-section { margin-bottom: 22px; }
 .bc-sidebar-title {
-  font-size: 9px;
+  color: #99a3a5;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted, #657174);
-  padding: 0 14px 8px;
+  padding: 0 12px 8px;
 }
 .bc-sidebar-btn {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 8px 14px;
+  padding: 11px 12px;
   border: none;
   background: transparent;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted, #657174);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--navy, #112d37);
   cursor: pointer;
   transition: all 0.12s;
   font-family: inherit;
-  border-radius: 0;
 }
-.bc-sidebar-btn:hover { background: #f4f2ed; color: var(--navy, #112d37); }
-.bc-sidebar-btn.active { background: #edeae4; color: var(--navy, #112d37); }
+.bc-sidebar-btn:hover,
+.bc-sidebar-btn.active { background: #f4f2ed; }
 
 .bc-gallery-main {
   flex: 1;
@@ -739,6 +747,29 @@
   justify-content: flex-end;
   gap: 10px;
   flex-shrink: 0;
+}
+
+.bc-lightbox-preview-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  aspect-ratio: 7/4;
+  color: var(--muted, #657174);
+  font-size: 12px;
+}
+.bc-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2.5px solid var(--line, #e2ded4);
+  border-top-color: var(--navy, #112d37);
+  animation: bc-spin 0.7s linear infinite;
+}
+@keyframes bc-spin {
+  to { transform: rotate(360deg); }
 }
 
 .bc-gallery-footer {
