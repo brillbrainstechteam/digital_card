@@ -314,17 +314,20 @@ export function addAddressFooter(canvas, profile, w, h, opts = {}) {
 // centered/stacked qrPosition layouts) instead of the default left-aligned
 // row starting at `left`.
 function addContactRow(canvas, glyph, text, opts) {
-  if (opts?.hideWhenEmpty && !text) return null
-  const { left, top, width, ink, accentColor, elementType, fontSize = 13, center = false } = opts
-  const badgeR = 13
+  const { left, top, width, ink, accentColor, elementType, fontSize = CONTACT_BADGE_STYLE.fontSize, center = false, bright = false } = opts
+  const badgeR = CONTACT_BADGE_STYLE.radius
+  // `bright: true` swaps the soft accent-tinted circle for a solid,
+  // fully-saturated one with a white glyph — a bolder, more colorful icon
+  // chip. Opt-in per template rather than the default so it doesn't
+  // change every other template that shares this helper.
   const badge = new Circle({
-    left: 0, top: 0, radius: badgeR, fill: accentColor, opacity: 0.16,
+    left: 0, top: 0, radius: badgeR, fill: accentColor, opacity: bright ? 1 : 0.16,
     originX: 'left', originY: 'top', selectable: false, evented: false,
   })
   const icon = new Textbox(glyph, {
     left: 0, top: badgeR - 9, width: badgeR * 2,
-    fontSize: 13, fill: accentColor, textAlign: 'center',
-    fontFamily: 'Inter, sans-serif', originX: 'left', originY: 'top',
+    fontSize: CONTACT_BADGE_STYLE.fontSize, fill: bright ? '#ffffff' : accentColor, textAlign: 'center',
+    fontFamily: CONTACT_BADGE_STYLE.fontFamily, originX: 'left', originY: 'top',
     selectable: false, evented: false,
   })
   const badgeGroup = new Group([badge, icon], { left, top: top - badgeR + 7, originX: 'left', originY: 'top' })
@@ -334,8 +337,8 @@ function addContactRow(canvas, glyph, text, opts) {
   const textLeft = left + badgeR * 2 + 10
   const textObj = addText(canvas, text, {
     left: textLeft, top,
-    fontSize, fill: ink, opacity: 0.92,
-    fontFamily: 'Inter, sans-serif', width: width - (badgeR * 2 + 10),
+    fontSize, fill: ink, opacity: BACK_CONTACT_TEXT_STYLE.opacity,
+    fontFamily: BACK_CONTACT_TEXT_STYLE.fontFamily, width: width - (badgeR * 2 + 10),
     elementType,
   })
   if (center) {
@@ -376,6 +379,18 @@ function addContactRowsHorizontal(canvas, profile, opts) {
   })
 }
 
+// ── Reusable back-side style constants ──────────────────────────────
+// Pulled out of loadBackSide/addContactRow so the same values can be
+// referenced when the remaining templates get this treatment later,
+// instead of re-typing the same numbers in each template's own file
+// section. Values match what corp-minimal/dark-premium/gradient-hero
+// already render — this is a pure extraction, not a style change.
+export const CONTACT_BADGE_STYLE = { radius: 13, fontSize: 13, fontFamily: 'Inter, sans-serif' }
+export const BACK_NAME_STYLE = { fontWeight: '800', fontFamily: 'Georgia, serif' }
+export const BACK_DESIGNATION_STYLE = { fontSize: 14, opacity: 0.8, fontFamily: 'Inter, sans-serif' }
+export const BACK_CONTACT_TEXT_STYLE = { fontSize: 13, opacity: 0.92, fontFamily: 'Inter, sans-serif' }
+export const QR_PLACEHOLDER_STYLE = { strokeWidth: 1.5, opacity: 0.9, labelFontSize: 16, labelFill: '#9a968d' }
+
 // Shared back-side layout: personal contact block + QR. Sized generously —
 // large name, large QR, roomy contact rows — so the back never reads as
 // the "blank" or "unfinished" side of the card.
@@ -397,6 +412,23 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
     accentShape = 'circle',
     qrPosition = 'side',
     align = 'vertical',
+    brightIcons = false,
+    nameFontFamily = 'Georgia, serif',
+    // Separate from BACK_NAME_STYLE.fontWeight because not every font
+    // family that gets used here actually has an '800' weight loaded
+    // (e.g. Playfair Display only ships 500/700 — see the front-side
+    // company name fix) — a per-template override avoids that mismatch.
+    nameFontWeight = BACK_NAME_STYLE.fontWeight,
+    accentOpacity = 0.16,
+    fullOpacity = false,
+    // Native emoji (☎ ✉ 🌐) render with the browser's own built-in colors —
+    // no canvas `fill` can override that, which is why brightIcons badges
+    // still looked inconsistently multi-colored instead of clean solid
+    // circles. Plain letters are real text glyphs and take the fill color
+    // properly. Kept as the default emoji set for every existing template
+    // (unchanged look) — only overridden per-template where needed.
+    iconGlyphs = ['☎', '✉', '🌐'],
+    motifIcon = true,
   } = opts
   canvas.backgroundColor = bg
 
@@ -405,7 +437,7 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
     const r = h * 0.55
     addCircle(canvas, {
       left: w - r * 0.55, top: h - r * 0.55, radius: r,
-      fill: accentColor, opacity: 0.16, selectable: false, evented: false,
+      fill: accentColor, opacity: accentOpacity, selectable: false, evented: false,
       elementType: 'accentShape',
     })
   } else if (accentShape === 'lines') {
@@ -448,12 +480,12 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
     }
     const box = new Rect({
       width: size, height: size, fill: '#ffffff',
-      stroke: accentColor, strokeWidth: 1.5, opacity: 0.9,
+      stroke: accentColor, strokeWidth: QR_PLACEHOLDER_STYLE.strokeWidth, opacity: QR_PLACEHOLDER_STYLE.opacity,
       originX: 'left', originY: 'top',
     })
     const label = new Textbox('QR', {
       width: size, top: size / 2 - 10,
-      fontSize: 16, fontWeight: '700', fill: '#9a968d',
+      fontSize: QR_PLACEHOLDER_STYLE.labelFontSize, fontWeight: '700', fill: QR_PLACEHOLDER_STYLE.labelFill,
       textAlign: 'center', fontFamily: 'Inter, sans-serif',
       originX: 'left', originY: 'top',
     })
@@ -484,24 +516,24 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
 
     addText(canvas, f(profile, 'personName'), {
       left: 10, top: blockTop,
-      fontSize: 25, fontWeight: '800', fill: ink,
-      fontFamily: 'Georgia, serif', textAlign: 'center', width: w - 20,
+      fontSize: 25, fontWeight: nameFontWeight, fill: ink,
+      fontFamily: nameFontFamily, textAlign: 'center', width: w - 20,
       elementType: 'personName',
-      opacity: isPlaceholder(profile, 'personName') ? 0.4 : 1,
+      opacity: fullOpacity ? 1 : (isPlaceholder(profile, 'personName') ? 0.4 : 1),
     })
     addText(canvas, f(profile, 'designation'), {
       left: 10, top: blockTop + 34,
-      fontSize: 14, fill: ink, opacity: 0.8, textAlign: 'center',
-      fontFamily: 'Inter, sans-serif', width: w - 20,
+      fontSize: BACK_DESIGNATION_STYLE.fontSize, fill: ink, opacity: BACK_DESIGNATION_STYLE.opacity, textAlign: 'center',
+      fontFamily: BACK_DESIGNATION_STYLE.fontFamily, width: w - 20,
       elementType: 'designation',
     })
     const contactTop = blockTop + 68
     const rowGap = 34
-    addContactRow(canvas, '☎', f(profile, 'phone'), { left: rowX, top: contactTop, width: rowW, ink, accentColor, elementType: 'phone', center: true, hideWhenEmpty: usesProvidedDigitalCardData(profile) })
-    addContactRow(canvas, '✉', f(profile, 'email'), { left: rowX, top: contactTop + rowGap, width: rowW, ink, accentColor, elementType: 'email', center: true, hideWhenEmpty: usesProvidedDigitalCardData(profile) })
-    addContactRow(canvas, '🌐', f(profile, 'website'), { left: rowX, top: contactTop + rowGap * 2, width: rowW, ink, accentColor, elementType: 'website', center: true, hideWhenEmpty: usesProvidedDigitalCardData(profile) })
+    addContactRow(canvas, iconGlyphs[0], f(profile, 'phone'), { left: rowX, top: contactTop, width: rowW, ink, accentColor, elementType: 'phone', center: true, bright: brightIcons })
+    addContactRow(canvas, iconGlyphs[1], f(profile, 'email'), { left: rowX, top: contactTop + rowGap, width: rowW, ink, accentColor, elementType: 'email', center: true, bright: brightIcons })
+    addContactRow(canvas, iconGlyphs[2], f(profile, 'website'), { left: rowX, top: contactTop + rowGap * 2, width: rowW, ink, accentColor, elementType: 'website', center: true, bright: brightIcons })
 
-    addMotifIcon(canvas, palette, w, h, qrPosition === 'top' ? 'br' : 'tr', 32)
+    if (motifIcon) addMotifIcon(canvas, palette, w, h, qrPosition === 'top' ? 'br' : 'tr', 32)
     return
   }
 
@@ -518,15 +550,15 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
 
   addText(canvas, f(profile, 'personName'), {
     left: contactX, top: blockTop,
-    fontSize: 26, fontWeight: '800',
-    fill: ink, fontFamily: 'Georgia, serif',
+    fontSize: 26, fontWeight: nameFontWeight,
+    fill: ink, fontFamily: nameFontFamily,
     width: contactW, elementType: 'personName',
-    opacity: isPlaceholder(profile, 'personName') ? 0.4 : 1,
+    opacity: fullOpacity ? 1 : (isPlaceholder(profile, 'personName') ? 0.4 : 1),
   })
   addText(canvas, f(profile, 'designation'), {
     left: contactX, top: blockTop + 36,
-    fontSize: 14, fill: ink, opacity: 0.8,
-    fontFamily: 'Inter, sans-serif', width: contactW,
+    fontSize: BACK_DESIGNATION_STYLE.fontSize, fill: ink, opacity: BACK_DESIGNATION_STYLE.opacity,
+    fontFamily: BACK_DESIGNATION_STYLE.fontFamily, width: contactW,
     elementType: 'designation',
   })
 
@@ -537,9 +569,9 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
     contactBottom = contactTop
   } else {
     const rowGap = 32
-    addContactRow(canvas, '☎', f(profile, 'phone'), { left: contactX, top: contactTop, width: contactW, ink, accentColor, elementType: 'phone', hideWhenEmpty: usesProvidedDigitalCardData(profile) })
-    addContactRow(canvas, '✉', f(profile, 'email'), { left: contactX, top: contactTop + rowGap, width: contactW, ink, accentColor, elementType: 'email', hideWhenEmpty: usesProvidedDigitalCardData(profile) })
-    addContactRow(canvas, '🌐', f(profile, 'website'), { left: contactX, top: contactTop + rowGap * 2, width: contactW, ink, accentColor, elementType: 'website', hideWhenEmpty: usesProvidedDigitalCardData(profile) })
+    addContactRow(canvas, iconGlyphs[0], f(profile, 'phone'), { left: contactX, top: contactTop, width: contactW, ink, accentColor, elementType: 'phone', bright: brightIcons })
+    addContactRow(canvas, iconGlyphs[1], f(profile, 'email'), { left: contactX, top: contactTop + rowGap, width: contactW, ink, accentColor, elementType: 'email', bright: brightIcons })
+    addContactRow(canvas, iconGlyphs[2], f(profile, 'website'), { left: contactX, top: contactTop + rowGap * 2, width: contactW, ink, accentColor, elementType: 'website', bright: brightIcons })
     contactBottom = contactTop + rowGap * 2
   }
 
@@ -553,14 +585,14 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
   })
   canvas.add(qrGroup)
 
-  addMotifIcon(canvas, palette, w, h, qrSide === 'right' ? 'bl' : 'br', 44)
+  if (motifIcon) addMotifIcon(canvas, palette, w, h, qrSide === 'right' ? 'bl' : 'br', 44)
 }
 
 // Per-template back-QR layout, mirroring the opts each template passes into
 // loadBackSide above — kept in sync manually since those opts are inlined
 // per-template rather than read back out of the closures.
 const BACK_QR_OPTS = {
-  'corp-minimal':   { qrSide: 'right', qrPosition: 'side' },
+  'corp-bright':    { qrSide: 'right', qrPosition: 'side' },
   'dark-premium':   { qrSide: 'right', qrPosition: 'side' },
   'gradient-hero':  { qrSide: 'right', qrPosition: 'side' },
   'split-diagonal': { qrSide: 'left',  qrPosition: 'side' },
@@ -605,69 +637,78 @@ export function computeBackQrRect(templateId, w, h) {
 
 export const TEMPLATES = [
 
-  // ── 1. Corporate Minimal ─────────────────────────────────────
+  // ── 1. Corporate Bright ──────────────────────────────────────
+  // White bg, navy accent bar, Playfair Display heading, lavender-tinted
+  // band, bright back icons. Colors are fully theme-derived via
+  // palette.primary/palette.accent — nothing here bypasses getPalette().
   {
-    id: 'corp-minimal',
-    label: 'Corporate Minimal',
+    id: 'corp-bright',
+    label: 'Corporate Bright',
     category: 'corporate',
     orientation: 'horizontal',
 
     svgPreview(pal) {
       return `<svg viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg">
-        <rect width="280" height="160" fill="#f8f7f3"/>
+        <rect width="280" height="160" fill="#ffffff"/>
         <rect width="8" height="160" fill="${pal.primary}"/>
+        <rect x="0" y="115" width="280" height="45" fill="${pal.accent}" opacity="0.14"/>
         <rect x="110" y="14" width="60" height="60" rx="8" fill="${pal.accent}" opacity="0.2"/>
-        <text x="140" y="94" text-anchor="middle" font-size="22" font-weight="800" fill="${pal.primary}" font-family="system-ui">Company Name</text>
-        <text x="140" y="114" text-anchor="middle" font-size="11" font-style="italic" fill="#888" font-family="system-ui">Your tagline here</text>
+        <text x="140" y="94" text-anchor="middle" font-size="22" font-weight="700" fill="${pal.primary}" font-family="Playfair Display, serif">Company Name</text>
+        <text x="140" y="114" text-anchor="middle" font-size="11" font-style="italic" fill="#52525b" font-family="system-ui">Your tagline here</text>
         <text x="140" y="146" text-anchor="middle" font-size="9" fill="#999" font-family="system-ui">123 Business Street, Your City</text>
       </svg>`
     },
 
     async load(canvas, profile, palette, w, h) {
-      canvas.backgroundColor = '#f8f7f3'
-      // Left accent bar
+      canvas.backgroundColor = '#ffffff'
       addRect(canvas, { left: 0, top: 0, width: 8, height: h, fill: palette.primary, selectable: false, evented: false, elementType: 'accentShape' })
-      // Bottom band
-      addRect(canvas, { left: 0, top: h * 0.72, width: w, height: h * 0.28, fill: palette.primary, opacity: 0.07, selectable: false, evented: false })
-      // Logo — large, centered, stacked above the company name (not beside
-      // it) — the primary visual element.
+      addRect(canvas, { left: 0, top: h * 0.72, width: w, height: h * 0.28, fill: palette.accent, opacity: 0.14, selectable: false, evented: false })
       const logoSize = 100
       await addLogo(canvas, profile, w / 2 - logoSize / 2, h * 0.08, logoSize)
-      // Company Name — centered below the logo, sized to dominate the card
       addText(canvas, f(profile, 'companyName'), {
         left: 20, top: h * 0.08 + logoSize + 14,
-        fontSize: 32, fontWeight: '800',
+        // '700' is Playfair Display's heaviest loaded weight (see
+        // index.html's Google Fonts link) — requesting '800' would silently
+        // fail to load and fall back to the browser default font.
+        fontSize: 32, fontWeight: '700',
         fill: palette.primary,
-        fontFamily: 'Georgia, serif',
+        fontFamily: 'Playfair Display, serif',
         textAlign: 'center',
-        opacity: isPlaceholder(profile, 'companyName') ? 0.35 : 1,
+        // Always full opacity, even before a company name is entered —
+        // this template is meant to always read bold and vivid rather
+        // than fading to a washed-out placeholder look like the blank
+        // gallery preview of every other template.
+        opacity: 1,
         width: w - 40,
         elementType: 'companyName',
       })
-      // Tagline
       addText(canvas, f(profile, 'tagline'), {
-        left: 20, top: h * 0.08 + logoSize + 56,
+        left: 20, top: h * 0.08 + logoSize + 42,
         fontSize: 14, fontStyle: 'italic',
-        fill: '#888',
+        fill: '#52525b',
         fontFamily: 'Inter, sans-serif',
         textAlign: 'center',
         opacity: 0.78,
         width: w - 40,
         elementType: 'tagline',
       })
-      // Address — bottom center, with a pin icon, clearly legible
-      addAddressFooter(canvas, profile, w, h, { ink: palette.primary, fontSize: 14 })
-      addMotifIcon(canvas, palette, w, h, 'bl', 44)
+      addAddressFooter(canvas, profile, w, h, { ink: palette.primary, fontSize: 16 })
+      // No star motif icon on this template — kept off the front to match
+      // the confirmed reference design exactly (unlike Corporate Minimal,
+      // which keeps it).
     },
 
     async loadBack(canvas, profile, palette, w, h) {
-      // Reverted from align:'horizontal' — splitting a ~58%-width column
-      // into three side-by-side chips left each one only ~47px for text,
-      // nowhere near enough for a phone number or email address, so they
-      // wrapped and overlapped the name/QR above. Vertical stacking (the
-      // layout every other template already uses successfully) actually fits.
       await loadBackSide(canvas, profile, palette, w, h, {
-        bg: '#f8f7f3', ink: palette.primary, accentColor: palette.accent, qrSide: 'right', accentShape: 'circle',
+        bg: '#ffffff', ink: palette.primary, accentColor: palette.accent, qrSide: 'right', accentShape: 'circle',
+        brightIcons: true, nameFontFamily: 'Playfair Display, serif', nameFontWeight: '700', accentOpacity: 0.24,
+        fullOpacity: true,
+        // Letter glyphs (not emoji) so the "bright" solid-circle badges
+        // actually take the fill color — native emoji ignore canvas fill
+        // and always render with their own built-in colors. No star motif
+        // icon either, to match the reference design's clean back exactly.
+        iconGlyphs: ['T', '@', 'W'],
+        motifIcon: false,
       })
     },
   },
@@ -689,9 +730,9 @@ export const TEMPLATES = [
             <stop offset="1" stop-color="#0d1117" stop-opacity="0"/>
           </linearGradient>
         </defs>
-        <circle cx="240" cy="20" r="60" fill="${pal.accent}" opacity="0.07"/>
-        <circle cx="240" cy="20" r="40" fill="${pal.accent}" opacity="0.07"/>
-        <text x="20" y="66" font-size="24" font-weight="800" fill="#fff" font-family="system-ui">Company Name</text>
+        <circle cx="240" cy="20" r="60" fill="${pal.accent}" opacity="0.16"/>
+        <circle cx="240" cy="20" r="40" fill="${pal.accent}" opacity="0.18"/>
+        <text x="20" y="66" font-size="24" font-weight="800" fill="#fff" font-family="Montserrat, system-ui">Company Name</text>
         <text x="20" y="86" font-size="11" font-style="italic" fill="${pal.accent}" font-family="system-ui">Your tagline here</text>
         <text x="20" y="144" font-size="8" fill="#aaa" font-family="system-ui">123 Business Street, Your City</text>
       </svg>`
@@ -707,21 +748,27 @@ export const TEMPLATES = [
       // Gradient overlay
       const grad = linearGrad(canvas, 0, 0, w * 0.7, h, palette.primary + '99', '#00000000')
       addRect(canvas, { left: 0, top: 0, width: w, height: h, fill: grad, selectable: false, evented: false, elementType: 'accentShape' })
-      // Corner circles
-      addCircle(canvas, { left: w - 90, top: -40, radius: 90, fill: palette.accent, opacity: 0.07, selectable: false, evented: false })
-      addCircle(canvas, { left: w - 60, top: -20, radius: 60, fill: palette.accent, opacity: 0.07, selectable: false, evented: false })
+      // Corner circles — brighter glow than before (0.07 → 0.16) so the
+      // brand accent actually reads as a colorful highlight against the
+      // dark background instead of barely-there texture.
+      addCircle(canvas, { left: w - 90, top: -40, radius: 90, fill: palette.accent, opacity: 0.16, selectable: false, evented: false })
+      addCircle(canvas, { left: w - 60, top: -20, radius: 60, fill: palette.accent, opacity: 0.18, selectable: false, evented: false })
       // Premium accent — thin gold/accent rule down the full left edge
       addRect(canvas, { left: 0, top: 0, width: 3, height: h, fill: palette.accent, opacity: 0.8, selectable: false, evented: false })
       // Logo — pulled in from the edge toward center, the primary visual element
       const indent = w * 0.14
       await addLogo(canvas, profile, indent, h * 0.12, 82)
-      // Company Name
+      // Company Name — Montserrat (bold geometric sans) replaces Georgia
+      // serif for a sharper, more premium-tech look against the dark bg.
       addText(canvas, f(profile, 'companyName'), {
         left: indent, top: h * 0.12 + 92,
         fontSize: 32, fontWeight: '800',
         fill: '#ffffff',
-        fontFamily: 'Georgia, serif',
-        opacity: isPlaceholder(profile, 'companyName') ? 0.35 : 1,
+        fontFamily: 'Montserrat, sans-serif',
+        // Always full opacity — reads bold and vivid immediately rather
+        // than fading to a washed-out placeholder look before real data
+        // is entered.
+        opacity: 1,
         width: w - indent - 20,
         elementType: 'companyName',
       })
@@ -737,12 +784,19 @@ export const TEMPLATES = [
       })
       // Address — bottom center, with a pin icon, clearly legible
       addAddressFooter(canvas, profile, w, h, { ink: '#ffffff', fontSize: 14 })
-      addMotifIcon(canvas, palette, w, h, 'br', 44)
+      // No star motif icon — kept clean to match the confirmed reference design.
     },
 
     async loadBack(canvas, profile, palette, w, h) {
       await loadBackSide(canvas, profile, palette, w, h, {
         bg: '#0d1117', ink: '#ffffff', accentColor: palette.accent, qrSide: 'right', accentShape: 'circle',
+        brightIcons: true, nameFontFamily: 'Montserrat, sans-serif', accentOpacity: 0.26,
+        fullOpacity: true,
+        // Letter glyphs (not emoji) so the bright solid-circle badges take
+        // the fill color properly — native emoji ignore canvas fill and
+        // always render with their own built-in colors.
+        iconGlyphs: ['T', '@', 'W'],
+        motifIcon: false,
       })
     },
   },
@@ -763,9 +817,9 @@ export const TEMPLATES = [
           </linearGradient>
         </defs>
         <rect width="280" height="160" fill="url(#gh)"/>
-        <circle cx="260" cy="150" r="80" fill="#fff" opacity="0.05"/>
-        <circle cx="260" cy="150" r="50" fill="#fff" opacity="0.05"/>
-        <text x="140" y="60" text-anchor="middle" font-size="24" font-weight="800" fill="#fff" font-family="system-ui">Company Name</text>
+        <circle cx="260" cy="150" r="80" fill="#fff" opacity="0.12"/>
+        <circle cx="260" cy="150" r="50" fill="#fff" opacity="0.12"/>
+        <text x="140" y="60" text-anchor="middle" font-size="24" font-weight="800" fill="#fff" font-family="Poppins, system-ui">Company Name</text>
         <text x="140" y="80" text-anchor="middle" font-size="11" font-style="italic" fill="rgba(255,255,255,0.75)" font-family="system-ui">Your tagline here</text>
         <text x="140" y="145" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.7)" font-family="system-ui">123 Business Street, Your City</text>
       </svg>`
@@ -775,19 +829,24 @@ export const TEMPLATES = [
       // Gradient background rect
       const grad = linearGrad(canvas, 0, 0, w, h, palette.primary, palette.accent)
       addRect(canvas, { left: 0, top: 0, width: w, height: h, fill: grad, selectable: false, evented: false, elementType: 'accentShape' })
-      // Decorative circles
-      addCircle(canvas, { left: w - 60, top: h - 60, radius: 110, fill: '#ffffff', opacity: 0.05, selectable: false, evented: false })
-      addCircle(canvas, { left: w - 30, top: h - 30, radius: 70, fill: '#ffffff', opacity: 0.05, selectable: false, evented: false })
+      // Decorative circles — brightened from 0.05 to make them read as a
+      // visible glow instead of near-invisible texture.
+      addCircle(canvas, { left: w - 60, top: h - 60, radius: 110, fill: '#ffffff', opacity: 0.12, selectable: false, evented: false })
+      addCircle(canvas, { left: w - 30, top: h - 30, radius: 70, fill: '#ffffff', opacity: 0.12, selectable: false, evented: false })
       // Logo — large, centered top, the primary visual element
       const logoSize = 78
       await addLogo(canvas, profile, w / 2 - logoSize / 2, h * 0.10, logoSize)
-      // Company Name — centered below the logo
+      // Company Name — centered below the logo. Poppins (bold geometric
+      // sans) replaces plain Inter for more visual punch on this template.
       addText(canvas, f(profile, 'companyName'), {
         left: 20, top: h * 0.10 + logoSize + 14,
         fontSize: 27, fontWeight: '800',
         fill: '#ffffff',
-        fontFamily: 'Inter, sans-serif',
-        opacity: isPlaceholder(profile, 'companyName') ? 0.4 : 1,
+        fontFamily: 'Poppins, sans-serif',
+        // Always full opacity — reads bold and vivid immediately rather
+        // than fading to a washed-out placeholder look before real data
+        // is entered.
+        opacity: 1,
         width: w - 40, textAlign: 'center',
         elementType: 'companyName',
       })
@@ -802,12 +861,19 @@ export const TEMPLATES = [
       })
       // Address — bottom center, with a pin icon, clearly legible
       addAddressFooter(canvas, profile, w, h, { ink: '#ffffff', fontSize: 14 })
-      addMotifIcon(canvas, palette, w, h, 'br', 44)
+      // No star motif icon — kept clean to match the confirmed reference design.
     },
 
     async loadBack(canvas, profile, palette, w, h) {
       await loadBackSide(canvas, profile, palette, w, h, {
         bg: palette.primary, ink: '#ffffff', accentColor: palette.accent, qrSide: 'right', accentShape: 'circle',
+        brightIcons: true, nameFontFamily: 'Poppins, sans-serif', accentOpacity: 0.22,
+        fullOpacity: true,
+        // Letter glyphs (not emoji) so the bright solid-circle badges take
+        // the fill color properly — native emoji ignore canvas fill and
+        // always render with their own built-in colors.
+        iconGlyphs: ['T', '@', 'W'],
+        motifIcon: false,
       })
     },
   },
@@ -823,7 +889,7 @@ export const TEMPLATES = [
       return `<svg viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg">
         <rect width="280" height="160" fill="#fff"/>
         <polygon points="0,0 185,0 130,160 0,160" fill="${pal.primary}"/>
-        <text x="18" y="66" font-size="17" font-weight="800" fill="#fff" font-family="system-ui">Company</text>
+        <text x="18" y="66" font-size="17" font-weight="800" fill="#fff" font-family="Montserrat, system-ui">Company</text>
         <text x="18" y="84" font-size="9.5" font-style="italic" fill="rgba(255,255,255,0.75)" font-family="system-ui">Your tagline</text>
         <text x="164" y="130" font-size="7.5" fill="#888" font-family="system-ui">123 Business St, City</text>
         <rect x="210" y="118" width="50" height="4" rx="2" fill="${pal.accent}"/>
@@ -852,13 +918,15 @@ export const TEMPLATES = [
       // The diagonal boundary runs from x=0.66w (top) to x=0.54w (bottom), so
       // the safe left-zone width must clear the boundary's narrowest point
       // (bottom, 0.54w) with margin, not just its top.
+      // Montserrat (bold geometric sans) replaces Georgia serif to match
+      // this template's "Modern" category with a punchier heading.
       addText(canvas, f(profile, 'companyName'), {
         left: 20, top: h * 0.11 + logoSize + 12,
         fontSize: 27, fontWeight: '800',
         fill: '#ffffff',
-        fontFamily: 'Georgia, serif',
+        fontFamily: 'Montserrat, sans-serif',
         width: w * 0.48,
-        opacity: isPlaceholder(profile, 'companyName') ? 0.4 : 1,
+        opacity: 1,
         elementType: 'companyName',
       })
       addText(canvas, f(profile, 'tagline'), {
@@ -870,12 +938,14 @@ export const TEMPLATES = [
       })
       // Address — bottom center, with a pin icon, clearly legible
       addAddressFooter(canvas, profile, w, h, { ink: palette.primary, fontSize: 14 })
-      addMotifIcon(canvas, palette, w, h, 'br', 36)
+      // No star motif icon — kept clean to match the confirmed reference design.
     },
 
     async loadBack(canvas, profile, palette, w, h) {
       await loadBackSide(canvas, profile, palette, w, h, {
         bg: '#ffffff', ink: palette.primary, accentColor: palette.accent, qrSide: 'left', accentShape: 'circle',
+        brightIcons: true, nameFontFamily: 'Montserrat, sans-serif', accentOpacity: 0.24,
+        fullOpacity: true, iconGlyphs: ['T', '@', 'W'], motifIcon: false,
       })
     },
   },
@@ -892,8 +962,8 @@ export const TEMPLATES = [
         <rect width="280" height="160" fill="#fff"/>
         <rect width="98" height="160" fill="${pal.primary}"/>
         <text x="49" y="56" font-size="9" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="system-ui" font-weight="700">LOGO</text>
-        <text x="118" y="52" font-size="20" font-weight="800" fill="${pal.primary}" font-family="system-ui">Company Name</text>
-        <text x="118" y="70" font-size="10.5" font-style="italic" fill="#888" font-family="system-ui">Your tagline here</text>
+        <text x="118" y="52" font-size="20" font-weight="700" fill="${pal.primary}" font-family="Merriweather, serif">Company Name</text>
+        <text x="118" y="70" font-size="10.5" font-style="italic" fill="#52525b" font-family="system-ui">Your tagline here</text>
         <text x="118" y="132" font-size="8" fill="#999" font-family="system-ui">123 Business St, Your City</text>
       </svg>`
     },
@@ -913,30 +983,34 @@ export const TEMPLATES = [
       // Right zone: Company Name, Tagline, Address — grouped vertically
       const rx = colW + 18
       const rw = w - rx - 12
+      // Merriweather (bold serif) replaces plain Georgia for a more
+      // distinctive, editorial heading look.
       addText(canvas, f(profile, 'companyName'), {
         left: rx, top: h * 0.26,
-        fontSize: 28, fontWeight: '800',
+        fontSize: 28, fontWeight: '700',
         fill: palette.primary,
-        fontFamily: 'Georgia, serif', width: rw,
-        opacity: isPlaceholder(profile, 'companyName') ? 0.4 : 1,
+        fontFamily: 'Merriweather, serif', width: rw,
+        opacity: 1,
         elementType: 'companyName',
       })
       addText(canvas, f(profile, 'tagline'), {
         left: rx, top: h * 0.26 + 42,
         fontSize: 14, fontStyle: 'italic',
-        fill: '#888',
+        fill: '#52525b',
         fontFamily: 'Inter, sans-serif', width: rw, opacity: 0.78,
         elementType: 'tagline',
       })
       addLine(canvas, [rx, h * 0.68, w - 10, h * 0.68], { stroke: palette.primary, strokeWidth: 0.7, opacity: 0.2, selectable: false, evented: false })
       // Address — bottom center, with a pin icon, clearly legible
       addAddressFooter(canvas, profile, w, h, { ink: palette.primary, fontSize: 14 })
-      addMotifIcon(canvas, palette, w, h, 'br')
+      // No star motif icon — kept clean to match the confirmed reference design.
     },
 
     async loadBack(canvas, profile, palette, w, h) {
       await loadBackSide(canvas, profile, palette, w, h, {
         bg: '#ffffff', ink: palette.primary, accentColor: palette.accent, qrSide: 'right', accentShape: 'lines',
+        brightIcons: true, nameFontFamily: 'Merriweather, serif', nameFontWeight: '700',
+        fullOpacity: true, iconGlyphs: ['T', '@', 'W'], motifIcon: false,
       })
     },
   },
@@ -952,10 +1026,10 @@ export const TEMPLATES = [
       return `<svg viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg">
         <rect width="280" height="160" fill="#fff"/>
         <rect width="280" height="92" fill="${pal.primary}"/>
-        <text x="20" y="50" font-size="24" font-weight="800" fill="#fff" font-family="system-ui">Company Name</text>
+        <text x="20" y="50" font-size="24" font-weight="800" fill="#fff" font-family="Nunito, system-ui">Company Name</text>
         <rect x="206" y="20" width="56" height="52" rx="8" fill="rgba(255,255,255,0.15)"/>
         <text x="234" y="50" font-size="10" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="system-ui" font-weight="700">LOGO</text>
-        <text x="20" y="120" font-size="12" font-style="italic" fill="#888" font-family="system-ui">Your tagline here</text>
+        <text x="20" y="120" font-size="12" font-style="italic" fill="#52525b" font-family="system-ui">Your tagline here</text>
         <text x="20" y="144" font-size="8" fill="#999" font-family="system-ui">123 Business Street, Your City</text>
       </svg>`
     },
@@ -968,20 +1042,22 @@ export const TEMPLATES = [
       // dominant brand elements, now covering half the card.
       addRect(canvas, { left: 0, top: 0, width: w, height: bannerH, fill: palette.primary, selectable: false, evented: false, elementType: 'accentShape' })
       await addLogo(canvas, profile, w - logoSize - 20, (bannerH - logoSize) / 2, logoSize)
+      // Nunito (rounded, friendly bold sans) replaces Georgia serif for a
+      // punchier, more modern heading against the banner.
       addText(canvas, f(profile, 'companyName'), {
         left: 20, top: bannerH / 2 - 18,
         fontSize: 25, fontWeight: '800',
         fill: '#ffffff',
-        fontFamily: 'Georgia, serif',
+        fontFamily: 'Nunito, sans-serif',
         width: w - logoSize - 60,
-        opacity: isPlaceholder(profile, 'companyName') ? 0.4 : 1,
+        opacity: 1,
         elementType: 'companyName',
       })
       // Tagline — below the banner
       addText(canvas, f(profile, 'tagline'), {
         left: 20, top: bannerH + 20,
         fontSize: 13, fontStyle: 'italic',
-        fill: '#888',
+        fill: '#52525b',
         fontFamily: 'Inter, sans-serif',
         width: w - 40, opacity: 0.78,
         elementType: 'tagline',
@@ -990,12 +1066,14 @@ export const TEMPLATES = [
       addRect(canvas, { left: 20, top: bannerH + 54, width: 50, height: 3, rx: 1.5, fill: palette.accent, selectable: false, evented: false })
       // Address — bottom center, with a pin icon, clearly legible
       addAddressFooter(canvas, profile, w, h, { ink: palette.primary, fontSize: 14 })
-      addMotifIcon(canvas, palette, w, h, 'br', 36)
+      // No star motif icon — kept clean to match the confirmed reference design.
     },
 
     async loadBack(canvas, profile, palette, w, h) {
       await loadBackSide(canvas, profile, palette, w, h, {
         bg: '#ffffff', ink: palette.primary, accentColor: palette.accent, qrSide: 'right', accentShape: 'circle',
+        brightIcons: true, nameFontFamily: 'Nunito, sans-serif',
+        fullOpacity: true, iconGlyphs: ['T', '@', 'W'], motifIcon: false, accentOpacity: 0.22,
       })
     },
   },
@@ -1011,8 +1089,8 @@ export const TEMPLATES = [
       return `<svg viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg">
         <rect width="280" height="160" fill="#fff"/>
         <rect x="20" y="20" width="4" height="70" rx="2" fill="${pal.accent}"/>
-        <text x="34" y="48" font-size="23" font-weight="800" fill="${pal.primary}" font-family="system-ui">Company Name</text>
-        <text x="34" y="72" font-size="11" font-style="italic" fill="#888" font-family="system-ui">Your tagline here</text>
+        <text x="34" y="48" font-size="23" font-weight="700" fill="${pal.primary}" font-family="Lato, system-ui">Company Name</text>
+        <text x="34" y="72" font-size="11" font-style="italic" fill="#52525b" font-family="system-ui">Your tagline here</text>
         <text x="20" y="144" font-size="8" fill="#999" font-family="system-ui">123 Business Street, Your City</text>
         <rect x="196" y="16" width="66" height="66" rx="10" fill="${pal.primary}" opacity="0.06"/>
         <text x="229" y="53" font-size="11" fill="${pal.primary}" opacity="0.4" text-anchor="middle" font-family="system-ui" font-weight="700">LOGO</text>
@@ -1020,37 +1098,40 @@ export const TEMPLATES = [
     },
 
     async load(canvas, profile, palette, w, h) {
-      // Subtle grey instead of stark white — reads as intentionally
-      // designed rather than unstyled text on a blank page.
-      canvas.backgroundColor = '#f8f8f8'
+      // Bright white instead of the previous dull grey — the extracted
+      // primary/accent colors read more vividly against it.
+      canvas.backgroundColor = '#ffffff'
       addRect(canvas, { left: 20, top: h * 0.88, width: w - 40, height: 1, fill: palette.primary, opacity: 0.1, selectable: false, evented: false })
       // Full-height colored stripe on the very left edge
       addRect(canvas, { left: 0, top: 0, width: 4, height: h, fill: palette.primary, selectable: false, evented: false, elementType: 'accentShape' })
       // Logo — large, top-right, the primary visual element
       await addLogo(canvas, profile, w - 96, h * 0.16, 78)
-      // Company Name — good margin clear of the left stripe
+      // Company Name — Lato (bold sans) replaces Georgia serif for a
+      // cleaner, more modern minimal look. Good margin clear of the left stripe.
       addText(canvas, f(profile, 'companyName'), {
         left: 36, top: h * 0.16 + 4,
-        fontSize: 27, fontWeight: '800',
+        fontSize: 27, fontWeight: '700',
         fill: palette.primary,
-        fontFamily: 'Georgia, serif',
-        opacity: isPlaceholder(profile, 'companyName') ? 0.35 : 1,
+        fontFamily: 'Lato, sans-serif',
+        opacity: 1,
         width: w - 150,
         elementType: 'companyName',
       })
       addText(canvas, f(profile, 'tagline'), {
-        left: 36, top: h * 0.16 + 42, fontSize: 13, fontStyle: 'italic', fill: '#888',
+        left: 36, top: h * 0.16 + 42, fontSize: 13, fontStyle: 'italic', fill: '#52525b',
         fontFamily: 'Inter, sans-serif', width: w - 150, opacity: 0.78,
         elementType: 'tagline',
       })
       // Address — bottom center, with a pin icon, clearly legible
       addAddressFooter(canvas, profile, w, h, { ink: palette.primary, fontSize: 14 })
-      addMotifIcon(canvas, palette, w, h, 'br')
+      // No star motif icon — kept clean to match the confirmed reference design.
     },
 
     async loadBack(canvas, profile, palette, w, h) {
       await loadBackSide(canvas, profile, palette, w, h, {
-        bg: '#f8f8f8', ink: palette.primary, accentColor: palette.accent, qrSide: 'right', accentShape: 'circle',
+        bg: '#ffffff', ink: palette.primary, accentColor: palette.accent, qrSide: 'right', accentShape: 'circle',
+        brightIcons: true, nameFontFamily: 'Lato, sans-serif', nameFontWeight: '700',
+        fullOpacity: true, iconGlyphs: ['T', '@', 'W'], motifIcon: false, accentOpacity: 0.22,
       })
     },
   },
@@ -1071,9 +1152,9 @@ export const TEMPLATES = [
           </linearGradient>
         </defs>
         <rect width="280" height="160" fill="url(#wc)"/>
-        <circle cx="0" cy="160" r="80" fill="#fff" opacity="0.07"/>
-        <circle cx="280" cy="0" r="60" fill="#fff" opacity="0.07"/>
-        <text x="20" y="64" font-size="24" font-weight="800" fill="#fff" font-family="system-ui">Company Name</text>
+        <circle cx="0" cy="160" r="80" fill="#fff" opacity="0.14"/>
+        <circle cx="280" cy="0" r="60" fill="#fff" opacity="0.14"/>
+        <text x="20" y="64" font-size="24" font-weight="800" fill="#fff" font-family="Poppins, system-ui">Company Name</text>
         <text x="20" y="86" font-size="12" font-style="italic" fill="rgba(255,255,255,0.8)" font-family="system-ui">Your tagline here</text>
         <text x="20" y="144" font-size="8" fill="rgba(255,255,255,0.65)" font-family="system-ui">123 Business Street, Your City</text>
       </svg>`
@@ -1083,15 +1164,15 @@ export const TEMPLATES = [
       const grad = linearGrad(canvas, 0, 0, w, h, '#d1495b', '#f4a261')
       addRect(canvas, { left: 0, top: 0, width: w, height: h, fill: grad, selectable: false, evented: false, elementType: 'accentShape' })
       // Large contrasting circle, top-right, partially off-card
-      addCircle(canvas, { left: w - h * 0.5, top: -h * 0.45, radius: h * 0.6, fill: palette.accent, opacity: 0.25, selectable: false, evented: false })
-      addCircle(canvas, { left: -40, top: h - 40, radius: 110, fill: '#ffffff', opacity: 0.07, selectable: false, evented: false })
+      addCircle(canvas, { left: w - h * 0.5, top: -h * 0.45, radius: h * 0.6, fill: palette.accent, opacity: 0.3, selectable: false, evented: false })
+      addCircle(canvas, { left: -40, top: h - 40, radius: 110, fill: '#ffffff', opacity: 0.14, selectable: false, evented: false })
       // Logo — large, top-left, the dominant visual element
       await addLogo(canvas, profile, 20, h * 0.12, 78)
       addText(canvas, f(profile, 'companyName'), {
         left: 20, top: h * 0.12 + 90,
         fontSize: 27, fontWeight: '800', fill: '#ffffff',
         fontFamily: 'Poppins, sans-serif',
-        opacity: isPlaceholder(profile, 'companyName') ? 0.4 : 1,
+        opacity: 1,
         width: w - 40,
         elementType: 'companyName',
       })
@@ -1102,12 +1183,14 @@ export const TEMPLATES = [
       })
       // Address — bottom center, with a pin icon, clearly legible
       addAddressFooter(canvas, profile, w, h, { ink: '#ffffff', fontSize: 14 })
-      addMotifIcon(canvas, palette, w, h, 'br', 40)
+      // No star motif icon — kept clean to match the confirmed reference design.
     },
 
     async loadBack(canvas, profile, palette, w, h) {
       await loadBackSide(canvas, profile, palette, w, h, {
         bg: '#fff6f2', ink: '#3a1f1f', accentColor: palette.accent, qrSide: 'right', accentShape: 'circle',
+        brightIcons: true, nameFontFamily: 'Poppins, sans-serif',
+        fullOpacity: true, iconGlyphs: ['T', '@', 'W'], motifIcon: false, accentOpacity: 0.28,
       })
     },
   },
@@ -1125,7 +1208,7 @@ export const TEMPLATES = [
         <rect y="200" width="160" height="80" fill="${pal.accent}" opacity="0.18"/>
         <circle cx="80" cy="90" r="56" fill="rgba(255,255,255,0.08)"/>
         <text x="80" y="96" font-size="12" fill="rgba(255,255,255,0.4)" text-anchor="middle" font-family="system-ui">LOGO</text>
-        <text x="80" y="176" font-size="17" font-weight="800" fill="#fff" text-anchor="middle" font-family="system-ui">Company Name</text>
+        <text x="80" y="176" font-size="17" font-weight="700" fill="#fff" text-anchor="middle" font-family="Playfair Display, system-ui">Company Name</text>
         <text x="80" y="196" font-size="10" font-style="italic" fill="${pal.accent}" text-anchor="middle" font-family="system-ui">Your tagline here</text>
         <line x1="30" y1="212" x2="130" y2="212" stroke="${pal.accent}" stroke-width="0.8" opacity="0.4"/>
         <text x="80" y="260" font-size="8" fill="rgba(255,255,255,0.55)" text-anchor="middle" font-family="system-ui">123 Business Street, City</text>
@@ -1148,11 +1231,13 @@ export const TEMPLATES = [
       addCircle(canvas, { left: w / 2 - circleR, top: circleTop, radius: circleR, fill: 'rgba(255,255,255,0.08)', selectable: false, evented: false })
       const logoSize = 108
       await addLogo(canvas, profile, w / 2 - logoSize / 2, circleTop + circleR - logoSize / 2, logoSize)
+      // Playfair Display (elegant bold serif) replaces Georgia for a more
+      // distinctive premium heading.
       addText(canvas, f(profile, 'companyName'), {
         left: 10, top: circleTop + circleR * 2 + 28,
-        fontSize: 30, fontWeight: '800', fill: '#ffffff',
-        fontFamily: 'Georgia, serif', textAlign: 'center', width: w - 20,
-        opacity: isPlaceholder(profile, 'companyName') ? 0.4 : 1,
+        fontSize: 30, fontWeight: '700', fill: '#ffffff',
+        fontFamily: 'Playfair Display, serif', textAlign: 'center', width: w - 20,
+        opacity: 1,
         elementType: 'companyName',
       })
       addText(canvas, f(profile, 'tagline'), {
@@ -1165,7 +1250,7 @@ export const TEMPLATES = [
       addLine(canvas, [w / 2 - 30, circleTop + circleR * 2 + 100, w / 2 + 30, circleTop + circleR * 2 + 100], { stroke: palette.accent, strokeWidth: 0.8, opacity: 0.4, selectable: false, evented: false })
       // Address — bottom center, with a pin icon, clearly legible
       addAddressFooter(canvas, profile, w, h, { ink: '#ffffff', fontSize: 16 })
-      addMotifIcon(canvas, palette, w, h, 'br', 36)
+      // No star motif icon — kept clean to match the confirmed reference design.
     },
 
     async loadBack(canvas, profile, palette, w, h) {
@@ -1173,6 +1258,8 @@ export const TEMPLATES = [
       // layout — details stacked on top, QR centered near the bottom.
       await loadBackSide(canvas, profile, palette, w, h, {
         bg: palette.primary, ink: '#ffffff', accentColor: palette.accent, accentShape: 'lines', qrPosition: 'bottom',
+        brightIcons: true, nameFontFamily: 'Playfair Display, serif', nameFontWeight: '700',
+        fullOpacity: true, iconGlyphs: ['T', '@', 'W'], motifIcon: false,
       })
     },
   },
@@ -1190,8 +1277,8 @@ export const TEMPLATES = [
         <polygon points="0,0 129,0 0,144" fill="${pal.primary}"/>
         <polygon points="280,160 101,160 280,22" fill="${pal.accent}" opacity="0.85"/>
         <polygon points="280,160 280,77 162,160" fill="${pal.primary}" opacity="0.55"/>
-        <text x="129" y="97" font-size="20" font-weight="800" fill="${pal.primary}" font-family="system-ui">Company Name</text>
-        <text x="129" y="112" font-size="10" font-style="italic" fill="#888" font-family="system-ui">Your tagline here</text>
+        <text x="129" y="97" font-size="20" font-weight="800" fill="${pal.primary}" font-family="Montserrat, system-ui">Company Name</text>
+        <text x="129" y="112" font-size="10" font-style="italic" fill="#52525b" font-family="system-ui">Your tagline here</text>
         <text x="80" y="127" font-size="8" fill="${pal.primary}" font-family="system-ui">123 Business Street, Your City</text>
       </svg>`
     },
@@ -1222,16 +1309,18 @@ export const TEMPLATES = [
       // was too narrow at fontSize 28, so it wrapped to two lines and ran
       // straight into the tagline below it.
       const nameTop = h * 0.34
+      // Montserrat (bold geometric sans) replaces Georgia serif to match
+      // this template's "Modern" category with a punchier heading.
       addText(canvas, f(profile, 'companyName'), {
         left: w * 0.46, top: nameTop,
         fontSize: 24, fontWeight: '800', fill: palette.primary,
-        fontFamily: 'Georgia, serif',
-        opacity: isPlaceholder(profile, 'companyName') ? 0.35 : 1,
+        fontFamily: 'Montserrat, sans-serif',
+        opacity: 1,
         width: w * 0.42,
         elementType: 'companyName',
       })
       addText(canvas, f(profile, 'tagline'), {
-        left: w * 0.46, top: nameTop + 34, fontSize: 13, fontStyle: 'italic', fill: '#888',
+        left: w * 0.46, top: nameTop + 34, fontSize: 13, fontStyle: 'italic', fill: '#52525b',
         fontFamily: 'Inter, sans-serif', width: w * 0.42, opacity: 0.78,
         elementType: 'tagline',
       })
@@ -1239,12 +1328,14 @@ export const TEMPLATES = [
       // legible on both the white background and the accent color), no
       // white footer strip reserved beneath the shapes anymore.
       addAddressFooter(canvas, profile, w, h, { ink: palette.primary, fontSize: 14 })
-      addMotifIcon(canvas, palette, w, h, 'tr', 28)
+      // No star motif icon — kept clean to match the confirmed reference design.
     },
 
     async loadBack(canvas, profile, palette, w, h) {
       await loadBackSide(canvas, profile, palette, w, h, {
         bg: '#ffffff', ink: palette.primary, accentColor: palette.accent, qrSide: 'left', accentShape: 'circle',
+        brightIcons: true, nameFontFamily: 'Montserrat, sans-serif',
+        fullOpacity: true, iconGlyphs: ['T', '@', 'W'], motifIcon: false, accentOpacity: 0.24,
       })
     },
   },

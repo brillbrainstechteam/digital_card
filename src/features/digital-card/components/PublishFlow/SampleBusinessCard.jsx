@@ -1,52 +1,50 @@
-import { useEffect, useRef, useState } from 'react'
-import { StaticCanvas } from 'fabric'
-import { getCardDimensions, getPalette, getTemplate } from '../../../business-card/bcTemplates'
+import { useEffect, useState } from 'react'
+import { getTemplate, getPalette } from '../../../business-card/bcTemplates'
+import { renderTemplateThumbnail, renderTemplateBackThumbnail } from '../../../business-card/canvasHelpers'
 
-const SETUP = { size: 'standard', orientation: 'horizontal' }
+const SETUP_SIZE = 'standard'
 
-export function SampleBusinessCard({ profile, templateId = 'corp-minimal', onEdit }) {
-  const frontRef = useRef(null)
-  const backRef = useRef(null)
+// Renders via the same renderTemplateThumbnail/renderTemplateBackThumbnail
+// helpers the real Business Card gallery uses (canvasHelpers.js) — not a
+// second, hand-rolled Fabric render. One source of truth for what a
+// template actually looks like, so this preview can never drift out of
+// sync with the real editor/gallery (font-loading fixes, style updates,
+// etc. all apply here automatically too).
+export function SampleBusinessCard({ profile, templateId = 'corp-bright' }) {
+  const [images, setImages] = useState({ front: null, back: null })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!frontRef.current || !backRef.current) return undefined
-    const { w, h } = getCardDimensions(SETUP.size, SETUP.orientation)
+    let cancelled = false
+    setLoading(true)
     const template = getTemplate(templateId)
     const palette = getPalette(profile)
-    const front = new StaticCanvas(frontRef.current, { width: w, height: h, renderOnAddRemove: false })
-    const back = new StaticCanvas(backRef.current, { width: w, height: h, renderOnAddRemove: false })
-    let cancelled = false
 
     Promise.all([
-      template.load(front, profile, palette, w, h),
-      template.loadBack?.(back, profile, palette, w, h),
-    ]).then(() => {
+      renderTemplateThumbnail(template, profile, palette, SETUP_SIZE),
+      renderTemplateBackThumbnail(template, profile, palette, SETUP_SIZE),
+    ]).then(([front, back]) => {
       if (cancelled) return
-      front.renderAll()
-      back.renderAll()
+      setImages({ front, back })
       setLoading(false)
     })
 
-    return () => {
-      cancelled = true
-      front.dispose()
-      back.dispose()
-    }
+    return () => { cancelled = true }
   }, [profile, templateId])
 
   return (
     <div className="sample-bcard-wrap">
       <div className={`sample-bcard-flip-zone${loading ? ' sample-bcard-loading' : ''}`}>
         <div className="sample-bcard-flip">
-          <div className="sample-bcard-face sample-bcard-template-face"><canvas ref={frontRef} /></div>
-          <div className="sample-bcard-face sample-bcard-template-face sample-bcard-template-back"><canvas ref={backRef} /></div>
+          <div className="sample-bcard-face sample-bcard-template-face">
+            {images.front && <img src={images.front} alt="Business card front" />}
+          </div>
+          <div className="sample-bcard-face sample-bcard-template-face sample-bcard-template-back">
+            {images.back && <img src={images.back} alt="Business card back" />}
+          </div>
         </div>
       </div>
       <p className="sample-bcard-hint">Built from the live Business Card templates. Hover to preview the back.</p>
-      <button type="button" className="secondary-button sample-bcard-edit" onClick={onEdit}>
-        Edit Business Card
-      </button>
     </div>
   )
 }

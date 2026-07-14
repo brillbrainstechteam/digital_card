@@ -234,20 +234,17 @@
   margin: 0;
 }
 
-.sample-bcard-edit {
-  margin-top: 4px;
-}
-
 .sample-bcard-template-face {
   background: #fff;
   overflow: hidden;
   padding: 0;
 }
 
-.sample-bcard-template-face canvas {
+.sample-bcard-template-face img {
   display: block;
-  height: 100% !important;
-  width: 100% !important;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
 }
 
 .sample-bcard-template-back {
@@ -264,6 +261,16 @@
   flex-direction: column;
   gap: 12px;
   width: min(100%, 420px);
+}
+
+.publish-flow-template-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  width: 100%;
+}
+.publish-flow-template-row .secondary-button {
+  flex: 1;
 }
 
 .publish-flow-template-field {
