@@ -1,4 +1,5 @@
 import client from '../../../api/client'
+import { getDynamicQrUrl } from '../utils/publicQrUrl'
 
 // Card-linked QR persistence. Any product (Digital Card today, Business
 // Card later) that wants a "one QR per record" integration calls these same
@@ -34,6 +35,25 @@ export async function activateQrPurchase(qrId) {
   return data.data.qr
 }
 
+export async function updateQrDestination(qrId, destinationType, destinationFields) {
+  const { data } = await client.patch(`/qr/${qrId}/destination`, { destinationType, destinationFields })
+  return data.data.qr
+}
+
+export async function updateQrLifecycle(qrId, lifecycleStatus) {
+  const { data } = await client.patch(`/qr/${qrId}/lifecycle`, { lifecycleStatus })
+  return data.data.qr
+}
+
+export async function deleteQr(qrId) {
+  await client.delete(`/qr/${qrId}`)
+}
+
+export function withDynamicQrData(qr) {
+  if (!qr?.slug) return qr?.settings || qr
+  return { ...(qr.settings || {}), data: getDynamicQrUrl(qr.slug) }
+}
+
 export async function removeCardQr(cardId) {
   await client.delete(`/qr/card/${cardId}`)
 }
@@ -47,14 +67,19 @@ export async function fetchQrAnalytics({ qrId, cardId } = {}) {
   return data.data
 }
 
-export async function fetchOverallQrAnalytics() {
-  const { data } = await client.get('/qr/analytics/overview')
+export async function fetchOverallQrAnalytics({ activeCardsOnly = false } = {}) {
+  const { data } = await client.get('/qr/analytics/overview', {
+    params: activeCardsOnly ? { activeCardsOnly: true } : undefined,
+  })
   return data.data
 }
 
 // Public: resolves a scanned QR's tracking slug into the real destination,
 // recording the scan server-side in the same call.
 export async function resolveQrScan(slug) {
-  const { data } = await client.get(`/public/qr/${slug}`)
+  const { data } = await client.get(`/public/qr/${slug}`, {
+    params: { _: Date.now() },
+    headers: { 'Cache-Control': 'no-cache' },
+  })
   return data.data
 }

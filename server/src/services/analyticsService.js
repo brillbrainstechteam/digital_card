@@ -76,17 +76,20 @@ async function addSubscriber(slug, email) {
 
 async function verifyOwnership(userId, cardId) {
   if (!cardId || cardId === 'all') return null
-  const result = await pool.query('SELECT id FROM cards WHERE id = $1 AND user_id = $2', [cardId, userId])
+  const result = await pool.query('SELECT id, status FROM cards WHERE id = $1 AND user_id = $2', [cardId, userId])
   if (result.rows.length === 0) throw new AppError('Forbidden', 403)
-  return cardId
+  return result.rows[0]
 }
 
 async function getOwnedCardIds(userId, cardId) {
   if (cardId && cardId !== 'all') {
-    await verifyOwnership(userId, cardId)
-    return [cardId]
+    const card = await verifyOwnership(userId, cardId)
+    return card.status === 'archived' ? [] : [cardId]
   }
-  const result = await pool.query('SELECT id FROM cards WHERE user_id = $1', [userId])
+  const result = await pool.query(
+    "SELECT id FROM cards WHERE user_id = $1 AND status <> 'archived'",
+    [userId]
+  )
   return result.rows.map((r) => r.id)
 }
 

@@ -12,6 +12,7 @@ const APP_ITEMS = [
 const QR_APP_ITEMS = [
   { key: 'qrstudio', label: 'QR Studio', path: '/qr-studio' },
   { key: 'qrcodes', label: 'My QR Codes', path: '/qr-studio/codes' },
+  { key: 'qranalytics', label: 'QR Analytics', path: '/qr-studio/analytics' },
   { key: 'settings', label: 'Settings', path: '/settings' },
 ]
 
@@ -24,6 +25,7 @@ const BUSINESS_ITEMS = [
 const EDITOR_ITEMS = [
   { key: 'design', label: 'Design' },
   { key: 'buttons', label: 'Button Settings' },
+  { key: 'leads', label: 'Leads' },
   { key: 'social', label: 'Social Links' },
   { key: 'settings', label: 'Logo Settings' },
   { key: 'colors', label: 'Colors' },

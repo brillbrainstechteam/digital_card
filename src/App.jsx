@@ -27,6 +27,7 @@ import {
 } from './features/business-card'
 import { QRStudioPage } from './features/qr/generator/QRStudioPage'
 import { QrCodesListPage } from './features/qr/generator/QrCodesListPage'
+import { QrAnalyticsPage } from './features/qr/generator/QrAnalyticsPage'
 import { QrScanRedirect } from './features/qr'
 
 function GuestRoute({ children }) {
@@ -49,6 +50,7 @@ function App() {
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/qr-studio" element={<QRStudioPage />} />
               <Route path="/qr-studio/codes" element={<ProtectedRoute><QrCodesListPage /></ProtectedRoute>} />
+              <Route path="/qr-studio/analytics" element={<ProtectedRoute><QrAnalyticsPage /></ProtectedRoute>} />
               <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
               <Route path="/activity" element={<ProtectedRoute><ActivityPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />

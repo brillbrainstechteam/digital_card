@@ -43,11 +43,17 @@ export const PLACEHOLDER_TEXT = {
 }
 const PH = PLACEHOLDER_TEXT
 
+function usesProvidedDigitalCardData(profile) {
+  return !!profile?.fromDigitalCardOnly
+}
+
 export function f(profile, key) {
+  if (usesProvidedDigitalCardData(profile)) return profile?.[key] || ''
   return profile[key] || PH[key] || ''
 }
 
 export function isPlaceholder(profile, key) {
+  if (usesProvidedDigitalCardData(profile)) return false
   return !profile[key]
 }
 
@@ -268,6 +274,7 @@ export function addMotifIcon(canvas, palette, w, h, corner = 'br', size = 36) {
 // move/select as a single unit, centered at the bottom of the card and
 // sized to actually be readable rather than a barely-visible footnote.
 export function addAddressFooter(canvas, profile, w, h, opts = {}) {
+  if (usesProvidedDigitalCardData(profile) && !profile?.address && !profile?.location) return null
   const { ink = '#333333', fontSize = 12 } = opts
   const iconSize = fontSize + 4
   const gap = 6
@@ -360,12 +367,14 @@ function addContactRowsHorizontal(canvas, profile, opts) {
     { glyph: '☎', key: 'phone' },
     { glyph: '✉', key: 'email' },
     { glyph: '🌐', key: 'website' },
-  ]
+  ].filter((item) => !usesProvidedDigitalCardData(profile) || !!profile?.[item.key])
+  if (!items.length) return
   const colW = width / items.length
   items.forEach((item, i) => {
     addContactRow(canvas, item.glyph, f(profile, item.key), {
       left: left + i * colW, top, width: colW - 14, ink, accentColor, fontSize,
       elementType: item.key,
+      hideWhenEmpty: usesProvidedDigitalCardData(profile),
     })
   })
 }

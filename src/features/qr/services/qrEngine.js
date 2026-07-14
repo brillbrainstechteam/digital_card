@@ -71,7 +71,7 @@ function cornerColorFor(gradient) {
 // preview, saving to the backend, or generating a download, all of those
 // paths funnel through here, so gating `data` in this one spot guarantees
 // the real destination can never leak out before the QR add-on is
-// unlocked (dev mode or a real purchase) for anything that opts in.
+// unlocked by a confirmed purchase for anything that opts in.
 export function buildQrCodeOptions(settings, { lockable = false } = {}) {
   const dotsGradient = buildGradient(settings.gradient)
   const unlocked = !lockable || isQrUnlocked({ purchased: settings.purchased })

@@ -8,10 +8,26 @@ export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const isHomePage = location.pathname === '/'
+
+  function scrollToElement(element, sectionId) {
+    const navHeight = document.querySelector('.topbar')?.offsetHeight ?? 76
+    const elementTop = element.getBoundingClientRect().top + window.scrollY
+    const top = sectionId === 'business-cards'
+      ? elementTop + (element.offsetHeight / 2) - ((window.innerHeight + navHeight) / 2)
+      : elementTop - navHeight
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+  }
+
   useEffect(() => {
     if (isHomePage && location.hash) {
-      document.querySelector(location.hash)?.scrollIntoView({ behavior: 'smooth' })
+      const sectionId = location.hash.slice(1)
+      const frame = requestAnimationFrame(() => {
+        const element = document.getElementById(sectionId)
+        if (element) scrollToElement(element, sectionId)
+      })
+      return () => cancelAnimationFrame(frame)
     }
+    return undefined
   }, [isHomePage, location.hash])
 
   function scrollToSection(sectionId) {
@@ -22,9 +38,7 @@ export function AppLayout() {
 
     const element = document.getElementById(sectionId)
     if (!element) return
-    const navHeight = document.querySelector('.topbar')?.offsetHeight ?? 76
-    const top = element.getBoundingClientRect().top + window.scrollY - navHeight
-    window.scrollTo({ top, behavior: 'smooth' })
+    scrollToElement(element, sectionId)
   }
 
   return (

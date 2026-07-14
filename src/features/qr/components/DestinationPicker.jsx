@@ -94,6 +94,47 @@ export function DestinationPicker({ type, fields, onChange }) {
         </>
       )}
 
+      {type === 'wifi' && (
+        <>
+          <label className="qr-field">
+            <span className="qr-field-label">Network Name (SSID)</span>
+            <input
+              type="text"
+              placeholder="Office Wi-Fi"
+              value={fields.ssid || ''}
+              onChange={(e) => handleFieldChange('ssid', e.target.value)}
+            />
+          </label>
+          <label className="qr-field">
+            <span className="qr-field-label">Security</span>
+            <select value={fields.security || 'WPA'} onChange={(e) => handleFieldChange('security', e.target.value)}>
+              <option value="WPA">WPA / WPA2 / WPA3</option>
+              <option value="WEP">WEP</option>
+              <option value="nopass">No password</option>
+            </select>
+          </label>
+          {fields.security !== 'nopass' && (
+            <label className="qr-field">
+              <span className="qr-field-label">Password</span>
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={fields.password || ''}
+                onChange={(e) => handleFieldChange('password', e.target.value)}
+              />
+            </label>
+          )}
+          <label className="qr-field qr-field--checkbox">
+            <input
+              type="checkbox"
+              checked={Boolean(fields.hidden)}
+              onChange={(e) => handleFieldChange('hidden', e.target.checked)}
+            />
+            <span>Hidden network</span>
+          </label>
+        </>
+      )}
+
       {type === 'maps' && (
         <label className="qr-field">
           <span className="qr-field-label">Address or Place</span>

@@ -9,15 +9,27 @@ const USE_HERO_ANIMATION = true
 
 function BusinessCardMockup() {
   return (
-    <div className="business-card-home-mockup">
-      <div>
-        <div className="business-card-home-logo">BB</div>
-        <div className="business-card-home-name">Your Name</div>
-        <div className="business-card-home-role">Job Title · Company</div>
-      </div>
-      <div className="business-card-home-contact">
-        <span>+91 XXXXX XXXXX<br />you@company.com</span>
-        <span className="business-card-home-qr" aria-hidden="true" />
+    <div className="business-card-home-mockup" tabIndex="0" aria-label="Business card front and back preview">
+      <div className="business-card-home-inner">
+        <div className="business-card-home-face business-card-home-front">
+          <div>
+            <div className="business-card-home-logo">BB</div>
+            <div className="business-card-home-name">Your Name</div>
+            <div className="business-card-home-role">Job Title · Company</div>
+          </div>
+          <div className="business-card-home-contact">
+            <span>+91 XXXXX XXXXX<br />you@company.com</span>
+            <span className="business-card-home-qr" aria-hidden="true" />
+          </div>
+        </div>
+        <div className="business-card-home-face business-card-home-back">
+          <div className="business-card-home-back-mark">BB</div>
+          <div>
+            <div className="business-card-home-name">Brill Brains</div>
+            <div className="business-card-home-role">Digital identity, beautifully connected</div>
+          </div>
+          <span className="business-card-home-qr business-card-home-back-qr" aria-hidden="true" />
+        </div>
       </div>
     </div>
   )

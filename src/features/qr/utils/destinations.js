@@ -9,6 +9,7 @@ export const DESTINATION_TYPES = [
   { key: 'phone', label: 'Phone Number' },
   { key: 'email', label: 'Email' },
   { key: 'whatsapp', label: 'WhatsApp' },
+  { key: 'wifi', label: 'Wi-Fi Network' },
   { key: 'maps', label: 'Google Maps' },
   { key: 'saveContact', label: 'Save Contact (vCard)' },
   { key: 'custom', label: 'Custom URL' },
@@ -22,6 +23,18 @@ function ensureUrlScheme(value) {
 
 function onlyDigits(value) {
   return (value || '').replace(/[^\d+]/g, '')
+}
+
+function escapeWifiValue(value) {
+  return String(value || '').replace(/([\\;,:"])/g, '\\$1')
+}
+
+function buildWifi(fields = {}) {
+  const ssid = String(fields.ssid || '').trim()
+  if (!ssid) return ''
+  const security = ['WPA', 'WEP', 'nopass'].includes(fields.security) ? fields.security : 'WPA'
+  const password = security === 'nopass' ? '' : escapeWifiValue(fields.password)
+  return `WIFI:T:${security};S:${escapeWifiValue(ssid)};P:${password};H:${fields.hidden ? 'true' : 'false'};;`
 }
 
 // Escapes vCard 3.0 special characters per RFC 6350 (backslash, comma,
@@ -71,6 +84,7 @@ function buildVCard(fields = {}) {
  *   phone:        { number }
  *   email:        { address, subject, body }
  *   whatsapp:     { number, message }
+ *   wifi:         { ssid, security, password, hidden }
  *   maps:         { query } (address, place name, or "lat,lng")
  *   saveContact:  { fullName, companyName, designation, phone, phone2, phone3, email, website, address }
  *   custom:       { value } (used verbatim, no scheme injected)
@@ -100,6 +114,8 @@ export function buildDestinationValue(type, fields = {}) {
       const text = fields.message ? `?text=${encodeURIComponent(fields.message)}` : ''
       return `https://wa.me/${digits}${text}`
     }
+    case 'wifi':
+      return buildWifi(fields)
     case 'maps': {
       const query = (fields.query || '').trim()
       if (!query) return ''
@@ -122,6 +138,7 @@ export function defaultFieldsForType(type) {
     case 'phone': return { number: '' }
     case 'email': return { address: '', subject: '', body: '' }
     case 'whatsapp': return { number: '', message: '' }
+    case 'wifi': return { ssid: '', security: 'WPA', password: '', hidden: false }
     case 'maps': return { query: '' }
     case 'saveContact': return { fullName: '', companyName: '', designation: '', phone: '', phone2: '', phone3: '', email: '', website: '', address: '' }
     case 'custom': return { value: '' }
