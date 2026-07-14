@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { QRCode, QRCustomizationPanel, QRWarnings, QrPreviewNotice, QrDevModeBadge, createDefaultQrSettings, useIsQrUnlocked } from '../../../qr'
+import { QRCode, QRCustomizationPanel, QRWarnings, QrPreviewNotice, createDefaultQrSettings } from '../../../qr'
 
 // The QR step in the post-publish flow only ever encodes one thing — a
 // temporary preview link for the card that was just published — so unlike
@@ -7,7 +7,7 @@ import { QRCode, QRCustomizationPanel, QRWarnings, QrPreviewNotice, QrDevModeBad
 // DestinationPicker here at all. Colors, gradient, and logo are still fully
 // customizable via the same reusable QRCustomizationPanel every other QR
 // surface uses.
-export function QrStep({ profile, previewUrl, initialSettings, saving, onBack, onContinue }) {
+export function QrStep({ profile, previewUrl, initialSettings, saving, onBack, onSkip, onContinue }) {
   const [settings, setSettings] = useState(() => {
     const base = initialSettings || createDefaultQrSettings()
     return {
@@ -22,7 +22,7 @@ export function QrStep({ profile, previewUrl, initialSettings, saving, onBack, o
   })
 
   const liveSettings = { ...settings, data: previewUrl }
-  const unlocked = useIsQrUnlocked({ purchased: settings.purchased })
+  const unlocked = Boolean(settings.purchased)
 
   return (
     <div className="publish-flow-qr-step">
@@ -39,12 +39,12 @@ export function QrStep({ profile, previewUrl, initialSettings, saving, onBack, o
           )}
         </div>
         <div className="publish-flow-qr-controls">
-          <QrDevModeBadge />
           <QRCustomizationPanel settings={settings} onChange={setSettings} brandTheme={profile.palette} />
         </div>
       </div>
       <div className="publish-flow-actions">
         <button type="button" className="secondary-button" onClick={onBack}>Back</button>
+        <button type="button" className="secondary-button" disabled={saving} onClick={onSkip}>Skip QR Code</button>
         <button type="button" className="primary-button" disabled={saving} onClick={() => onContinue(settings)}>
           {saving ? 'Saving…' : 'Continue to Cart'}
         </button>

@@ -14,6 +14,25 @@ const STEP_LABELS = ['Business Card', 'QR Code']
 const CURATED_TEMPLATE = 'corp-minimal'
 const CURATED_SETUP = { size: 'standard', orientation: 'horizontal' }
 
+function profileForBusinessCard(profile = {}) {
+  return {
+    personName: profile.personName || profile.brandName || '',
+    designation: profile.designation || '',
+    companyName: profile.companyName || '',
+    tagline: profile.tagline || '',
+    phone: profile.phone || '',
+    email: profile.email || '',
+    website: profile.website || '',
+    location: profile.location || '',
+    address: profile.address || profile.location || '',
+    logo: profile.logo || profile.logoSource || '',
+    logoSource: profile.logoSource || profile.logo || '',
+    palette: profile.palette,
+    themeColors: profile.themeColors,
+    fromDigitalCardOnly: true,
+  }
+}
+
 export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, onQrSaved }) {
   const navigate = useNavigate()
   const toast = useToast()
@@ -28,6 +47,7 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
   const [editingTemplate, setEditingTemplate] = useState(false)
 
   const previewUrl = useMemo(() => (open ? createTempPreviewLink(profile) : null), [open, profile])
+  const businessProfile = useMemo(() => profileForBusinessCard(profile), [profile])
   const cardLabel = profile.companyName || profile.brandName || 'Digital Card'
 
   if (!open) return null
@@ -40,11 +60,6 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
     if (businessCardId) return businessCardId
     setCreatingBusinessCard(true)
     try {
-      const businessProfile = {
-        ...profile,
-        address: profile.address || profile.location || '',
-        palette: profile.palette,
-      }
       const created = await createCard(`Built from your digital card - ${cardLabel}`, { productType: 'business' })
       await updateCard(created.id, {
         status: 'draft',
@@ -76,19 +91,30 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
     }
   }
 
-  async function handleQrContinue(settings) {
+  async function prepareCart(settings = null) {
     setSavingQr(true)
     try {
       let qrSaved = false
       let savedQrId = null
-      try {
-        const saved = await saveCardQr(cardId, { ...settings, purchased: false })
-        setSavedQrSettings(saved.settings)
-        onQrSaved?.(saved)
-        qrSaved = true
-        savedQrId = saved.id
-      } catch (error) {
-        toast.error(error.message || 'Could not save the QR code. You can add it later from the studio.')
+      if (settings) {
+        try {
+          // The publish preview uses a temporary browser-only URL. Persist
+          // an empty digital-card destination so the public resolver falls
+          // back to this card's permanent slug after payment.
+          const saved = await saveCardQr(cardId, {
+            ...settings,
+            destinationType: 'digitalCard',
+            destinationFields: {},
+            data: '',
+            purchased: false,
+          })
+          setSavedQrSettings(saved.settings)
+          onQrSaved?.(saved)
+          qrSaved = true
+          savedQrId = saved.id
+        } catch (error) {
+          toast.error(error.message || 'Could not save the QR code. You can add it later from the studio.')
+        }
       }
 
       addItem({
@@ -96,6 +122,7 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
         type: 'digital-card',
         path: `/studio/${cardId}`,
         name: cardLabel,
+        parentCardName: cardLabel,
         description: 'Digital business card pending payment confirmation',
         price: 'INR 499',
         amount: 499,
@@ -108,7 +135,8 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
           id: `${cardId}-businessCard`,
           type: 'business-card',
           path: `/business-card/${id}`,
-          name: `${cardLabel} Business Card`,
+          name: `${cardLabel} - Business Card`,
+          parentCardName: cardLabel,
           description: 'Personalized print-ready Business Card',
           price: 'INR 799',
           amount: 799,
@@ -120,8 +148,9 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
         addItem({
           id: `${cardId}-qr`,
           type: 'card-qr',
-          path: `/studio/${cardId}?from=qr-studio`,
-          name: 'Custom QR Code',
+          path: `/qr-studio/codes?qrId=${savedQrId}`,
+          name: `${cardLabel} - QR Code`,
+          parentCardName: cardLabel,
           description: 'Branded QR code linked to your Digital Card',
           price: 'INR 299',
           amount: 299,
@@ -160,7 +189,7 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
           <div className="publish-flow-business-card-step">
             <h2>Your personalized Business Card is ready</h2>
             <p>It uses a live Business Card template with your details, logo, and extracted theme.</p>
-            <SampleBusinessCard profile={profile} templateId={templateId} onEdit={handleEditBusinessCard} />
+            <SampleBusinessCard profile={businessProfile} templateId={templateId} onEdit={handleEditBusinessCard} />
             <div className="publish-flow-template-controls">
               <button type="button" className="secondary-button" onClick={() => setEditingTemplate((current) => !current)}>
                 {editingTemplate ? 'Close Templates' : 'Edit Template'}
@@ -198,7 +227,8 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
               initialSettings={savedQrSettings}
               saving={savingQr}
               onBack={() => goTo(0)}
-              onContinue={handleQrContinue}
+              onSkip={() => prepareCart()}
+              onContinue={prepareCart}
             />
           </>
         )}

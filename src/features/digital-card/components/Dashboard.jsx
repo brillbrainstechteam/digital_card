@@ -149,8 +149,8 @@ export function Dashboard() {
       card,
       title: card.status === 'draft' ? 'Delete Draft Card?' : 'Archive Card?',
       message: card.status === 'draft'
-        ? 'This action cannot be undone.'
-        : 'This card will no longer be accessible through its public link.',
+        ? 'This action cannot be undone. The card and all of its analytics will be permanently removed.'
+        : 'This card will no longer be accessible through its public link and will be removed from total and individual analytics while archived.',
       actionLabel: card.status === 'draft' ? 'Delete' : 'Archive',
     })
   }

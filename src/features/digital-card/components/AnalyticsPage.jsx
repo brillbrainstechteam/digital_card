@@ -260,7 +260,11 @@ export function AnalyticsPage() {
     return () => clearTimeout(t)
   }, [searchInput])
 
-  useEffect(() => { fetchCards().then(setCards).catch(() => {}) }, [])
+  useEffect(() => {
+    fetchCards()
+      .then((items) => setCards(items.filter((card) => card.status !== 'archived')))
+      .catch(() => {})
+  }, [])
 
   // Keep a ref of current leads params so the poll never uses stale values
   const leadsParamsRef = useRef({})
@@ -287,7 +291,9 @@ export function AnalyticsPage() {
         fetchAnalyticsLeads(selectedCardId, leadsParamsRef.current),
         fetchAnalyticsActivity(selectedCardId, { limit: 5 }),
         fetchAnalyticsSubscribers(selectedCardId, { limit: 5 }),
-        (selectedCardId === 'all' ? fetchOverallQrAnalytics() : fetchQrAnalytics({ cardId: selectedCardId })).catch(() => null),
+        (selectedCardId === 'all'
+          ? fetchOverallQrAnalytics({ activeCardsOnly: true })
+          : fetchQrAnalytics({ cardId: selectedCardId })).catch(() => null),
       ])
       setSummary(leadCaptureEnabled ? summaryData : { ...summaryData, totalLeads: 0 })
       setLeads(leadCaptureEnabled ? leadsData.leads : [])

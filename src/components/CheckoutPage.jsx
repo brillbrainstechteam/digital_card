@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from './PageHeader'
-import { Sidebar } from './Sidebar'
 import { useCart } from '../context/CartContext'
 import { useToast } from '../context/ToastContext'
 import { updateCard } from '../features/digital-card/services/api'
@@ -38,9 +37,8 @@ export function CheckoutPage() {
   }
 
   return (
-    <main className="studio studio-workspace">
-      <Sidebar mode="app" activeApp="cart" />
-      <section className="editor-panel editor-panel--wide">
+    <main className="checkout-page">
+      <section className="checkout-page-content">
         <PageHeader
           badge="DEMO CHECKOUT"
           title={paid ? 'Payment confirmed' : 'Complete your test payment'}

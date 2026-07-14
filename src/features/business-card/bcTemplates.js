@@ -43,11 +43,17 @@ export const PLACEHOLDER_TEXT = {
 }
 const PH = PLACEHOLDER_TEXT
 
+function usesProvidedDigitalCardData(profile) {
+  return !!profile?.fromDigitalCardOnly
+}
+
 export function f(profile, key) {
+  if (usesProvidedDigitalCardData(profile)) return profile?.[key] || ''
   return profile[key] || PH[key] || ''
 }
 
 export function isPlaceholder(profile, key) {
+  if (usesProvidedDigitalCardData(profile)) return false
   return !profile[key]
 }
 
@@ -268,6 +274,7 @@ export function addMotifIcon(canvas, palette, w, h, corner = 'br', size = 36) {
 // move/select as a single unit, centered at the bottom of the card and
 // sized to actually be readable rather than a barely-visible footnote.
 export function addAddressFooter(canvas, profile, w, h, opts = {}) {
+  if (usesProvidedDigitalCardData(profile) && !profile?.address && !profile?.location) return null
   const { ink = '#333333', fontSize = 12 } = opts
   const iconSize = fontSize + 4
   const gap = 6
@@ -307,6 +314,7 @@ export function addAddressFooter(canvas, profile, w, h, opts = {}) {
 // centered/stacked qrPosition layouts) instead of the default left-aligned
 // row starting at `left`.
 function addContactRow(canvas, glyph, text, opts) {
+  if (opts?.hideWhenEmpty && !text) return null
   const { left, top, width, ink, accentColor, elementType, fontSize = 13, center = false } = opts
   const badgeR = 13
   const badge = new Circle({
@@ -356,12 +364,14 @@ function addContactRowsHorizontal(canvas, profile, opts) {
     { glyph: '☎', key: 'phone' },
     { glyph: '✉', key: 'email' },
     { glyph: '🌐', key: 'website' },
-  ]
+  ].filter((item) => !usesProvidedDigitalCardData(profile) || !!profile?.[item.key])
+  if (!items.length) return
   const colW = width / items.length
   items.forEach((item, i) => {
     addContactRow(canvas, item.glyph, f(profile, item.key), {
       left: left + i * colW, top, width: colW - 14, ink, accentColor, fontSize,
       elementType: item.key,
+      hideWhenEmpty: usesProvidedDigitalCardData(profile),
     })
   })
 }
@@ -487,9 +497,9 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
     })
     const contactTop = blockTop + 68
     const rowGap = 34
-    addContactRow(canvas, '☎', f(profile, 'phone'), { left: rowX, top: contactTop, width: rowW, ink, accentColor, elementType: 'phone', center: true })
-    addContactRow(canvas, '✉', f(profile, 'email'), { left: rowX, top: contactTop + rowGap, width: rowW, ink, accentColor, elementType: 'email', center: true })
-    addContactRow(canvas, '🌐', f(profile, 'website'), { left: rowX, top: contactTop + rowGap * 2, width: rowW, ink, accentColor, elementType: 'website', center: true })
+    addContactRow(canvas, '☎', f(profile, 'phone'), { left: rowX, top: contactTop, width: rowW, ink, accentColor, elementType: 'phone', center: true, hideWhenEmpty: usesProvidedDigitalCardData(profile) })
+    addContactRow(canvas, '✉', f(profile, 'email'), { left: rowX, top: contactTop + rowGap, width: rowW, ink, accentColor, elementType: 'email', center: true, hideWhenEmpty: usesProvidedDigitalCardData(profile) })
+    addContactRow(canvas, '🌐', f(profile, 'website'), { left: rowX, top: contactTop + rowGap * 2, width: rowW, ink, accentColor, elementType: 'website', center: true, hideWhenEmpty: usesProvidedDigitalCardData(profile) })
 
     addMotifIcon(canvas, palette, w, h, qrPosition === 'top' ? 'br' : 'tr', 32)
     return
@@ -527,9 +537,9 @@ export async function loadBackSide(canvas, profile, palette, w, h, opts = {}) {
     contactBottom = contactTop
   } else {
     const rowGap = 32
-    addContactRow(canvas, '☎', f(profile, 'phone'), { left: contactX, top: contactTop, width: contactW, ink, accentColor, elementType: 'phone' })
-    addContactRow(canvas, '✉', f(profile, 'email'), { left: contactX, top: contactTop + rowGap, width: contactW, ink, accentColor, elementType: 'email' })
-    addContactRow(canvas, '🌐', f(profile, 'website'), { left: contactX, top: contactTop + rowGap * 2, width: contactW, ink, accentColor, elementType: 'website' })
+    addContactRow(canvas, '☎', f(profile, 'phone'), { left: contactX, top: contactTop, width: contactW, ink, accentColor, elementType: 'phone', hideWhenEmpty: usesProvidedDigitalCardData(profile) })
+    addContactRow(canvas, '✉', f(profile, 'email'), { left: contactX, top: contactTop + rowGap, width: contactW, ink, accentColor, elementType: 'email', hideWhenEmpty: usesProvidedDigitalCardData(profile) })
+    addContactRow(canvas, '🌐', f(profile, 'website'), { left: contactX, top: contactTop + rowGap * 2, width: contactW, ink, accentColor, elementType: 'website', hideWhenEmpty: usesProvidedDigitalCardData(profile) })
     contactBottom = contactTop + rowGap * 2
   }
 

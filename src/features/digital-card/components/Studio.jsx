@@ -570,7 +570,7 @@ function CommitInput({ value, onChange, placeholder }) {
   )
 }
 
-function SocialEditor({ social, onChange, onRemove, onMove, isFirst, isLast, colorControl }) {
+function SocialEditor({ social, index, total, onChange, onRemove, onMove, onMoveTo, isFirst, isLast, colorControl }) {
   const platform = SOCIAL_PLATFORMS.find((p) => p.key === social.platform)
   return (
     <div className="link-editor social-editor">
@@ -586,6 +586,14 @@ function SocialEditor({ social, onChange, onRemove, onMove, isFirst, isLast, col
         <span className="social-platform-label">{platform?.label ?? social.platform}</span>
         {colorControl}
         <div className="reorder">
+          <label className="social-position-control">
+            <span>Position</span>
+            <select value={index} onChange={(event) => onMoveTo(Number(event.target.value))} aria-label={`Position of ${platform?.label ?? social.platform}`}>
+              {Array.from({ length: total }, (_, position) => (
+                <option key={position} value={position}>{position + 1}</option>
+              ))}
+            </select>
+          </label>
           <button type="button" disabled={isFirst} onClick={() => onMove(-1)} aria-label="Move social up">
             ↑
           </button>
@@ -953,6 +961,16 @@ export function Studio({
       const target = index + direction
       if (target < 0 || target >= socials.length) return current
       ;[socials[index], socials[target]] = [socials[target], socials[index]]
+      return { ...current, socials }
+    })
+  }
+
+  function moveSocialTo(index, target) {
+    setProfile((current) => {
+      const socials = [...current.socials]
+      if (target < 0 || target >= socials.length || target === index) return current
+      const [social] = socials.splice(index, 1)
+      socials.splice(target, 0, social)
       return { ...current, socials }
     })
   }
@@ -1381,7 +1399,7 @@ export function Studio({
         )}
 
 
-        {activePanel === 'buttons' && (
+        {activePanel === 'leads' && (
         <section className="editor-section">
           <h2>Save Contact</h2>
           <p className="settings-description">Choose whether visitors fill a form before downloading your contact, or download it directly.</p>
@@ -1423,7 +1441,7 @@ export function Studio({
         </section>
         )}
 
-        {activePanel === 'buttons' && (
+        {activePanel === 'leads' && (
         <section className="editor-section">
           <h2>Subscribe</h2>
           <p className="settings-description">Let visitors join your mailing list using just their email address.</p>
@@ -1481,9 +1499,12 @@ export function Studio({
               <SocialEditor
                 key={social.platform}
                 social={social}
+                index={index}
+                total={profile.socials.length}
                 onChange={(values) => updateSocial(index, values)}
                 onRemove={() => removeSocial(index)}
                 onMove={(direction) => moveSocial(index, direction)}
+                onMoveTo={(target) => moveSocialTo(index, target)}
                 isFirst={index === 0}
                 isLast={index === profile.socials.length - 1}
                 colorControl={(

@@ -14,8 +14,23 @@ export function clearToken() {
   localStorage.removeItem(TOKEN_KEY)
 }
 
+function resolveApiBaseUrl() {
+  const configuredUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+  if (typeof window === 'undefined') return configuredUrl
+
+  try {
+    const apiUrl = new URL(configuredUrl)
+    const apiIsLocal = ['localhost', '127.0.0.1', '::1'].includes(apiUrl.hostname)
+    const pageIsLocal = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
+    if (apiIsLocal && !pageIsLocal) apiUrl.hostname = window.location.hostname
+    return apiUrl.toString().replace(/\/$/, '')
+  } catch {
+    return configuredUrl
+  }
+}
+
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: resolveApiBaseUrl(),
   headers: { 'Content-Type': 'application/json' },
 })
 

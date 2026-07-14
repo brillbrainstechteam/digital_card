@@ -12,7 +12,7 @@ import { useCart } from '../../../context/CartContext'
 import { useToast } from '../../../context/ToastContext'
 import { useAuth } from '../../../context/AuthContext'
 import { AuthModal } from '../../../components/AuthModal'
-import { QrPreviewNotice, QrDevModeBadge } from '../components/QrLockStatus'
+import { QrPreviewNotice } from '../components/QrLockStatus'
 import '../qr-studio.css'
 
 /**
@@ -67,7 +67,7 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
         amount: 299,
         price: '₹X',
       })
-      toast.success('QR code published — added to cart')
+      toast.success('QR code added to cart. Complete payment to publish it.')
     } catch (err) {
       toast.error(err.message || 'Could not publish this QR code')
     } finally {
@@ -124,10 +124,9 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
           <QRCode settings={liveSettings} size={220} lockable />
         </div>
         <QrPreviewNotice />
-        <QrDevModeBadge />
         <QRWarnings settings={liveSettings} />
         <button type="button" className="primary-button qr-publish-btn" disabled={publishing} onClick={handlePublish}>
-          {publishing ? 'Publishing...' : 'Publish QR & Add to Cart'}
+          {publishing ? 'Adding...' : 'Add QR to Cart'}
         </button>
       </aside>
     </main>

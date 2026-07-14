@@ -4,7 +4,7 @@ import { fetchPublicCard, trackCardView } from '../services/api'
 import { CardPreview } from './CardPreview'
 import { defaultProfile, getVisibilityFlags } from '../data'
 import { pageBackgroundVariables } from '../theme'
-import { QRCode, buildDestinationValue } from '../../qr'
+import { QRCode, withDynamicQrData } from '../../qr'
 
 function profileFromCard(card) {
   const cd = card.card_data || {}
@@ -50,11 +50,7 @@ export function PublicCard() {
   // QR analytics before continuing on to the card / phone / maps / etc.
   const qrDisplaySettings = useMemo(() => {
     if (!qr?.settings) return null
-    const rawData = buildDestinationValue(qr.settings.destinationType, qr.settings.destinationFields)
-    const data = qr.settings.destinationType === 'saveContact' || !qr.slug
-      ? rawData
-      : `${window.location.origin}/q/${qr.slug}`
-    return { ...qr.settings, data }
+    return withDynamicQrData(qr)
   }, [qr])
 
   if (loading) {

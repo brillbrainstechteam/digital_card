@@ -113,7 +113,23 @@ async function deleteCard(cardId, userId) {
   }
 
   if (card.status === 'draft') {
-    await pool.query('DELETE FROM cards WHERE id = $1', [cardId])
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      await client.query(
+        `DELETE FROM qr_scans
+         WHERE qr_id IN (SELECT id FROM qr_codes WHERE card_id = $1)`,
+        [cardId]
+      )
+      await client.query('DELETE FROM qr_codes WHERE card_id = $1', [cardId])
+      await client.query('DELETE FROM cards WHERE id = $1 AND user_id = $2', [cardId, userId])
+      await client.query('COMMIT')
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
     return { action: 'deleted', message: 'Draft card permanently deleted' }
   }
 

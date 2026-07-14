@@ -39,7 +39,11 @@ export function ActivityPage() {
   const [eventType, setEventType] = useState('')
   const pollRef = useRef(null)
 
-  useEffect(() => { fetchCards().then(setCards).catch(() => {}) }, [])
+  useEffect(() => {
+    fetchCards()
+      .then((items) => setCards(items.filter((card) => card.status !== 'archived')))
+      .catch(() => {})
+  }, [])
 
   // Debounce search
   useEffect(() => {
