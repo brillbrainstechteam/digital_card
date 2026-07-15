@@ -3,8 +3,34 @@ import { useNavigate } from 'react-router-dom'
 import { PageHeader } from './PageHeader'
 import { useCart } from '../context/CartContext'
 import { useToast } from '../context/ToastContext'
-import { updateCard } from '../features/digital-card/services/api'
+import { fetchCard, updateCard } from '../features/digital-card/services/api'
 import { activateQrPurchase } from '../features/qr/services/qrApi'
+import { downloadCardPdf } from '../features/business-card/canvasHelpers'
+
+// Marks a purchased Business Card as owned. This is the single source of
+// truth the Business Cards list reads to lock editing and show the "Owned"
+// state — deliberately separate from the row-level `status: 'published'`
+// below, which Digital Cards also use to mean "live", not "paid for".
+// card_data is a JSON blob and updateCard PUTs shallowly, so the existing
+// contents must be read first and merged rather than overwritten.
+async function markBusinessCardPurchased(id) {
+  const card = await fetchCard(id)
+  const existing = card.card_data || {}
+  if (!existing.businessCard) return null // not a Business Card — nothing to flag
+  await updateCard(id, {
+    card_data: {
+      ...existing,
+      businessCard: {
+        ...existing.businessCard,
+        purchased: true,
+        purchasedAt: new Date().toISOString(),
+      },
+    },
+  })
+  // Handed back so the caller can immediately export it — downloading is
+  // gated on purchase, and this is the moment that gate opens.
+  return { businessCard: existing.businessCard, title: card.title }
+}
 
 export function CheckoutPage() {
   const navigate = useNavigate()
@@ -22,13 +48,32 @@ export function CheckoutPage() {
       await new Promise((resolve) => setTimeout(resolve, 1200))
       const cardIds = [...new Set(items.map((item) => item.publishCardId).filter(Boolean))]
       const qrIds = [...new Set(items.map((item) => item.qrId).filter(Boolean))]
+      const businessCardIds = [...new Set(
+        items.filter((item) => item.type === 'business-card').map((item) => item.publishCardId).filter(Boolean),
+      )]
       await Promise.all([
         ...cardIds.map((id) => updateCard(id, { status: 'published' })),
         ...qrIds.map((id) => activateQrPurchase(id)),
       ])
+      // Sequenced after the status writes rather than run alongside them:
+      // this reads card_data back before merging into it, so racing it with
+      // another write to the same row risks reading a stale blob.
+      const purchased = await Promise.all(businessCardIds.map((id) => markBusinessCardPurchased(id)))
       setPaid(true)
       clear()
       toast.success('Demo payment confirmed. Your products are now published.')
+
+      // Auto-deliver each purchased card as a PDF. Done after the success
+      // state is committed and outside the try's failure path — a browser
+      // blocking the download must not read as a failed payment.
+      for (const entry of purchased) {
+        if (!entry?.businessCard) continue
+        try {
+          await downloadCardPdf(entry.businessCard, entry.title || 'business-card')
+        } catch {
+          toast.info('Your card is ready — open it from Business Cards to download.')
+        }
+      }
     } catch (error) {
       toast.error(error.message || 'Payment confirmation failed.')
     } finally {

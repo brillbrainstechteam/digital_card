@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Pencil } from 'lucide-react'
+import { Pencil, ShoppingCart, Archive, ArchiveRestore } from 'lucide-react'
 import { fetchCards, createCard, updateCard } from '../services/api'
 import { useToast } from '../../../context/ToastContext'
+import { useCart } from '../../../context/CartContext'
 import { isBusinessCard } from '../../../cardTypeUtils'
 import { PageHeader } from '../../../components/PageHeader'
 import { Sidebar } from '../../../components/Sidebar'
@@ -16,7 +17,19 @@ import '../businessCard.css'
 // list is actually distinguishable at a glance.
 const DEFAULT_TITLE = 'Business Card'
 
-const FILTERS = ['all', 'draft', 'completed']
+// Kept in sync with CardPreviewScreen's own Add to Cart.
+const BUSINESS_CARD_PRICE = 799
+
+// A card is a draft until it's bought, then it's owned. Both 'owned' and
+// 'archived' are derived from businessCard.purchased/.archived.
+const FILTERS = ['all', 'draft', 'owned', 'archived']
+
+const FILTER_LABELS = {
+  all: 'All',
+  draft: 'Draft',
+  owned: 'Owned',
+  archived: 'Archived',
+}
 
 function templateLabel(businessCard) {
   if (businessCard?.templateId === 'blank') return 'Blank Canvas'
@@ -43,12 +56,16 @@ function displayTitle(card) {
     : templateLabel(businessCard)
 }
 
-// Business Cards aren't "published" like Digital Cards — they're designed
-// and then exported for printing. A card is 'completed' once the user has
-// downloaded it at least once (see BusinessCardEditor's onExport); until
-// then it's a 'draft'.
-function cardStatus(card) {
-  return card.card_data?.businessCard?.status === 'completed' ? 'completed' : 'draft'
+// Paid for via the checkout flow (see markBusinessCardPurchased in
+// CheckoutPage.jsx). An owned card is locked for editing — the design is
+// considered final once it's been bought, so only preview/download remain.
+// Anything not yet bought is still a draft.
+function isPurchased(card) {
+  return !!card.card_data?.businessCard?.purchased
+}
+
+function isArchived(card) {
+  return !!card.card_data?.businessCard?.archived
 }
 
 function formatDate(iso) {
@@ -173,6 +190,7 @@ function BusinessCardThumb({ businessCard }) {
 export function BusinessCardsPage() {
   const navigate = useNavigate()
   const toast = useToast()
+  const cart = useCart()
   const [cards, setCards] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -222,15 +240,19 @@ export function BusinessCardsPage() {
 
   async function handleMakeCopy(card) {
     try {
-      const original = card.card_data?.businessCard || {}
+      // Copy the design only. Ownership and archived state must NOT carry
+      // over — a copy is a brand-new draft that has to be bought on its own,
+      // and inheriting `purchased` would hand out a free (and uneditable)
+      // card. This is the escape hatch for editing an owned design.
+      const { purchased, purchasedAt, archived, ...design } = card.card_data?.businessCard || {}
+      void purchased; void purchasedAt; void archived
       const newTitle = `Copy of ${displayTitle(card)}`
       const newCard = await createCard(newTitle, { productType: 'business' })
       await updateCard(newCard.id, {
         card_data: {
           productType: 'business',
           businessCard: {
-            ...original,
-            status: 'draft',
+            ...design,
             savedAt: new Date().toISOString(),
           },
         },
@@ -242,19 +264,65 @@ export function BusinessCardsPage() {
     }
   }
 
+  // card_data is a JSON blob PUT shallowly, so the existing contents have to
+  // be merged rather than replaced — otherwise archiving would wipe the
+  // card's design.
+  async function handleToggleArchive(card) {
+    const businessCard = card.card_data?.businessCard || {}
+    const nextArchived = !businessCard.archived
+    try {
+      await updateCard(card.id, {
+        card_data: {
+          ...card.card_data,
+          businessCard: { ...businessCard, archived: nextArchived },
+        },
+      })
+      toast.success(nextArchived ? 'Card archived' : 'Card restored')
+      await loadCards()
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  function handleAddToCart(card) {
+    const cartItemId = `${card.id}-businessCard`
+    if (cart.hasItem(cartItemId)) {
+      navigate('/cart')
+      return
+    }
+    cart.addItem({
+      id: cartItemId,
+      type: 'business-card',
+      path: `/business-card/${card.id}`,
+      name: displayTitle(card),
+      description: 'Personalized print-ready Business Card',
+      price: `INR ${BUSINESS_CARD_PRICE}`,
+      amount: BUSINESS_CARD_PRICE,
+      publishCardId: card.id,
+    })
+    toast.success('Added to cart')
+  }
+
   function handleRenamed(cardId, newTitle) {
     setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, title: newTitle } : c)))
   }
 
+  // Archiving is a way to get a card out of the way, so archived cards are
+  // excluded from every other view and only surface under their own filter.
+  const active = cards.filter((c) => !isArchived(c))
+
   const counts = {
-    all: cards.length,
-    draft: cards.filter((c) => cardStatus(c) === 'draft').length,
-    completed: cards.filter((c) => cardStatus(c) === 'completed').length,
+    all: active.length,
+    draft: active.filter((c) => !isPurchased(c)).length,
+    owned: active.filter(isPurchased).length,
+    archived: cards.filter(isArchived).length,
   }
 
-  const filteredCards = activeFilter === 'all'
-    ? cards
-    : cards.filter((c) => cardStatus(c) === activeFilter)
+  const filteredCards =
+    activeFilter === 'all' ? active
+    : activeFilter === 'archived' ? cards.filter(isArchived)
+    : activeFilter === 'owned' ? active.filter(isPurchased)
+    : active.filter((c) => !isPurchased(c))
 
   if (previewCard) {
     return (
@@ -287,7 +355,7 @@ export function BusinessCardsPage() {
           {[
             ['Total Cards', counts.all],
             ['Draft', counts.draft],
-            ['Completed', counts.completed],
+            ['Owned', counts.owned],
           ].map(([label, value]) => (
             <div className="dashboard-summary-card" key={label}>
               <span>{label}</span>
@@ -304,7 +372,7 @@ export function BusinessCardsPage() {
               className={`dashboard-filter-chip${activeFilter === f ? ' dashboard-filter-chip--active' : ''}`}
               onClick={() => setActiveFilter(f)}
             >
-              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+              {FILTER_LABELS[f]}
               <span className="chip-count">{loading ? '–' : counts[f]}</span>
             </button>
           ))}
@@ -336,16 +404,29 @@ export function BusinessCardsPage() {
         ) : (
           <div className="bc-dash-grid">
             {filteredCards.map((card) => {
-              const status = cardStatus(card)
-              const isCompleted = status === 'completed'
+              const owned = isPurchased(card)
+              const archived = isArchived(card)
+              const inCart = cart.hasItem(`${card.id}-businessCard`)
               return (
                 <div key={card.id} className="bc-dash-card">
                   <div className="bc-dash-card-thumb">
                     <BusinessCardThumb businessCard={card.card_data.businessCard} />
+                    <button
+                      type="button"
+                      className="bc-thumb-archive-btn"
+                      title={archived ? 'Restore card' : 'Archive card'}
+                      aria-label={archived ? 'Restore card' : 'Archive card'}
+                      onClick={() => handleToggleArchive(card)}
+                    >
+                      {archived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
+                    </button>
                   </div>
                   <div className="bc-dash-card-body">
                     <div className="card-list-meta" style={{ marginBottom: 6 }}>
-                      <span className={`status-badge status-${status}`}>{status}</span>
+                      {owned
+                        ? <span className="status-badge status-owned">owned</span>
+                        : <span className="status-badge status-draft">draft</span>}
+                      {archived && <span className="status-badge status-archived">archived</span>}
                       <span>{formatDate(card.created_at)}</span>
                     </div>
                     <CardTitle card={card} onRenamed={handleRenamed} />
@@ -357,7 +438,23 @@ export function BusinessCardsPage() {
                       >
                         Preview
                       </button>
-                      {isCompleted ? (
+
+                      {/* A purchased card's design is final — editing and
+                          re-buying are both gone, leaving preview/download
+                          (in the preview screen) plus Share/Copy. Making a
+                          copy is the escape hatch: it produces a fresh,
+                          unpurchased draft that can be edited. */}
+                      {!owned && !archived && (
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => navigate(`/business-card/${card.id}`)}
+                        >
+                          Edit
+                        </button>
+                      )}
+
+                      {owned && (
                         <>
                           <button
                             type="button"
@@ -374,13 +471,20 @@ export function BusinessCardsPage() {
                             Make a Copy
                           </button>
                         </>
-                      ) : (
+                      )}
+
+                      {/* Pushed to the far right of the action row by its
+                          own auto margin, so it stays bottom-right of the
+                          card regardless of how many buttons precede it. */}
+                      {!owned && (
                         <button
                           type="button"
-                          className="secondary-button"
-                          onClick={() => navigate(`/business-card/${card.id}`)}
+                          className="bc-cart-button"
+                          title={inCart ? 'View cart' : 'Add to cart'}
+                          aria-label={inCart ? 'View cart' : 'Add to cart'}
+                          onClick={() => handleAddToCart(card)}
                         >
-                          Edit
+                          <ShoppingCart size={15} fill="currentColor" />
                         </button>
                       )}
                     </div>

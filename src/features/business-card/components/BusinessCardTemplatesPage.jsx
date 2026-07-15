@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createCard, updateCard, fetchCard, deleteCard } from '../services/api'
+import { createCard, updateCard, deleteCard } from '../services/api'
 import { TemplateGallery } from './TemplateGallery'
 import { SetupDialog } from './SetupDialog'
 import { DetailsForm } from './DetailsForm'
@@ -59,6 +59,10 @@ export function BusinessCardTemplatesPage() {
     }
   }
 
+  // Persists only — deliberately does NOT navigate, matching
+  // BusinessCardFlow.handleSave. "Save Progress" should leave the user in
+  // the editor; only the editor's own Back/Gallery/Exit actions navigate
+  // away (they call this first via the unsaved-changes dialog when needed).
   async function handleSave(editorSnapshot) {
     try {
       await updateCard(cardId, {
@@ -71,10 +75,10 @@ export function BusinessCardTemplatesPage() {
           },
         },
       })
-      navigate('/business-cards')
     } catch (err) {
       console.error('Failed to save business card', err)
       alert('Save failed. Please try again.')
+      throw err // stop the editor's post-save flow (marking saved, navigating)
     }
   }
 
@@ -94,22 +98,6 @@ export function BusinessCardTemplatesPage() {
     }
   }
 
-  async function handleExport() {
-    try {
-      const card = await fetchCard(cardId)
-      const existing = card.card_data || {}
-      await updateCard(cardId, {
-        card_data: {
-          ...existing,
-          productType: 'business',
-          businessCard: { ...existing.businessCard, status: 'completed' },
-        },
-      })
-    } catch (err) {
-      console.error('Failed to mark business card as completed', err)
-    }
-  }
-
   if (step === 'editor' && pendingSelection && profile) {
     return (
       <BusinessCardEditor
@@ -119,7 +107,6 @@ export function BusinessCardTemplatesPage() {
         onBack={() => setStep('gallery')}
         onExit={() => navigate('/business-cards')}
         onSave={handleSave}
-        onExport={handleExport}
         onDiscardNew={handleDiscardNew}
       />
     )

@@ -1,52 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Download, ShoppingCart } from 'lucide-react'
-import { renderFaceThumbnail } from '../canvasHelpers'
+import { ArrowLeft, Download, ShoppingCart, FileDown } from 'lucide-react'
+import { renderFaceThumbnail, composeCardSheet, savePdfFromSheet, downloadDataUrl } from '../canvasHelpers'
 import { getCardDimensions } from '../bcTemplates'
 import { useCart } from '../../../context/CartContext'
 import { useToast } from '../../../context/ToastContext'
 import '../businessCard.css'
 
 const BUSINESS_CARD_PRICE = 799
-
-function downloadDataUrl(dataUrl, filename) {
-  const a = document.createElement('a')
-  a.href = dataUrl
-  a.download = filename
-  a.click()
-}
-
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('Could not load card image.'))
-    img.src = src
-  })
-}
-
-// Draws front (and back, if present) side by side on one canvas at their
-// native resolution — both preview images already render at a high
-// multiplier (see renderFaceThumbnail below), so the export stays crisp
-// regardless of the card's on-screen preview size.
-async function composeSideBySide(frontSrc, backSrc) {
-  const gap = 40
-  const frontImg = await loadImage(frontSrc)
-  const backImg = backSrc ? await loadImage(backSrc) : null
-  const h = Math.max(frontImg.height, backImg?.height || 0)
-  const w = frontImg.width + (backImg ? gap + backImg.width : 0)
-
-  const canvas = document.createElement('canvas')
-  canvas.width = w
-  canvas.height = h
-  const ctx = canvas.getContext('2d')
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, w, h)
-  ctx.drawImage(frontImg, 0, (h - frontImg.height) / 2)
-  if (backImg) ctx.drawImage(backImg, frontImg.width + gap, (h - backImg.height) / 2)
-
-  return { dataUrl: canvas.toDataURL('image/png'), width: w, height: h }
-}
 
 // Clean, read-only view of a saved card's front and back — no Fabric
 // editor handles/toolbars, just the finished design, shown side by side
@@ -55,6 +16,9 @@ export function CardPreviewScreen({ card, onEdit, onClose }) {
   const { title, businessCard } = card
   const { frontJson, backJson, setup } = businessCard || {}
   const hasBack = !!backJson
+  // Once bought, the design is final: no re-buying, no editing — just
+  // preview and download. See markBusinessCardPurchased in CheckoutPage.jsx.
+  const owned = !!businessCard?.purchased
   const { w: cardW, h: cardH } = getCardDimensions(setup?.size || 'standard', setup?.orientation)
   const cardAspect = `${cardW} / ${cardH}`
 
@@ -72,7 +36,6 @@ export function CardPreviewScreen({ card, onEdit, onClose }) {
   const [images, setImages] = useState({ front: null, back: null })
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
-  const [flipped, setFlipped] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -92,8 +55,19 @@ export function CardPreviewScreen({ card, onEdit, onClose }) {
     if (!images.front || exporting) return
     setExporting(true)
     try {
-      const { dataUrl } = await composeSideBySide(images.front, images.back)
+      const { dataUrl } = await composeCardSheet(images.front, images.back)
       downloadDataUrl(dataUrl, `${title || 'business-card'}.png`)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  async function handleExportPdf() {
+    if (!images.front || exporting) return
+    setExporting(true)
+    try {
+      const sheet = await composeCardSheet(images.front, images.back)
+      await savePdfFromSheet(sheet, title || 'business-card')
     } finally {
       setExporting(false)
     }
@@ -134,15 +108,16 @@ export function CardPreviewScreen({ card, onEdit, onClose }) {
         </button>
 
         <h2>{title}</h2>
-        <p>Read-only preview of your saved card design</p>
+        <p>
+          {owned
+            ? 'You own this card — the design is final. Download it as an image or PDF.'
+            : 'Read-only preview of your saved card design'}
+        </p>
       </div>
 
       <div className="bc-preview-body">
-        <div
-          className={`bc-flip-zone ${hasBack ? 'bc-flip-zone--flippable' : ''}`}
-          onClick={() => hasBack && setFlipped((current) => !current)}
-        >
-          <div className={`bc-flip-card ${flipped ? 'is-flipped' : ''}`} style={{ aspectRatio: cardAspect }}>
+        <div className={`bc-flip-zone ${hasBack ? 'bc-flip-zone--flippable' : ''}`}>
+          <div className="bc-flip-card" style={{ aspectRatio: cardAspect }}>
             <div className="bc-flip-face bc-flip-face--front" style={{ aspectRatio: cardAspect }}>
               {loading ? (
                 <div style={{ width: '100%', height: '100%' }} />
@@ -171,7 +146,7 @@ export function CardPreviewScreen({ card, onEdit, onClose }) {
           </div>
         </div>
         {hasBack && (
-          <p className="bc-flip-hint">Click the card to flip to the {flipped ? 'front' : 'back'}</p>
+          <p className="bc-flip-hint">Hover the card to see the back</p>
         )}
       </div>
 
@@ -179,28 +154,47 @@ export function CardPreviewScreen({ card, onEdit, onClose }) {
         <button type="button" className="secondary-button" onClick={onClose}>
           Close
         </button>
-        <button
-          type="button"
-          className="secondary-button"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          onClick={handleExportImage}
-          disabled={loading || exporting}
-        >
-          <Download size={14} /> {exporting ? 'Exporting…' : 'Export Image'}
-        </button>
-        <button
-          type="button"
-          className="secondary-button"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          onClick={handleAddToCart}
-          disabled={loading || !cardId}
-          title={!cardId ? 'Save this card first to add it to your cart' : undefined}
-        >
-          <ShoppingCart size={14} /> {inCart ? 'View Cart' : 'Add to Cart'}
-        </button>
-        <button type="button" className="primary-button" onClick={onEdit}>
-          Edit This Card
-        </button>
+        {/* Downloads are a paid feature — an unpaid card can only be
+            previewed on screen, so both export buttons appear only once
+            the card is owned. */}
+        {owned ? (
+          <>
+            <button
+              type="button"
+              className="secondary-button"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              onClick={handleExportImage}
+              disabled={loading || exporting}
+            >
+              <Download size={14} /> {exporting ? 'Exporting…' : 'Export Image'}
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              onClick={handleExportPdf}
+              disabled={loading || exporting}
+            >
+              <FileDown size={14} /> {exporting ? 'Exporting…' : 'Export PDF'}
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="secondary-button"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              onClick={handleAddToCart}
+              disabled={loading || !cardId}
+              title={!cardId ? 'Save this card first to add it to your cart' : undefined}
+            >
+              <ShoppingCart size={14} /> {inCart ? 'View Cart' : 'Add to Cart'}
+            </button>
+            <button type="button" className="primary-button" onClick={onEdit}>
+              Edit This Card
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
