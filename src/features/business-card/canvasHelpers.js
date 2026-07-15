@@ -158,3 +158,77 @@ export async function renderSavedCardThumbnail(businessCard) {
   if (!frontJson) return null
   return renderFaceThumbnail(frontJson, setup, 1)
 }
+
+// ── Card export (image / PDF) ─────────────────────────────────────
+// Shared by the preview screen's download buttons and the checkout page's
+// auto-download after payment, so both produce a byte-identical sheet.
+
+export function downloadDataUrl(dataUrl, filename) {
+  const a = document.createElement('a')
+  a.href = dataUrl
+  a.download = filename
+  a.click()
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('Could not load card image.'))
+    img.src = src
+  })
+}
+
+/**
+ * Draws front (and back, if present) side by side on one canvas at their
+ * native resolution — callers render the faces at a high multiplier, so the
+ * export stays crisp regardless of on-screen preview size.
+ */
+export async function composeCardSheet(frontSrc, backSrc) {
+  const gap = 40
+  const frontImg = await loadImage(frontSrc)
+  const backImg = backSrc ? await loadImage(backSrc) : null
+  const h = Math.max(frontImg.height, backImg?.height || 0)
+  const w = frontImg.width + (backImg ? gap + backImg.width : 0)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, w, h)
+  ctx.drawImage(frontImg, 0, (h - frontImg.height) / 2)
+  if (backImg) ctx.drawImage(backImg, frontImg.width + gap, (h - backImg.height) / 2)
+
+  return { dataUrl: canvas.toDataURL('image/png'), width: w, height: h }
+}
+
+/** Turns an already-composed sheet into a PDF sized exactly to it. */
+export async function savePdfFromSheet({ dataUrl, width, height }, fileName) {
+  const { jsPDF } = await import('jspdf')
+  const ptWidth = 720
+  const ptHeight = (height / width) * ptWidth
+  const pdf = new jsPDF({
+    unit: 'pt',
+    format: [ptWidth, ptHeight],
+    orientation: ptWidth >= ptHeight ? 'landscape' : 'portrait',
+  })
+  pdf.addImage(dataUrl, 'PNG', 0, 0, ptWidth, ptHeight)
+  pdf.save(`${fileName}.pdf`)
+}
+
+/**
+ * Full pipeline from a stored businessCard blob to a downloaded PDF — used
+ * by checkout, which has no rendered faces on hand. Returns false when the
+ * card has no saved design to export.
+ */
+export async function downloadCardPdf(businessCard, fileName) {
+  const { frontJson, backJson, setup } = businessCard || {}
+  if (!frontJson) return false
+  const front = await renderFaceThumbnail(frontJson, setup, 3)
+  if (!front) return false
+  const back = backJson ? await renderFaceThumbnail(backJson, setup, 3) : null
+  const sheet = await composeCardSheet(front, back)
+  await savePdfFromSheet(sheet, fileName)
+  return true
+}

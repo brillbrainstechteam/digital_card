@@ -9,7 +9,7 @@ import {
   Layers, Sliders, Grid2X2, Type, Image, QrCode,
   Square, Star, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   ChevronUp, ChevronDown, Bold, Italic,
-  Minus, Download, Printer, Save, X, Eye,
+  Minus, Save, X, Eye, Check,
   Heart, Award, Briefcase, Globe, Camera, Coffee, Zap, Shield, Smile, MapPin, Sparkles,
 } from 'lucide-react'
 import { TEMPLATES, getPalette, getCardDimensions, getTemplate, CUSTOM_FABRIC_PROPS, PLACEHOLDER_TEXT, loadBackSide, addText, addLogo, addAddressFooter, f, isPlaceholder, computeBackQrRect } from '../bcTemplates'
@@ -148,7 +148,7 @@ const STICKER_ICONS = [
   { key: 'sparkles', Icon: Sparkles },
 ]
 
-export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave, onExit, onExport, onDiscardNew }) {
+export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave, onExit, onDiscardNew }) {
   const { templateId, setup, savedFront, savedBack } = selection
   const { w, h } = getCardDimensions(setup.size, setup.orientation)
 
@@ -1591,19 +1591,6 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
   }
 
   // ── Export ────────────────────────────────────────────────
-  function exportPNG() {
-    if (!fabricRef.current) return
-    const url = fabricRef.current.toDataURL({ format: 'png', quality: 1, multiplier: 3 })
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `business-card-${activeFace}.png`
-    a.click()
-    // A successful download marks the card 'completed' — Business Cards
-    // aren't published to a URL like Digital Cards, so export is the
-    // equivalent finish line.
-    onExport?.()
-  }
-
   // ── Zoom ──────────────────────────────────────────────────
   const zoomIn  = () => setZoom((z) => Math.min(3, parseFloat((z + 0.1).toFixed(1))))
   const zoomOut = () => setZoom((z) => Math.max(0.3, parseFloat((z - 0.1).toFixed(1))))
@@ -2093,12 +2080,10 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
         <div className="bce-canvas-area" ref={canvasAreaRef} onClick={() => setShowOpacity(false)}>
           {(() => {
             const secondaryFace = activeFace === 'front' ? 'back' : 'front'
-            const slot1Active = viewingBoth && viewBothSelectedFace === activeFace
-            const slot2Active = viewingBoth && viewBothSelectedFace === secondaryFace
             return (
               <>
                 <div
-                  className={`bce-vb-slot${slot1Active ? ' active' : ''}`}
+                  className="bce-vb-slot"
                   style={{ order: viewingBoth ? (activeFace === 'front' ? 0 : 1) : 0 }}
                 >
                   <div className="bce-canvas-wrap" style={{ transform: `scale(${viewingBoth ? zoom * 0.62 : zoom})` }}>
@@ -2107,7 +2092,7 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
                   {viewingBoth && <span className="bce-vb-slot-label">{activeFace === 'front' ? 'Front' : 'Back'}</span>}
                 </div>
                 <div
-                  className={`bce-vb-slot${slot2Active ? ' active' : ''}`}
+                  className="bce-vb-slot"
                   style={{ order: activeFace === 'front' ? 1 : 0, display: viewingBoth ? 'flex' : 'none' }}
                 >
                   <div className="bce-canvas-wrap" style={{ transform: `scale(${zoom * 0.62})` }}>
@@ -2508,31 +2493,30 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
 
       {/* ── Bottom Bar ────────────────────────────────────── */}
       <div className="bce-bottombar">
-        {/* Left: actions */}
-        <button
-          type="button"
-          className="secondary-button"
-          style={{ padding: '7px 14px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
-          onClick={handleSave}
-        >
-          <Save size={13} /> Save Progress
-        </button>
-        <button
-          type="button"
-          className="secondary-button"
-          style={{ padding: '7px 14px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
-          onClick={exportPNG}
-        >
-          <Download size={13} /> Download
-        </button>
-        <button
-          type="button"
-          className="secondary-button"
-          style={{ padding: '7px 14px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
-          onClick={() => window.print()}
-        >
-          <Printer size={13} /> Print
-        </button>
+        {/* Left: actions. "Saved" shows only when this exact design is
+            actually persisted — i.e. the card was opened with savedFront
+            from the DB (hasBeenSaved) and hasn't been touched since. A
+            brand-new card, or one whose template was just swapped via the
+            gallery, has nothing written yet (handleSelectTemplate passes no
+            savedFront), so it correctly offers Save Progress instead. */}
+        {hasBeenSaved && !hasUnsavedChanges ? (
+          <span className="bce-saved-indicator">
+            <Check size={13} /> Saved
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="secondary-button"
+            style={{ padding: '7px 14px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+            onClick={handleSave}
+          >
+            <Save size={13} /> Save Progress
+          </button>
+        )}
+        {/* No Download here: exporting is gated on purchase, and the editor
+            is only reachable for cards that haven't been bought yet (see
+            BusinessCardFlow's route guard). Downloads live on the preview
+            screen, which unlocks them once the card is owned. */}
         <button
           type="button"
           className="secondary-button"

@@ -122,7 +122,53 @@
   color: var(--muted, #657174);
   margin-bottom: 12px;
 }
-.bc-dash-card-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+.bc-dash-card-actions { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+
+/* Archive toggle floating over the card thumbnail's top-right corner.
+   Translucent so the artwork stays readable underneath, solidifying on
+   hover to confirm it's interactive. */
+.bc-thumb-archive-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--navy, #112d37);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(17, 45, 55, 0.18);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.bc-thumb-archive-btn:hover {
+  background: #fff;
+  transform: scale(1.06);
+}
+
+/* Filled cart action, pinned to the right end of the action row. */
+.bc-cart-button {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 8px;
+  background: var(--navy, #112d37);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.bc-cart-button:hover { opacity: 0.85; }
 
 .bc-dash-card-title {
   display: flex;
@@ -1141,11 +1187,6 @@
   gap: 10px;
   padding: 6px;
   border-radius: 10px;
-  border: 2px solid transparent;
-  transition: border-color 0.15s ease;
-}
-.bce-vb-slot.active {
-  border-color: var(--navy, #112d37);
 }
 .bce-vb-slot-label {
   font-size: 12px;
@@ -1349,6 +1390,20 @@
   z-index: 10;
 }
 .bce-bottombar-space { flex: 1; }
+
+/* Passive "everything is saved" state that replaces the Save Progress
+   button — deliberately not styled as a button, since there's nothing to
+   click when there are no pending changes. */
+.bce-saved-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted, #657174);
+}
+.bce-saved-indicator svg { color: #2f6f4e; }
 
 .bce-face-tabs {
   display: flex;
@@ -1591,9 +1646,9 @@
   padding-top: 14px;
 }
 
-/* ---- Click-to-flip preview (same look as the Digital Card publish
-   flow's sample business card, driven by a click/tap instead of hover —
-   a full preview page has no natural "hover" target on touch devices). ---- */
+/* ---- Hover-to-flip preview — same mechanics and feel as the Digital
+   Card publish flow's sample business card (see publish-flow.css's
+   .sample-bcard-flip-zone), so both surfaces behave identically. ---- */
 .bc-flip-zone {
   width: 100%;
   max-width: 480px;
@@ -1601,14 +1656,13 @@
   margin: auto;
   flex-shrink: 0;
 }
-.bc-flip-zone.bc-flip-zone--flippable { cursor: pointer; }
 .bc-flip-card {
   position: relative;
   width: 100%;
   transform-style: preserve-3d;
   transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1);
 }
-.bc-flip-card.is-flipped { transform: rotateY(180deg); }
+.bc-flip-zone--flippable:hover .bc-flip-card { transform: rotateY(180deg); }
 .bc-flip-face {
   position: relative;
   width: 100%;

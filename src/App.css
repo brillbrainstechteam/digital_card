@@ -3552,6 +3552,10 @@
 .status-published { background: #d1fae5; color: #065f46; }
 .status-archived { background: #e5e7eb; color: #4b5563; }
 .status-completed { background: #d1fae5; color: #065f46; }
+/* Paid for. Solid green rather than the pale green of
+   'completed'/'published' — it's the strongest state a card can reach, and
+   the fill keeps it distinguishable from those at a glance. */
+.status-owned { background: #0f8a4d; color: #fff; }
 
 .card-list-actions {
   display: flex;

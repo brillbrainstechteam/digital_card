@@ -44,8 +44,16 @@ export function BusinessCardFlow() {
         setRawCard(card)
         const baseProfile = card.profile || card.card_data?.profile || {}
 
-        // If a business card snapshot already exists, jump straight to editor
+        // A purchased card's design is final — the list and preview screen
+        // both hide their Edit affordances, but this guards the route
+        // itself so a direct/bookmarked URL can't reopen the editor.
         const bc = card.card_data?.businessCard
+        if (bc?.purchased) {
+          navigate('/business-cards', { replace: true })
+          return
+        }
+
+        // If a business card snapshot already exists, jump straight to editor
         if (bc?.setup && bc?.templateId) {
           setProfile(bc.profile || baseProfile)
           setSelection({
@@ -66,7 +74,7 @@ export function BusinessCardFlow() {
       }
     }
     load()
-  }, [routeCardId, isNew])
+  }, [routeCardId, isNew, navigate])
 
   function handleDetailsSubmit(formProfile) {
     setProfile(formProfile)
@@ -144,23 +152,6 @@ export function BusinessCardFlow() {
     }
   }
 
-  async function handleExport() {
-    if (!dbCardId) return
-    try {
-      const card = await fetchCard(dbCardId)
-      const existing = card.card_data || {}
-      await updateCard(dbCardId, {
-        card_data: {
-          ...existing,
-          productType: 'business',
-          businessCard: { ...existing.businessCard, status: 'completed' },
-        },
-      })
-    } catch (e) {
-      console.error('Failed to mark business card as completed', e)
-    }
-  }
-
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: 16 }}>
@@ -216,7 +207,6 @@ export function BusinessCardFlow() {
           onBack={() => setStep('gallery')}
           onExit={() => navigate('/business-cards')}
           onSave={handleSave}
-          onExport={handleExport}
           onDiscardNew={handleDiscardNew}
         />
       )}

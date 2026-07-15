@@ -59,22 +59,34 @@ export function BusinessCardTemplatesPage() {
     }
   }
 
+  // Persists only — deliberately does NOT navigate, matching
+  // BusinessCardFlow.handleSave. "Save Progress" should leave the user in
+  // the editor; only the editor's own Back/Gallery/Exit actions navigate
+  // away (they call this first via the unsaved-changes dialog when needed).
   async function handleSave(editorSnapshot) {
     try {
+      // Read-then-merge rather than replacing card_data outright (same as
+      // BusinessCardFlow.handleSave). A blind write would drop any field
+      // this flow doesn't know about — most importantly `purchased`, which
+      // can be set from the cart in another tab while this editor is open.
+      const current = await fetchCard(cardId)
+      const existing = current.card_data || {}
       await updateCard(cardId, {
         card_data: {
+          ...existing,
           productType: 'business',
           businessCard: {
+            ...existing.businessCard,
             ...editorSnapshot,
             profile,
             savedAt: new Date().toISOString(),
           },
         },
       })
-      navigate('/business-cards')
     } catch (err) {
       console.error('Failed to save business card', err)
       alert('Save failed. Please try again.')
+      throw err // stop the editor's post-save flow (marking saved, navigating)
     }
   }
 
@@ -94,22 +106,6 @@ export function BusinessCardTemplatesPage() {
     }
   }
 
-  async function handleExport() {
-    try {
-      const card = await fetchCard(cardId)
-      const existing = card.card_data || {}
-      await updateCard(cardId, {
-        card_data: {
-          ...existing,
-          productType: 'business',
-          businessCard: { ...existing.businessCard, status: 'completed' },
-        },
-      })
-    } catch (err) {
-      console.error('Failed to mark business card as completed', err)
-    }
-  }
-
   if (step === 'editor' && pendingSelection && profile) {
     return (
       <BusinessCardEditor
@@ -119,7 +115,6 @@ export function BusinessCardTemplatesPage() {
         onBack={() => setStep('gallery')}
         onExit={() => navigate('/business-cards')}
         onSave={handleSave}
-        onExport={handleExport}
         onDiscardNew={handleDiscardNew}
       />
     )
