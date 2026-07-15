@@ -132,7 +132,12 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
       if (wantsBusinessCard) {
         const id = await ensureBusinessCard()
         addItem({
-          id: `${cardId}-businessCard`,
+          // Keyed by the BUSINESS card's id, not the digital card's — the
+          // Business Cards list and preview screen both key this same line
+          // item as `<businessCardId>-businessCard`. Using cardId here made
+          // their hasItem() checks miss, so the same card could be added
+          // (and charged for) twice from two different screens.
+          id: `${id}-businessCard`,
           type: 'business-card',
           path: `/business-card/${id}`,
           name: `${cardLabel} - Business Card`,
