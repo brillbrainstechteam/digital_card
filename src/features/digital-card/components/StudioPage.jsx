@@ -87,7 +87,7 @@ function LogoThemeDialog({ logo, theme, onThemeChange, onCancel, onConfirm }) {
 export function StudioPage() {
   const { cardId } = useParams()
   const navigate = useNavigate()
-  const { search } = useLocation()
+  const { search, state: navState } = useLocation()
   const backTo = new URLSearchParams(search).get('from') === 'qr-studio' ? '/qr-studio/codes' : null
   const toast = useToast()
   const { isAuthenticated } = useAuth()
@@ -111,7 +111,10 @@ export function StudioPage() {
   const [publishing, setPublishing] = useState(false)
   const [publishStage, setPublishStage] = useState(null)
   const [authModalOpen, setAuthModalOpen] = useState(false)
-  const [publishFlowOpen, setPublishFlowOpen] = useState(false)
+  // Reopened straight away when returning from a screen the publish flow
+  // sent the user to (e.g. the Business Card editor's "Back to Publish"), so
+  // they land back in the dialog they left rather than on the bare studio.
+  const [publishFlowOpen, setPublishFlowOpen] = useState(navState?.reopen === 'Publish')
   // The real backend card id — starts out equal to the route param for an
   // existing card, or null for a guest draft until publish creates one. All
   // API calls key off this, never the raw `cardId` param, so a guest draft

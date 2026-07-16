@@ -21,6 +21,14 @@ export function CardPreviewScreen({ card, onEdit, onClose }) {
   const owned = !!businessCard?.purchased
   const { w: cardW, h: cardH } = getCardDimensions(setup?.size || 'standard', setup?.orientation)
   const cardAspect = `${cardW} / ${cardH}`
+  // A vertical card is taller than it is wide, so sizing it by width (as a
+  // horizontal one is) would overflow the page vertically. Drive it off
+  // height instead and let the aspect ratio supply the width; the min()
+  // keeps it inside the body on short viewports too, so nothing scrolls.
+  const isVertical = cardH > cardW
+  const flipZoneStyle = isVertical
+    ? { aspectRatio: cardAspect, height: 'min(52vh, 100%)', width: 'auto' }
+    : { aspectRatio: cardAspect, width: '100%', maxWidth: 480 }
 
   const navigate = useNavigate()
   const cart = useCart()
@@ -116,9 +124,9 @@ export function CardPreviewScreen({ card, onEdit, onClose }) {
       </div>
 
       <div className="bc-preview-body">
-        <div className={`bc-flip-zone ${hasBack ? 'bc-flip-zone--flippable' : ''}`}>
-          <div className="bc-flip-card" style={{ aspectRatio: cardAspect }}>
-            <div className="bc-flip-face bc-flip-face--front" style={{ aspectRatio: cardAspect }}>
+        <div className={`bc-flip-zone ${hasBack ? 'bc-flip-zone--flippable' : ''}`} style={flipZoneStyle}>
+          <div className="bc-flip-card">
+            <div className="bc-flip-face bc-flip-face--front">
               {loading ? (
                 <div style={{ width: '100%', height: '100%' }} />
               ) : images.front ? (
@@ -131,7 +139,7 @@ export function CardPreviewScreen({ card, onEdit, onClose }) {
             </div>
 
             {hasBack && (
-              <div className="bc-flip-face bc-flip-face--back" style={{ aspectRatio: cardAspect }}>
+              <div className="bc-flip-face bc-flip-face--back">
                 {loading ? (
                   <div style={{ width: '100%', height: '100%' }} />
                 ) : images.back ? (

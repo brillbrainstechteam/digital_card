@@ -632,6 +632,46 @@
   display: block;
 }
 
+/* Inline svgPreview fallback, shown until the rendered thumbnail arrives.
+   Horizontal templates carry a 7:4 viewBox that happens to match this tile,
+   but a vertical one (4:7) overflowed it and got sliced into a horizontal
+   band by overflow:hidden. Pinning the svg to the box lets its default
+   preserveAspectRatio ("xMidYMid meet") letterbox it — correct for either
+   orientation, and identical to how the <img> above behaves. */
+.bc-svg-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.bc-tmpl-preview .bc-svg-preview svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* The lightbox has no fixed aspect box, so the svg keeps its natural ratio
+   and is capped by height instead. */
+.bc-lightbox-preview .bc-svg-preview svg {
+  max-width: 100%;
+  max-height: 50vh;
+  display: block;
+}
+
+/* Editor's Templates panel tiles — same letterboxing, own aspect box. */
+.bce-tmpl-thumb {
+  aspect-ratio: 7/4;
+  background: #f0ede8;
+  line-height: 0;
+  overflow: hidden;
+}
+.bce-tmpl-thumb svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .bc-tmpl-info {
   padding: 10px 12px 12px;
   display: flex;
@@ -1155,10 +1195,15 @@
 /* Canvas area ────────────────────────────────────────── */
 .bce-canvas-area {
   flex: 1;
-  background: #c9c7c2;
+  /* Same warm off-white as the app's top navbar (--shell) so the editor's
+     work surface reads as part of the app chrome, not a separate grey box. */
+  background: var(--shell, #f8f7f3);
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Real space between the two View Both cards. In single-face mode the
+     second slot is display:none, so this has no effect there. */
+  gap: 32px;
   overflow: auto;
   position: relative;
   min-height: 0;
@@ -1167,10 +1212,22 @@
 
 .bce-canvas-wrap {
   box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-  transform-origin: center center;
-  transition: transform 0.15s ease;
+  position: relative;
+  overflow: hidden;
   flex-shrink: 0;
   margin: auto;
+  transition: width 0.15s ease, height 0.15s ease;
+}
+/* Sized 0x0 and scaled from its top-left corner so it exactly fills the
+   parent wrap (whose box is set to the scaled dimensions). Keeps the card's
+   layout footprint equal to its visual size, so flex spacing is honest and
+   two cards can't overlap. */
+.bce-canvas-scale {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  transition: transform 0.15s ease;
 }
 
 /* View Both — both cards are live, interactive Fabric canvases sharing
@@ -1606,7 +1663,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  overflow: auto;
+  gap: 12px;
+  /* hidden, not auto: the card is sized to fit this box on both axes (see
+     .bc-flip-zone), so a scrollbar here would only ever mean something has
+     mis-sized — never a legitimate reason for the user to scroll. */
+  overflow: hidden;
 }
 .bc-preview-label {
   font-size: 10px;
@@ -1649,23 +1710,30 @@
 /* ---- Hover-to-flip preview — same mechanics and feel as the Digital
    Card publish flow's sample business card (see publish-flow.css's
    .sample-bcard-flip-zone), so both surfaces behave identically. ---- */
+/* The zone carries the card's aspect ratio and is bounded on BOTH axes
+   (sizing is set inline, since only the component knows the orientation).
+   Constraining width alone made a vertical 288x504 card render ~480x840 and
+   overflow the page into a scrollbar. */
 .bc-flip-zone {
-  width: 100%;
-  max-width: 480px;
   perspective: 1800px;
   margin: auto;
-  flex-shrink: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
 }
 .bc-flip-card {
   position: relative;
   width: 100%;
+  height: 100%;
   transform-style: preserve-3d;
   transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1);
 }
 .bc-flip-zone--flippable:hover .bc-flip-card { transform: rotateY(180deg); }
+/* Both faces fill the zone and stack on top of each other, so the card's
+   height comes from the zone's aspect box rather than from image content. */
 .bc-flip-face {
-  position: relative;
-  width: 100%;
+  position: absolute;
+  inset: 0;
   backface-visibility: hidden;
   border-radius: 8px;
   overflow: hidden;
@@ -1675,11 +1743,10 @@
 .bc-flip-face img {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
 }
 .bc-flip-face--back {
-  position: absolute;
-  inset: 0;
   transform: rotateY(180deg);
 }
 .bc-flip-face--empty {
@@ -1692,7 +1759,7 @@
 .bc-flip-hint {
   color: var(--muted, #657174);
   font-size: 12px;
-  margin-top: 12px;
+  margin: 0; /* spacing comes from .bc-preview-body's gap */
   text-align: center;
   flex-shrink: 0;
 }

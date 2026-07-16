@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { fetchCard, createCard, updateCard, deleteCard } from '../services/api'
 import { DetailsForm }         from './DetailsForm'
 import { SetupDialog }         from './SetupDialog'
@@ -16,7 +16,20 @@ import '../businessCard.css'
 export function BusinessCardFlow() {
   const { cardId: routeCardId } = useParams()
   const navigate   = useNavigate()
+  const location   = useLocation()
   const isNew      = routeCardId === 'new'
+
+  // Set by whoever opened the editor (e.g. the Digital Card publish flow's
+  // "Edit This Business Card"), so Back/Exit can return to that exact screen
+  // instead of falling through to the Business Cards list.
+  const returnTo    = location.state?.returnTo || null
+  const returnLabel = location.state?.returnLabel || null
+
+  // `reopen` tells the origin screen to restore whatever modal the user was
+  // in when they left — plain navigation would land them on a bare page.
+  function goBackToOrigin() {
+    navigate(returnTo, { state: { reopen: returnLabel } })
+  }
 
   const [step, setStep]       = useState('details')
   const [rawCard, setRawCard] = useState(null)
@@ -204,8 +217,11 @@ export function BusinessCardFlow() {
           selection={selection}
           profile={profile}
           cardId={dbCardId}
-          onBack={() => setStep('gallery')}
-          onExit={() => navigate('/business-cards')}
+          {...(returnTo
+            // Opened from another screen: both ways out lead back there, so
+            // there's no second, differently-labelled exit to offer.
+            ? { onBack: goBackToOrigin, backLabel: `← Back to ${returnLabel}` }
+            : { onBack: () => setStep('gallery'), onExit: () => navigate('/business-cards') })}
           onSave={handleSave}
           onDiscardNew={handleDiscardNew}
         />

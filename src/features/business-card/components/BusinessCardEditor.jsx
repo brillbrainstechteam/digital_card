@@ -148,7 +148,7 @@ const STICKER_ICONS = [
   { key: 'sparkles', Icon: Sparkles },
 ]
 
-export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave, onExit, onDiscardNew }) {
+export function BusinessCardEditor({ selection, profile, cardId, onBack, backLabel = '← Gallery', onSave, onExit, onDiscardNew }) {
   const { templateId, setup, savedFront, savedBack } = selection
   const { w, h } = getCardDimensions(setup.size, setup.orientation)
 
@@ -172,6 +172,12 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
   // Fabric event handlers, which close over state from whenever cv.on(...)
   // was registered and would otherwise see a stale value forever.
   const suppressDirtyRef = useRef(true)
+  // What Reset restores to: the last state written to the DB. Seeded from
+  // the card's saved faces on mount and refreshed on every successful save,
+  // so Reset always means "back to my last save", not "back to the moment I
+  // opened the editor". Stays null per-face for a never-saved card, which is
+  // what makes Reset fall back to rebuilding from the template.
+  const lastSavedRef = useRef({ front: savedFront || null, back: savedBack || null })
 
   const [activeFace, setActiveFace] = useState('front')
   // Every card has both sides by default — no session-level toggle for it.
@@ -211,9 +217,18 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
   const [showOpacity, setShowOpacity]   = useState(false)
 
   // History per face
-  const [history, setHistory]   = useState({ front: [], back: [] })
-  const [histIdx, setHistIdx]   = useState({ front: -1, back: -1 })
-  const [isRestoring, setIsRestoring] = useState(false)
+  // Undo/redo history lives in refs, not state. The Fabric event handlers
+  // that record snapshots are registered once inside initCanvas (deps: []),
+  // so anything they read from a closure is frozen at the first render —
+  // which is exactly why this used to be broken: snapshot() always saw
+  // histIdx as its initial -1 and truncated the stack to a single entry on
+  // every edit. Refs are always current, so the once-registered handlers
+  // stay correct. histVersion only exists to re-render the toolbar's
+  // enabled/disabled state, since refs don't trigger renders.
+  const historyRef = useRef({ front: [], back: [] })
+  const histIdxRef = useRef({ front: -1, back: -1 })
+  const [histVersion, setHistVersion] = useState(0)
+  const isRestoringRef = useRef(false)
 
   // Layers — write-only: kept in sync (syncLayers below) for a future
   // Layers-panel UI, but nothing currently reads the list back out.
@@ -241,6 +256,12 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
 
   // ── Canvas init ────────────────────────────────────────────
   const initCanvas = useCallback(async () => {
+    // TEMP DEBUG — proves the canvas is only ever initialized once.
+    console.log('[BCE] initCanvas called', {
+      canvasEl: canvasElRef.current,
+      alreadyInitialized: !!fabricRef.current,
+      savedFrontBytes: savedFront ? savedFront.length : 0,
+    })
     if (!canvasElRef.current || fabricRef.current) return
     const cv = new Canvas(canvasElRef.current, {
       width: w,
@@ -316,7 +337,10 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
     cv.on('selection:updated', (e) => { setViewBothSelectedFace(activeFaceRef.current); onObjSelect(e.selected?.[0]) })
     cv.on('selection:cleared',  () => setSelectedObj(null))
     cv.on('object:modified',    () => {
-      if (!isRestoring) { snapshot(activeFaceRef.current, cv); syncLayers(cv) }
+      // Guarded by the ref, not the isRestoring state: this handler is
+      // registered once, so the state value it captured is frozen at the
+      // first render and would always read false.
+      if (!isRestoringRef.current) { snapshot(activeFaceRef.current, cv); syncLayers(cv) }
       const obj = cv.getActiveObject()
       if (obj) readProps(obj)
       markDirty()
@@ -324,16 +348,7 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
     cv.on('object:added',   () => { syncLayers(cv); markDirty() })
     cv.on('object:removed', () => { syncLayers(cv); markDirty() })
 
-    // Fit the card to ~72% of the available canvas area instead of always
-    // opening at 100% (actual pixel size), which left the card looking tiny
-    // in a sea of grey — especially on standard-size horizontal cards.
-    const area = canvasAreaRef.current
-    if (area) {
-      const fitByHeight = (area.clientHeight * 0.72) / h
-      const fitByWidth  = (area.clientWidth * 0.72) / w
-      const fitZoom = Math.min(fitByHeight, fitByWidth, 2)
-      if (fitZoom > 0) setZoom(Math.max(0.3, parseFloat(fitZoom.toFixed(2))))
-    }
+    fitToArea(viewingBothRef.current)
 
     // Everything above (template load / restore of a saved card) doesn't
     // count as a user edit — only start tracking dirt from here on.
@@ -434,13 +449,27 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
   }
 
   function snapshot(face, canvas) {
-    if (!canvas || isRestoring) return
+    if (!canvas || isRestoringRef.current) return
     const json = JSON.stringify(canvas.toObject(CUSTOM_FABRIC_PROPS))
-    setHistory((prev) => {
-      const arr = [...prev[face].slice(0, histIdx[face] + 1), json].slice(-50)
-      return { ...prev, [face]: arr }
-    })
-    setHistIdx((prev) => ({ ...prev, [face]: Math.min(prev[face] + 1, 49) }))
+    // Drop any redo branch ahead of the cursor, append, then cap the stack.
+    // The index is derived from the array itself rather than incremented
+    // separately, so the two can't drift apart when the cap kicks in.
+    const arr = [...historyRef.current[face].slice(0, histIdxRef.current[face] + 1), json].slice(-50)
+    historyRef.current = { ...historyRef.current, [face]: arr }
+    histIdxRef.current = { ...histIdxRef.current, [face]: arr.length - 1 }
+    setHistVersion((v) => v + 1)
+  }
+
+  // Records the state a face is first shown in, so the very first edit on it
+  // has something to undo back to. Without this the back face — which loads
+  // from faceData rather than being built here — started with an empty stack
+  // and its first edit was permanent.
+  function ensureBaseline(face, canvas) {
+    if (!canvas || historyRef.current[face].length > 0) return
+    const json = JSON.stringify(canvas.toObject(CUSTOM_FABRIC_PROPS))
+    historyRef.current = { ...historyRef.current, [face]: [json] }
+    histIdxRef.current = { ...histIdxRef.current, [face]: 0 }
+    setHistVersion((v) => v + 1)
   }
 
   function onObjSelect(obj) {
@@ -511,13 +540,16 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
       // session (not a new edit) — object:added events during the reload
       // shouldn't flip hasUnsavedChanges.
       suppressDirtyRef.current = true
-      setIsRestoring(true)
+      isRestoringRef.current = true
       await fabricRef.current.loadFromJSON(JSON.parse(savedJson))
       normalizeLegacyOrigins(fabricRef.current)
       retagUntaggedObjects(fabricRef.current)
       fabricRef.current.renderAll()
-      setIsRestoring(false)
+      isRestoringRef.current = false
       suppressDirtyRef.current = false
+      // Give this face an undo baseline the first time it's shown — each
+      // face keeps its own independent stack, and switching never clears it.
+      ensureBaseline(newFace, fabricRef.current)
     } else if (newFace === 'back') {
       await populateBackSide(fabricRef.current)
       fabricRef.current.renderAll()
@@ -714,6 +746,15 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
   // Creates/destroys the secondary live canvas as View Both is entered/left.
   useEffect(() => {
     if (!viewingBoth) return
+    // TEMP DEBUG — what each canvas actually holds when View Both opens.
+    console.log('[BCE] enterViewBoth', {
+      activeFace,
+      templateId,
+      primaryObjects: fabricRef.current?.getObjects().length ?? 'NO PRIMARY CANVAS',
+      primaryElInDom: fabricRef.current ? document.contains(fabricRef.current.lowerCanvasEl) : null,
+      faceDataFrontBytes: faceData.front ? faceData.front.length : 0,
+      faceDataBackBytes: faceData.back ? faceData.back.length : 0,
+    })
     if (!secondaryCanvasElRef.current || secondaryFabricRef.current) return
     let cancelled = false
     const secondaryFace = activeFace === 'front' ? 'back' : 'front'
@@ -757,49 +798,80 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
   }
 
   // ── Undo / Redo ────────────────────────────────────────────
-  async function undo() {
-    const face = activeFace
-    const idx  = histIdx[face]
-    if (idx <= 0 || !fabricRef.current) return
-    const newIdx = idx - 1
-    setHistIdx((p) => ({ ...p, [face]: newIdx }))
-    setIsRestoring(true)
-    await fabricRef.current.loadFromJSON(JSON.parse(history[face][newIdx]))
-    fabricRef.current.renderAll()
-    setIsRestoring(false)
+  // Loads a history entry onto the live canvas. isRestoringRef gates
+  // snapshot() so the object events this fires don't record the restore
+  // itself as a new edit (which would clobber the redo branch).
+  async function restoreHistory(face, newIdx) {
+    const json = historyRef.current[face]?.[newIdx]
+    if (!json || !fabricRef.current) return
+    histIdxRef.current = { ...histIdxRef.current, [face]: newIdx }
+    isRestoringRef.current = true
+    try {
+      await fabricRef.current.loadFromJSON(JSON.parse(json))
+      normalizeLegacyOrigins(fabricRef.current)
+      fabricRef.current.renderAll()
+    } finally {
+      isRestoringRef.current = false
+    }
     syncLayers(fabricRef.current)
     setSelectedObj(null)
+    setHistVersion((v) => v + 1)
+    markDirty()
+  }
+
+  async function undo() {
+    const face = activeFaceRef.current
+    const idx = histIdxRef.current[face]
+    if (idx <= 0) return
+    await restoreHistory(face, idx - 1)
   }
 
   async function redo() {
-    const face = activeFace
-    const idx  = histIdx[face]
-    const arr  = history[face]
-    if (idx >= arr.length - 1 || !fabricRef.current) return
-    const newIdx = idx + 1
-    setHistIdx((p) => ({ ...p, [face]: newIdx }))
-    setIsRestoring(true)
-    await fabricRef.current.loadFromJSON(JSON.parse(arr[newIdx]))
-    fabricRef.current.renderAll()
-    setIsRestoring(false)
-    syncLayers(fabricRef.current)
-    setSelectedObj(null)
+    const face = activeFaceRef.current
+    const idx = histIdxRef.current[face]
+    if (idx >= (historyRef.current[face]?.length || 0) - 1) return
+    await restoreHistory(face, idx + 1)
   }
 
   // ── Reset ──────────────────────────────────────────────────
+  // Reverts the current face to its last saved state, or — for a card that
+  // has never been saved — to the template freshly populated with the user's
+  // details (i.e. exactly how the face looked on entering the editor).
+  // It deliberately does NOT reset to a blank/default template.
   async function resetCanvas() {
-    if (!fabricRef.current) return
-    const tmpl = templateId === 'blank' ? null : getTemplate(templateId)
-    fabricRef.current.clear()
-    fabricRef.current.backgroundColor = '#ffffff'
-    if (tmpl) await tmpl.load(fabricRef.current, profile, palette, w, h)
-    if (setup.includeQR) {
-      await addQRToCanvas(fabricRef.current, w, h)
+    const canvas = fabricRef.current
+    if (!canvas) return
+    const face = activeFace
+    const saved = lastSavedRef.current[face]
+
+    isRestoringRef.current = true
+    try {
+      if (saved) {
+        await canvas.loadFromJSON(JSON.parse(saved))
+        normalizeLegacyOrigins(canvas)
+        retagUntaggedObjects(canvas)
+      } else if (face === 'back') {
+        canvas.clear()
+        await populateBackSide(canvas)
+      } else {
+        const tmpl = templateId === 'blank' ? null : getTemplate(templateId)
+        canvas.clear()
+        canvas.backgroundColor = '#ffffff'
+        if (tmpl) await tmpl.load(canvas, profile, palette, w, h)
+        else await loadBlankFrontSide(canvas)
+        if (setup.includeQR) await addQRToCanvas(canvas, w, h)
+      }
+      await waitForFonts()
+      canvas.renderAll()
+    } finally {
+      isRestoringRef.current = false
     }
-    fabricRef.current.renderAll()
-    snapshot(activeFace, fabricRef.current)
-    syncLayers(fabricRef.current)
+
+    // Recorded as a normal history entry so Reset itself can be undone.
+    snapshot(face, canvas)
+    syncLayers(canvas)
     setSelectedObj(null)
+    markDirty()
   }
 
   // ── Delete ─────────────────────────────────────────────────
@@ -895,7 +967,11 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
     if (!obj || !cv2) return
     cv2.bringObjectForward(obj)
     cv2.renderAll()
+    // Reordering never fires object:modified, so without an explicit
+    // snapshot here a layer change couldn't be undone.
+    snapshot(getActiveEditFace(), cv2)
     syncLayers(cv2)
+    markDirty()
   }
   function sendBackward() {
     const cv2 = getActiveCanvas()
@@ -903,7 +979,9 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
     if (!obj || !cv2) return
     cv2.sendObjectBackwards(obj)
     cv2.renderAll()
+    snapshot(getActiveEditFace(), cv2)
     syncLayers(cv2)
+    markDirty()
   }
 
   // ── Add text ──────────────────────────────────────────────
@@ -1532,6 +1610,9 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
       backJson:  finalBack,
       frontImg,
     })
+    // Only after onSave resolves — a failed save throws, and Reset must not
+    // start pointing at a state that never reached the DB.
+    lastSavedRef.current = { front: finalFront, back: finalBack }
     setHasBeenSaved(true)
     setHasUnsavedChanges(false)
   }
@@ -1595,8 +1676,50 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
   const zoomIn  = () => setZoom((z) => Math.min(3, parseFloat((z + 0.1).toFixed(1))))
   const zoomOut = () => setZoom((z) => Math.max(0.3, parseFloat((z - 0.1).toFixed(1))))
 
-  const canUndo = histIdx[activeFace] > 0
-  const canRedo = histIdx[activeFace] < (history[activeFace]?.length || 0) - 1
+  // Chooses the zoom that makes the card(s) fill as much of the canvas area
+  // as looks good. In View Both the two cards sit side by side, so the width
+  // budget is split across both (plus the gap/padding between the slots);
+  // in single mode one card gets it all. Called on mount and whenever the
+  // View Both toggle changes, so switching modes always re-fits.
+  function fitToArea(bothMode) {
+    const area = canvasAreaRef.current
+    if (!area) return
+    const availW = area.clientWidth
+    const availH = area.clientHeight
+    if (availW <= 0 || availH <= 0) return
+    // Reserve the real gap between cards (32 area gap + slot padding) and the
+    // Front/Back caption's height, so the fitted cards leave that space free
+    // instead of getting cut off into a horizontal scrollbar.
+    const SLOT_GAP = 60
+    const CAPTION_H = 30
+    const usableW = bothMode ? (availW * 0.94 - SLOT_GAP) / 2 : availW * 0.9
+    const usableH = bothMode ? availH * 0.9 - CAPTION_H : availH * 0.9
+    const fit = Math.min(usableW / w, usableH / h, 2.4)
+    if (fit > 0) setZoom(Math.max(0.3, parseFloat(fit.toFixed(2))))
+  }
+
+  // View Both is scaled differently from single-face, so re-fit whenever it
+  // toggles. viewingBothRef mirrors the state for the once-registered
+  // initCanvas to read without being re-created.
+  const viewingBothRef = useRef(false)
+  useEffect(() => {
+    viewingBothRef.current = viewingBoth
+    fitToArea(viewingBoth)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingBoth])
+
+  // Read from the refs rather than state; histVersion in the deps is what
+  // makes this recompute, since mutating a ref doesn't trigger a render.
+  const canUndo = useMemo(
+    () => histIdxRef.current[activeFace] > 0,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeFace, histVersion],
+  )
+  const canRedo = useMemo(
+    () => histIdxRef.current[activeFace] < (historyRef.current[activeFace]?.length || 0) - 1,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeFace, histVersion],
+  )
 
   // "+ Add Element" popover — a button that expands into the five element
   // types, plus a nested icon grid for the Icon/Sticker option.
@@ -1664,29 +1787,35 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
     return faceData[face] || null
   }
 
-  if (showPreview) {
-    return (
-      <CardPreviewScreen
-        card={{
-          id: cardId,
-          title: getTemplate(templateId)?.label || 'Business Card',
-          businessCard: {
-            frontJson: currentFaceJson('front'),
-            backJson: hasBack ? currentFaceJson('back') : null,
-            setup: { ...setup, includeBack: hasBack },
-          },
-        }}
-        onClose={() => setShowPreview(false)}
-        onEdit={() => setShowPreview(false)}
-      />
-    )
-  }
-
   // ════════════════════════════════════════════════════════
   // RENDER
   // ════════════════════════════════════════════════════════
+  // Preview is rendered *alongside* the editor and the editor is hidden with
+  // CSS, rather than early-returning. An early return unmounts the <canvas>
+  // DOM node; because initCanvas only runs on mount (its effect deps are
+  // stable, and it also bails when fabricRef is already set), returning from
+  // preview mounted a fresh, never-initialized <canvas> while the Fabric
+  // instance stayed bound to the old detached one — a blank card. Keeping
+  // the node mounted preserves the live canvas, undo history and any
+  // unsaved edits for free.
   return (
-    <div className="bce-root">
+    <>
+      {showPreview && (
+        <CardPreviewScreen
+          card={{
+            id: cardId,
+            title: getTemplate(templateId)?.label || 'Business Card',
+            businessCard: {
+              frontJson: currentFaceJson('front'),
+              backJson: hasBack ? currentFaceJson('back') : null,
+              setup: { ...setup, includeBack: hasBack },
+            },
+          }}
+          onClose={() => setShowPreview(false)}
+          onEdit={() => setShowPreview(false)}
+        />
+      )}
+    <div className="bce-root" style={showPreview ? { display: 'none' } : undefined}>
 
       {/* ── Top Toolbar ─────────────────────────────────── */}
       <div className="bce-topbar">
@@ -1733,9 +1862,9 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
           )}
         </div>
 
-        <button type="button" className="bce-tb-btn" disabled={!selectedObj} onClick={bringForward} title="Bring forward">
-          <Layers size={14} /> Layer ↑
-        </button>
+        {/* No "Layer ↑" here: it only ever raised an object with no way to
+            lower it again, duplicating the Properties panel's Arrange
+            control (↑/↓), which does the job properly in both directions. */}
         <button type="button" className="bce-tb-btn" disabled={!selectedObj} onClick={flip} title="Flip horizontal">
           <FlipHorizontal size={14} /> Flip
         </button>
@@ -1757,8 +1886,10 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
             <X size={14} /> Exit
           </button>
         )}
+        {/* Routed through requestExit so the unsaved-changes dialog guards
+            this exit exactly like Exit does, wherever it leads. */}
         <button type="button" className="secondary-button" style={{ padding: '7px 14px', fontSize: 13 }} onClick={() => requestExit(onBack)}>
-          ← Gallery
+          {backLabel}
         </button>
       </div>
 
@@ -1807,7 +1938,10 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
                         }}
                         onClick={onBack}
                       >
-                        <div dangerouslySetInnerHTML={{ __html: t.svgPreview(palette) }} style={{ display: 'block', lineHeight: 0 }} />
+                        {/* Fixed 7:4 box so a vertical template's 4:7 artwork
+                            letterboxes instead of making its grid tile ~1.75x
+                            taller than every neighbour. */}
+                        <div className="bce-tmpl-thumb" dangerouslySetInnerHTML={{ __html: t.svgPreview(palette) }} />
                         <div style={{ padding: '6px', fontSize: 9, fontWeight: 700, color: 'var(--navy)' }}>{t.label}</div>
                       </button>
                     ))}
@@ -2086,8 +2220,15 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
                   className="bce-vb-slot"
                   style={{ order: viewingBoth ? (activeFace === 'front' ? 0 : 1) : 0 }}
                 >
-                  <div className="bce-canvas-wrap" style={{ transform: `scale(${viewingBoth ? zoom * 0.62 : zoom})` }}>
-                    <canvas ref={canvasElRef} />
+                  {/* The wrap's box is sized to the SCALED dimensions and the
+                      inner scale div does the transform — otherwise scale()
+                      is visual-only and the layout box stays at the base
+                      size, letting a zoomed card spill past it and collide
+                      with the other card. zoom carries the per-mode fit. */}
+                  <div className="bce-canvas-wrap" style={{ width: w * zoom, height: h * zoom }}>
+                    <div className="bce-canvas-scale" style={{ transform: `scale(${zoom})` }}>
+                      <canvas ref={canvasElRef} />
+                    </div>
                   </div>
                   {viewingBoth && <span className="bce-vb-slot-label">{activeFace === 'front' ? 'Front' : 'Back'}</span>}
                 </div>
@@ -2095,8 +2236,10 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
                   className="bce-vb-slot"
                   style={{ order: activeFace === 'front' ? 1 : 0, display: viewingBoth ? 'flex' : 'none' }}
                 >
-                  <div className="bce-canvas-wrap" style={{ transform: `scale(${zoom * 0.62})` }}>
-                    <canvas ref={secondaryCanvasElRef} />
+                  <div className="bce-canvas-wrap" style={{ width: w * zoom, height: h * zoom }}>
+                    <div className="bce-canvas-scale" style={{ transform: `scale(${zoom})` }}>
+                      <canvas ref={secondaryCanvasElRef} />
+                    </div>
                   </div>
                   {viewingBoth && <span className="bce-vb-slot-label">{secondaryFace === 'front' ? 'Front' : 'Back'}</span>}
                 </div>
@@ -2605,5 +2748,6 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, onSave,
       )}
 
     </div>
+    </>
   )
 }

@@ -151,7 +151,7 @@ export function TemplateGallery({ profile, onBack, onCustomise, onSelectTemplate
                         : <div className="bc-lightbox-preview-loading"><span className="bc-spinner" /></div>
                       : thumbs[tmpl.id]
                         ? <img src={thumbs[tmpl.id]} alt={tmpl.label} />
-                        : <div dangerouslySetInnerHTML={{ __html: tmpl.svgPreview(palette) }} />}
+                        : <div className="bc-svg-preview" dangerouslySetInnerHTML={{ __html: tmpl.svgPreview(palette) }} />}
                   </div>
                   <div className="bc-tmpl-info">
                     <h4>{tmpl.label}</h4>
@@ -190,7 +190,7 @@ export function TemplateGallery({ profile, onBack, onCustomise, onSelectTemplate
                 <div className="bc-lightbox-preview">
                   {thumbs[previewing.id]
                     ? <img src={thumbs[previewing.id]} alt={`${previewing.label} front`} />
-                    : <div dangerouslySetInnerHTML={{ __html: previewing.svgPreview(palette) }} />}
+                    : <div className="bc-svg-preview" dangerouslySetInnerHTML={{ __html: previewing.svgPreview(palette) }} />}
                 </div>
                 <span className="bc-lightbox-card-label">Front</span>
               </div>

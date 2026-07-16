@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SampleBusinessCard } from './SampleBusinessCard'
 import { QrStep } from './QrStep'
 import { createTempPreviewLink } from '../../utils/previewLink'
 import { saveCardQr } from '../../../qr'
-import { createCard, updateCard } from '../../../business-card/services/api'
+import { createCard, updateCard, fetchCards } from '../../../business-card/services/api'
 import { TEMPLATES } from '../../../business-card/bcTemplates'
 import { useToast } from '../../../../context/ToastContext'
 import { useCart } from '../../../../context/CartContext'
@@ -45,10 +45,45 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
   const [creatingBusinessCard, setCreatingBusinessCard] = useState(false)
   const [templateId, setTemplateId] = useState(CURATED_TEMPLATE)
   const [editingTemplate, setEditingTemplate] = useState(false)
+  // The saved design of this digital card's business card, if one exists.
+  // Held so the preview below can show what the user actually edited rather
+  // than a fresh render of the bare template.
+  const [savedDesign, setSavedDesign] = useState(null)
+  // Template the user picked that would destroy saved edits, held here until
+  // they confirm. null when no confirmation is pending.
+  const [pendingTemplateId, setPendingTemplateId] = useState(null)
 
   const previewUrl = useMemo(() => (open ? createTempPreviewLink(profile) : null), [open, profile])
   const businessProfile = useMemo(() => profileForBusinessCard(profile), [profile])
   const cardLabel = profile.companyName || profile.brandName || 'Digital Card'
+
+  // This modal's state doesn't survive navigating to the editor and back
+  // (StudioPage unmounts), so the linked business card is looked up by its
+  // sourceDigitalCardId every time the modal opens. Without this,
+  // businessCardId would be null on return — ensureBusinessCard would
+  // create a *second* card, and the preview would fall back to the
+  // unedited template.
+  useEffect(() => {
+    if (!open || !cardId) return undefined
+    let cancelled = false
+    fetchCards()
+      .then((all) => {
+        if (cancelled) return
+        const match = all.find(
+          (c) => c.card_data?.sourceDigitalCardId === cardId && c.card_data?.businessCard,
+        )
+        if (!match) return
+        setBusinessCardId(match.id)
+        setSavedDesign(match.card_data.businessCard)
+        if (match.card_data.businessCard.templateId) {
+          setTemplateId(match.card_data.businessCard.templateId)
+        }
+      })
+      .catch(() => {
+        // Non-fatal: the preview just falls back to the template render.
+      })
+    return () => { cancelled = true }
+  }, [open, cardId])
 
   if (!open) return null
 
@@ -57,7 +92,30 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
   }
 
   async function ensureBusinessCard() {
-    if (businessCardId) return businessCardId
+    if (businessCardId) {
+      // The card already exists, but the user may have switched template in
+      // the picker since — push that across before handing back the id, or
+      // the editor would open on the previously-saved template.
+      if (savedDesign && savedDesign.templateId !== templateId) {
+        await updateCard(businessCardId, {
+          card_data: {
+            productType: 'business',
+            sourceDigitalCardId: cardId,
+            businessCard: {
+              ...savedDesign,
+              templateId,
+              // The saved faces belong to the old template — drop them so the
+              // editor rebuilds from the newly chosen one.
+              frontJson: null,
+              backJson: null,
+              frontImg: null,
+            },
+          },
+        })
+        setSavedDesign(null)
+      }
+      return businessCardId
+    }
     setCreatingBusinessCard(true)
     try {
       const created = await createCard(`Built from your digital card - ${cardLabel}`, { productType: 'business' })
@@ -81,11 +139,35 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
     }
   }
 
+  // Switching template throws away any saved faces (they belong to the old
+  // template and can't be carried across), so a switch that would actually
+  // destroy something has to be confirmed first. Picking a template when
+  // there's nothing saved yet is harmless and applies straight away.
+  const hasSavedFaces = !!(savedDesign?.frontJson && savedDesign.templateId === templateId)
+
+  function requestTemplateSwitch(nextId) {
+    if (nextId === templateId) return
+    if (hasSavedFaces) {
+      setPendingTemplateId(nextId)
+      return
+    }
+    setTemplateId(nextId)
+  }
+
+  function confirmTemplateSwitch() {
+    setTemplateId(pendingTemplateId)
+    setPendingTemplateId(null)
+  }
+
   async function handleEditBusinessCard() {
     try {
       const id = await ensureBusinessCard()
       onClose()
-      navigate(`/business-card/${id}`)
+      // Tell the editor where it was opened from so its Back/Exit can return
+      // here rather than dumping the user in the Business Cards list.
+      navigate(`/business-card/${id}`, {
+        state: { returnTo: `/studio/${cardId}`, returnLabel: 'Publish' },
+      })
     } catch (error) {
       toast.error(error.message || 'Could not create the personalized Business Card')
     }
@@ -194,7 +276,16 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
           <div className="publish-flow-business-card-step">
             <h2>Your personalized Business Card is ready</h2>
             <p>It uses a live Business Card template with your details, logo, and extracted theme.</p>
-            <SampleBusinessCard profile={profile} templateId={templateId} />
+            {/* savedFront/savedBack are only honoured while they still match
+                the selected template — switching template in the picker must
+                preview the new template, not the old saved faces. */}
+            <SampleBusinessCard
+              profile={businessProfile}
+              templateId={templateId}
+              savedFront={savedDesign?.templateId === templateId ? savedDesign.frontJson : null}
+              savedBack={savedDesign?.templateId === templateId ? savedDesign.backJson : null}
+              setup={savedDesign?.setup}
+            />
             <div className="publish-flow-template-controls">
               <div className="publish-flow-template-row">
                 <button type="button" className="secondary-button" onClick={() => setEditingTemplate((current) => !current)}>
@@ -207,7 +298,7 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
               {editingTemplate && (
                 <label className="field publish-flow-template-field">
                   <span>Business Card Template</span>
-                  <select value={templateId} onChange={(event) => setTemplateId(event.target.value)}>
+                  <select value={templateId} onChange={(event) => requestTemplateSwitch(event.target.value)}>
                     {TEMPLATES.map((template) => (
                       <option key={template.id} value={template.id}>{template.label}</option>
                     ))}
@@ -243,6 +334,25 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
           </>
         )}
       </div>
+
+      {/* stopPropagation so clicking inside this dialog doesn't reach the
+          overlay's onClose and dismiss the whole publish flow underneath. */}
+      {pendingTemplateId && (
+        <div className="confirm-overlay" onClick={(event) => event.stopPropagation()}>
+          <div className="confirm-dialog" onClick={(event) => event.stopPropagation()}>
+            <h2>Switch template?</h2>
+            <p>Switching templates will clear your current card design. This cannot be undone. Continue?</p>
+            <div className="confirm-actions">
+              <button type="button" className="secondary-button" onClick={() => setPendingTemplateId(null)}>
+                Keep Current
+              </button>
+              <button type="button" className="primary-button danger-button" onClick={confirmTemplateSwitch}>
+                Switch Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
