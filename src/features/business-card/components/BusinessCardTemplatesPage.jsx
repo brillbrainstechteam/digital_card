@@ -112,6 +112,10 @@ export function BusinessCardTemplatesPage() {
         key={pendingSelection.templateId + pendingSelection.setup.size + pendingSelection.setup.orientation}
         selection={pendingSelection}
         profile={profile}
+        // This flow creates the card row up front (handleDetailsSubmit), so
+        // the id always exists here — without it the editor's cart actions
+        // silently no-op, since they're all guarded on cardId.
+        cardId={cardId}
         onBack={() => setStep('gallery')}
         onExit={() => navigate('/business-cards')}
         onSave={handleSave}

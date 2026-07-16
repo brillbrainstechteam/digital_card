@@ -1,15 +1,17 @@
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from './PageHeader'
 import { Sidebar } from './Sidebar'
-import { useCart } from '../context/CartContext'
-
-function formatPrice(item) {
-  return `INR ${Number(item.amount || 499).toLocaleString('en-IN')}`
-}
+import { useCart, formatCartAmount, cartTotal } from '../context/CartContext'
 
 function getParentCardName(item, items) {
   if (item.parentCardName) return item.parentCardName
-  const cardId = String(item.id || '').split('-')[0]
+  // Cart ids are `<cardId>-<suffix>` and cardId is a UUID (which itself
+  // contains hyphens), so the id has to be split on the LAST hyphen — a
+  // plain split('-')[0] yielded just the UUID's first block and never
+  // matched anything, silently killing this lookup.
+  const rawId = String(item.id || '')
+  const cardId = rawId.slice(0, rawId.lastIndexOf('-'))
+  if (!cardId) return null
   const digitalCard = items.find((entry) => entry.id === `${cardId}-digitalCard`)
   return digitalCard?.parentCardName || digitalCard?.name || null
 }
@@ -28,13 +30,27 @@ function getItemDetails(item, items) {
     path: item.qrId ? `/qr-studio/codes?qrId=${item.qrId}` : item.path,
     action: 'View QR Code',
   }
+  // Without this, a Business Card QR upgrade fell through to the default
+  // below and was labelled "Edit Digital Card" — the wrong product entirely.
+  if (item.type === 'business-card-qr') return {
+    name: item.name,
+    description: item.description,
+    path: item.path,
+    action: 'Edit Business Card',
+  }
+  if (item.type === 'qr') return {
+    name: item.name,
+    description: item.description,
+    path: item.qrId ? `/qr-studio/codes?qrId=${item.qrId}` : item.path,
+    action: 'View QR Code',
+  }
   return { name: item.name, description: item.description, path: item.path, action: 'Edit Digital Card' }
 }
 
 export function CartPage() {
   const navigate = useNavigate()
   const { items, removeItem } = useCart()
-  const total = items.reduce((sum, item) => sum + Number(item.amount || 499), 0)
+  const total = cartTotal(items)
 
   return (
     <main className="studio studio-workspace">
@@ -67,7 +83,7 @@ export function CartPage() {
                       <span>{details.description}</span>
                       <small>{details.action} &rarr;</small>
                     </button>
-                    <span className="cart-page-price">{formatPrice(item)}</span>
+                    <span className="cart-page-price">{formatCartAmount(item.amount)}</span>
                     <button className="text-button card-delete-btn" type="button" onClick={() => removeItem(item.id)}>
                       Remove
                     </button>

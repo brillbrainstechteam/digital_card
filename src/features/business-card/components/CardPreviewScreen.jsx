@@ -96,7 +96,6 @@ export function CardPreviewScreen({ card, onEdit, onClose }) {
       path: `/business-card/${cardId}`,
       name: title || 'Business Card',
       description: 'Personalized print-ready Business Card',
-      price: `INR ${BUSINESS_CARD_PRICE}`,
       amount: BUSINESS_CARD_PRICE,
       publishCardId: cardId,
     })

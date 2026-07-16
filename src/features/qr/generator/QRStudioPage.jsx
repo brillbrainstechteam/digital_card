@@ -33,7 +33,11 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
   const [destinationFields, setDestinationFields] = useState(initialDestination?.fields || { url: '' })
   const [publishing, setPublishing] = useState(false)
   const [showAuth, setShowAuth] = useState(false)
-  const { addItem } = useCart()
+  const { addItem, removeItem } = useCart()
+  // The cart line for this studio session's QR. Each publish mints a fresh
+  // QR record (new id), so without tracking the previous one every re-publish
+  // stacked another line for what is really the same, re-edited QR.
+  const [publishedQrId, setPublishedQrId] = useState(null)
   const toast = useToast()
   const { isAuthenticated } = useAuth()
 
@@ -57,6 +61,10 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
     setPublishing(true)
     try {
       const qr = await publishStandaloneQr(liveSettings)
+      // Drop the previous, superseded line first — only the QR the user
+      // actually finalized should be in the cart, not one per edit.
+      if (publishedQrId && publishedQrId !== qr.id) removeItem(`qr-${publishedQrId}`)
+      setPublishedQrId(qr.id)
       addItem({
         id: `qr-${qr.id}`,
         type: 'qr',
@@ -65,7 +73,6 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
         name: `Custom QR Code — ${DESTINATION_TYPES.find((d) => d.key === destinationType)?.label ?? 'QR'}`,
         description: 'Branded QR code generated in QR Studio',
         amount: 299,
-        price: '₹X',
       })
       toast.success('QR code added to cart. Complete payment to publish it.')
     } catch (err) {

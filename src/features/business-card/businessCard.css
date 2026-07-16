@@ -1133,6 +1133,116 @@
   transition: background 0.12s;
 }
 .bce-qr-dest-option:hover { background: #f4f2ed; }
+
+/* Marks a destination as a paid upgrade, so the price is visible before the
+   confirm dialog rather than being a surprise. */
+.bce-qr-dest-badge {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+/* QR design editor dialog — wider than the plain confirm-dialog because it
+   hosts the full two-column QRCustomizationPanel. */
+.bce-qr-editor-dialog {
+  position: relative;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+  width: min(94vw, 940px);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 26px;
+}
+.bce-qr-editor-dialog h2 {
+  color: var(--navy, #112d37);
+  font-size: 22px;
+  letter-spacing: -0.03em;
+  margin-bottom: 4px;
+}
+.bce-qr-editor-sub {
+  color: var(--muted, #657174);
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+.bce-qr-editor-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: #f4f2ed;
+  color: var(--navy, #112d37);
+  cursor: pointer;
+}
+.bce-qr-editor-close:hover { background: #edeae4; }
+.bce-qr-editor-cols {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.bce-qr-editor-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.bce-qr-editor-empty {
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1.5px dashed var(--line, #e5e3dd);
+  background: #f4f2ed;
+  color: var(--muted, #657174);
+  font-size: 12px;
+}
+.bce-qr-editor-controls { min-width: 0; }
+.bce-qr-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line, #e5e3dd);
+}
+@media (max-width: 780px) {
+  .bce-qr-editor-cols { grid-template-columns: 1fr; }
+}
+
+/* Cart review lines inside the editor's "Added to your cart" dialog. */
+.bce-cart-lines {
+  margin: 14px 0 4px;
+  border-top: 1px solid var(--line, #e5e3dd);
+}
+.bce-cart-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  font-size: 13px;
+  color: var(--navy, #112d37);
+  border-bottom: 1px solid var(--line, #e5e3dd);
+}
+.bce-cart-line--total {
+  border-bottom: none;
+  font-weight: 800;
+}
 .bce-qr-dest-option input[type="radio"] { accent-color: var(--navy, #112d37); cursor: pointer; }
 .bce-qr-target-row { display: flex; gap: 6px; margin-bottom: 12px; }
 .bce-qr-target-btn {

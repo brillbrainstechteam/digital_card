@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from './PageHeader'
-import { useCart } from '../context/CartContext'
+import { useCart, formatCartAmount, cartTotal } from '../context/CartContext'
 import { useToast } from '../context/ToastContext'
 import { fetchCard, updateCard } from '../features/digital-card/services/api'
 import { activateQrPurchase } from '../features/qr/services/qrApi'
@@ -38,7 +38,7 @@ export function CheckoutPage() {
   const { items, clear } = useCart()
   const [paying, setPaying] = useState(false)
   const [paid, setPaid] = useState(false)
-  const total = items.reduce((sum, item) => sum + Number(item.amount || 499), 0)
+  const total = cartTotal(items)
 
   async function handlePayment(event) {
     event.preventDefault()
@@ -117,7 +117,7 @@ export function CheckoutPage() {
               {items.map((item) => (
                 <div className="checkout-order-row" key={item.id}>
                   <span>{item.name}</span>
-                  <strong>INR {Number(item.amount || 499).toLocaleString('en-IN')}</strong>
+                  <strong>{formatCartAmount(item.amount)}</strong>
                 </div>
               ))}
               <div className="checkout-order-total"><span>Total</span><strong>INR {total.toLocaleString('en-IN')}</strong></div>

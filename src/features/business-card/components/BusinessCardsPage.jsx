@@ -296,7 +296,6 @@ export function BusinessCardsPage() {
       path: `/business-card/${card.id}`,
       name: displayTitle(card),
       description: 'Personalized print-ready Business Card',
-      price: `INR ${BUSINESS_CARD_PRICE}`,
       amount: BUSINESS_CARD_PRICE,
       publishCardId: card.id,
     })

@@ -74,6 +74,7 @@ export function BusinessCardFlow() {
             setup: bc.setup,
             savedFront: bc.frontJson || null,
             savedBack: bc.backJson || null,
+            savedQrUpgrade: bc.qrUpgrade || null,
           })
           setStep('editor')
         } else {

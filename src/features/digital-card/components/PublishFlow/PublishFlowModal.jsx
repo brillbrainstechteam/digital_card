@@ -206,7 +206,6 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
         name: cardLabel,
         parentCardName: cardLabel,
         description: 'Digital business card pending payment confirmation',
-        price: 'INR 499',
         amount: 499,
         publishCardId: cardId,
       })
@@ -225,7 +224,6 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
           name: `${cardLabel} - Business Card`,
           parentCardName: cardLabel,
           description: 'Personalized print-ready Business Card',
-          price: 'INR 799',
           amount: 799,
           publishCardId: id,
         })
@@ -239,7 +237,6 @@ export function PublishFlowModal({ open, onClose, profile, cardId, existingQr, o
           name: `${cardLabel} - QR Code`,
           parentCardName: cardLabel,
           description: 'Branded QR code linked to your Digital Card',
-          price: 'INR 299',
           amount: 299,
           qrId: savedQrId,
         })

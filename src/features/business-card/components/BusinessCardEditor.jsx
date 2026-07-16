@@ -16,7 +16,12 @@ import { TEMPLATES, getPalette, getCardDimensions, getTemplate, CUSTOM_FABRIC_PR
 import { normalizeLegacyOrigins, renderFaceThumbnail, waitForFonts } from '../canvasHelpers'
 import { FONT_OPTIONS } from '../../digital-card/fontOptions'
 import { CardPreviewScreen } from './CardPreviewScreen'
-import { QRCode, createDefaultQrSettings, buildDestinationValue, renderQrToDataUrl } from '../../qr'
+import {
+  QRCode, QRWarnings, QRCustomizationPanel,
+  createDefaultQrSettings, buildDestinationValue, renderQrToDataUrl,
+} from '../../qr'
+import { useCart, formatCartAmount, cartTotal } from '../../../context/CartContext'
+import { useNavigate } from 'react-router-dom'
 
 // ── Solid palette for background ─────────────────────────────
 const BG_COLORS = [
@@ -122,16 +127,27 @@ const CUSTOM_ELEMENT_LABELS = {
   motifIcon:    'Motif Icon',
 }
 
-// What the QR code should link to once the QR Generation module is wired
-// in — UI/state only for now, see qrDestination/qrCustomLink and the TODO
-// in addQRPlaceholder(). 'saveContact' is the sensible default for a
-// physical business card (scan → save the person to your phone).
+// What the QR code links to. 'saveContact' is the free default and the
+// sensible one for a physical card (scan → save the person to your phone);
+// every other destination is a paid upgrade (see QR_UPGRADE_PRICE), so
+// picking one routes through the confirm → cart flow rather than changing
+// the canvas directly.
+//
+// 'digitalCard' is deliberately absent: it needs the linked Digital Card's
+// public slug to build a real URL, and the Business Card editor has no
+// digital card reference to resolve one from. Listing it would mean
+// silently encoding something other than what the label promises.
 const QR_DESTINATIONS = [
-  { key: 'saveContact', label: 'Save Contact' },
-  { key: 'digitalCard',  label: 'Digital Card' },
-  { key: 'website',      label: 'Website' },
-  { key: 'customLink',   label: 'Custom Link' },
+  { key: 'saveContact', label: 'Save Contact', paid: false },
+  { key: 'website',     label: 'Website',      paid: true },
+  { key: 'customLink',  label: 'Custom Link',  paid: true },
 ]
+
+const QR_UPGRADE_PRICE = 299
+const BUSINESS_CARD_PRICE = 799
+
+const isPaidDestination = (key) => !!QR_DESTINATIONS.find((d) => d.key === key)?.paid
+const destinationLabel = (key) => QR_DESTINATIONS.find((d) => d.key === key)?.label || key
 
 const STICKER_ICONS = [
   { key: 'star', Icon: Star },
@@ -149,8 +165,12 @@ const STICKER_ICONS = [
 ]
 
 export function BusinessCardEditor({ selection, profile, cardId, onBack, backLabel = '← Gallery', onSave, onExit, onDiscardNew }) {
-  const { templateId, setup, savedFront, savedBack } = selection
+  const { templateId, setup, savedFront, savedBack, savedQrUpgrade } = selection
   const { w, h } = getCardDimensions(setup.size, setup.orientation)
+  const cart = useCart()
+  const navigate = useNavigate()
+  // Declared before any state that seeds itself from it (e.g. qrSettings).
+  const palette = getPalette(profile)
 
   const canvasElRef = useRef(null)
   const canvasAreaRef = useRef(null)
@@ -208,8 +228,36 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, backLab
   // QR destination — UI/state only for now. TODO: once the QR generation
   // module exists, pass { qrDestination, qrCustomLink } into it to produce
   // the real encoded QR image in place of the placeholder box.
-  const [qrDestination, setQrDestination] = useState('saveContact') // 'saveContact' | 'digitalCard' | 'website' | 'customLink'
-  const [qrCustomLink, setQrCustomLink]   = useState('')
+  // Restored from the saved card so a previously-chosen destination survives
+  // reopening the editor. Defaults to the free Save Contact.
+  const [qrDestination, setQrDestination] = useState(savedQrUpgrade?.destination || 'saveContact') // 'saveContact' | 'website' | 'customLink'
+  // A paid destination the user picked, awaiting confirmation. Holding it
+  // here (rather than applying it straight to qrDestination) is what lets
+  // Cancel revert cleanly — the radio group stays on the old value until
+  // the upgrade is actually confirmed.
+  const [pendingQrDest, setPendingQrDest] = useState(null)
+  const [showQrCart, setShowQrCart] = useState(false)
+  const [showQrEditor, setShowQrEditor] = useState(false)
+  // Styling (colors/gradient/logo/error-correction) for every QR this editor
+  // draws — the single source the panel preview, the customization modal and
+  // canvas generation all read, so they can never drift apart. Seeded from
+  // the card's own extracted palette so a new QR already looks on-brand.
+  const [qrSettings, setQrSettings] = useState(() => {
+    const base = createDefaultQrSettings()
+    return {
+      ...base,
+      ...(savedQrUpgrade?.settings || {}),
+      foreground: savedQrUpgrade?.settings?.foreground || palette.primary || base.foreground,
+      background: savedQrUpgrade?.settings?.background || base.background,
+      logo: savedQrUpgrade?.settings?.logo ?? profile.logo ?? null,
+    }
+  })
+  // addQRToCanvas is reachable from initCanvas, a useCallback with deps [] —
+  // it would capture the first render's qrSettings forever. The ref keeps
+  // every QR-drawing path reading the live styling.
+  const qrSettingsRef = useRef(qrSettings)
+  useEffect(() => { qrSettingsRef.current = qrSettings }, [qrSettings])
+  const [qrCustomLink, setQrCustomLink]   = useState(savedQrUpgrade?.customLink || '')
   const [addMenuFace, setAddMenuFace]   = useState(null) // 'front' | 'back' | null — which section's "+ Add Element" popover is open
   const [iconGridFace, setIconGridFace] = useState(null) // 'front' | 'back' | null — icon/sticker sub-picker
   const [selectedObj, setSelectedObj]   = useState(null)
@@ -251,8 +299,6 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, backLab
   const [commonProps, setCommonProps] = useState({
     left: 0, top: 0, width: 0, height: 0, angle: 0, opacity: 1,
   })
-
-  const palette = getPalette(profile)
 
   // ── Canvas init ────────────────────────────────────────────
   const initCanvas = useCallback(async () => {
@@ -426,7 +472,7 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, backLab
     try {
       const qrValue = buildQrValue()
       const dataUrl = await renderQrToDataUrl({
-        ...createDefaultQrSettings(),
+        ...qrSettingsRef.current,
         data: qrValue,
         size: 240,
         margin: 8,
@@ -1365,18 +1411,14 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, backLab
   // that logic here). 'saveContact' is the default: scanning it saves the
   // person straight to the visitor's phone contacts, which is what most
   // people actually want from a physical business card's QR.
-  function buildQrValue() {
-    if (qrDestination === 'customLink') {
+  // Takes the destination explicitly so callers can build a value for a key
+  // they've only just chosen, without waiting for the state re-render.
+  function buildQrValueFor(destKey) {
+    if (destKey === 'customLink') {
       return buildDestinationValue('custom', { value: qrCustomLink })
     }
-    if (qrDestination === 'website') {
+    if (destKey === 'website') {
       return buildDestinationValue('website', { url: profile.website || '' })
-    }
-    if (qrDestination === 'digitalCard') {
-      // No linked Digital Card URL is available from within the Business
-      // Card editor — fall back to the website field (or the custom link,
-      // if one was entered) rather than fabricating a URL.
-      return buildDestinationValue('digitalCard', { url: qrCustomLink || profile.website || '' })
     }
     return buildDestinationValue('saveContact', {
       fullName: profile.personName || '',
@@ -1387,6 +1429,12 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, backLab
       website: profile.website || '',
       address: profile.address || '',
     })
+  }
+
+  // Current selection's encoded value — what the panel preview and any
+  // newly-added QR use.
+  function buildQrValue() {
+    return buildQrValueFor(qrDestination)
   }
 
   // Memoized so the QR panel's live preview only rebuilds its qr-code-styling
@@ -1400,8 +1448,8 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, backLab
     [qrDestination, qrCustomLink, profile],
   )
   const panelQrSettings = useMemo(
-    () => ({ ...createDefaultQrSettings(), data: panelQrValue, size: 96 }),
-    [panelQrValue],
+    () => ({ ...qrSettings, data: panelQrValue, size: 96 }),
+    [panelQrValue, qrSettings],
   )
 
   async function addQRPlaceholder(face = activeFace, cv2 = null) {
@@ -1427,7 +1475,7 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, backLab
     if (qrValue) {
       try {
         const dataUrl = await renderQrToDataUrl({
-          ...createDefaultQrSettings(),
+          ...qrSettingsRef.current,
           data: qrValue,
           size: 240,
           margin: 8,
@@ -1468,6 +1516,106 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, backLab
     canvas.setActiveObject(group)
     canvas.renderAll()
     snapshot(face, canvas)
+  }
+
+  // ── QR destination changes ─────────────────────────────────
+  // Save Contact is free and applies straight away. Every other destination
+  // is a paid upgrade, so it's held in pendingQrDest until confirmed and
+  // never touches the canvas until the upgrade is actually purchased.
+  function requestQrDestination(nextKey) {
+    if (nextKey === qrDestination) return
+    if (!isPaidDestination(nextKey)) {
+      setQrDestination(nextKey)
+      // Back on the free option, so the upgrade is no longer wanted — pull
+      // it from the cart rather than leaving the user to be charged for a
+      // destination their card doesn't use. The business card line item
+      // stays: it's a separate product they may still want to buy.
+      if (cardId) cart.removeItem(`${cardId}-qrUpgrade`)
+      regenerateQrOnAllFaces(nextKey)
+      return
+    }
+    setPendingQrDest(nextKey)
+  }
+
+  // Done — push the new styling onto any QR already placed on a face, then
+  // return to the editor. Destination is unchanged here; only the design is.
+  async function applyQrDesign() {
+    setShowQrEditor(false)
+    await regenerateQrOnAllFaces(qrDestination)
+  }
+
+  // Cancel — the radio group renders off qrDestination, which was never
+  // changed, so simply dropping the pending value reverts the selection.
+  function cancelQrDestination() {
+    setPendingQrDest(null)
+  }
+
+  function confirmQrDestination() {
+    const dest = pendingQrDest
+    if (!dest) return
+    setQrDestination(dest)
+    setPendingQrDest(null)
+    // Both items go in together, per the upgrade being useless without the
+    // card itself. hasItem keys match the Business Cards list / preview
+    // screen so nothing double-charges.
+    if (cardId) {
+      cart.addItem({
+        id: `${cardId}-businessCard`,
+        type: 'business-card',
+        path: `/business-card/${cardId}`,
+        name: getTemplate(templateId)?.label || 'Business Card',
+        description: 'Personalized print-ready Business Card',
+        amount: BUSINESS_CARD_PRICE,
+        publishCardId: cardId,
+      })
+      // Exactly one QR line per card: the id is stable across destinations,
+      // so re-confirming a different one replaces the previous line rather
+      // than stacking a second QR the user never asked to buy twice.
+      cart.addItem({
+        id: `${cardId}-qrUpgrade`,
+        type: 'business-card-qr',
+        path: `/business-card/${cardId}`,
+        name: `QR Upgrade — ${destinationLabel(dest)}`,
+        description: `QR code linking to your ${destinationLabel(dest).toLowerCase()}`,
+        amount: QR_UPGRADE_PRICE,
+        publishCardId: cardId,
+      })
+    }
+    setShowQrCart(true)
+  }
+
+  // Rebuilds the QR on every face that already has one, in place. Finds the
+  // existing object and swaps it at the same position/size rather than
+  // adding a second QR on top of the first.
+  async function regenerateQrOnAllFaces(destKey) {
+    const value = buildQrValueFor(destKey)
+    if (!value) return
+    for (const face of ['front', 'back']) {
+      if (!faceHasQR(face)) continue
+      const canvas = await resolveFaceCanvas(face)
+      if (!canvas) continue
+      const existing = canvas.getObjects().find(isQRPlaceholderObj)
+      if (!existing) continue
+      try {
+        const dataUrl = await renderQrToDataUrl({
+          ...qrSettingsRef.current, data: value, size: 240, margin: 8,
+        })
+        const img = await FabricImage.fromURL(dataUrl)
+        // Match the outgoing QR's footprint exactly so a destination change
+        // never nudges the card's layout.
+        img.set({ left: existing.left, top: existing.top, originX: 'left', originY: 'top' })
+        img.scaleToWidth(existing.getScaledWidth())
+        img.elementType = 'qrCode'
+        canvas.remove(existing)
+        canvas.add(img)
+        canvas.renderAll()
+        snapshot(face, canvas)
+      } catch {
+        // Leave the existing QR untouched rather than removing it and
+        // failing to draw a replacement.
+      }
+    }
+    markDirty()
   }
 
   // Per-face existence check (read-only — never switches the active face,
@@ -1609,6 +1757,18 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, backLab
       frontJson: finalFront,
       backJson:  finalBack,
       frontImg,
+      // The chosen QR destination has to outlive the editor session: it's
+      // what checkout charges for and what any post-purchase regeneration
+      // would read. Without this the selection is lost on exit.
+      qrUpgrade: {
+        destination: qrDestination,
+        customLink: qrCustomLink,
+        // Styling is persisted alongside the destination so a customized QR
+        // survives closing the editor — without it, reopening would silently
+        // reset the design to the palette defaults.
+        settings: qrSettings,
+        purchased: !!savedQrUpgrade?.purchased,
+      },
     })
     // Only after onSave resolves — a failed save throws, and Reset must not
     // start pointing at a state that never reached the DB.
@@ -2051,18 +2211,31 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, backLab
                       : <QrCode size={26} color="var(--muted)" />}
                   </div>
 
+                  {/* Opens the full customization modal (the same
+                      QRCustomizationPanel the publish flow and QR Studio
+                      use) rather than duplicating those controls here. */}
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    style={{ width: '100%', fontSize: 13, marginBottom: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                    onClick={() => setShowQrEditor(true)}
+                  >
+                    <Sliders size={13} /> Edit QR Design
+                  </button>
+
                   <p className="bce-qr-section-label">Links to</p>
                   <div className="bce-qr-dest-options">
-                    {QR_DESTINATIONS.map(({ key, label }) => (
+                    {QR_DESTINATIONS.map(({ key, label, paid }) => (
                       <label key={key} className="bce-qr-dest-option">
                         <input
                           type="radio"
                           name="qrDestination"
                           value={key}
                           checked={qrDestination === key}
-                          onChange={() => setQrDestination(key)}
+                          onChange={() => requestQrDestination(key)}
                         />
                         <span>{label}</span>
+                        {paid && <span className="bce-qr-dest-badge">₹{QR_UPGRADE_PRICE}</span>}
                       </label>
                     ))}
                   </div>
@@ -2081,7 +2254,7 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, backLab
                   <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, margin: '10px 0 14px' }}>
                     {qrDestination === 'saveContact'
                       ? 'Scanning this saves your contact details straight to the visitor’s phone.'
-                      : 'QR code will link to your ' + (qrDestination === 'website' ? 'website' : qrDestination === 'digitalCard' ? 'digital card' : 'custom link') + '.'}
+                      : `QR code will link to your ${destinationLabel(qrDestination).toLowerCase()}.`}
                   </p>
 
                   <button
@@ -2705,6 +2878,124 @@ export function BusinessCardEditor({ selection, profile, cardId, onBack, backLab
           <button type="button" className="bce-zoom-btn" onClick={zoomIn}>+</button>
         </div>
       </div>
+
+      {/* QR design editor — composes the same reusable pieces from
+          features/qr that the publish flow's QrStep uses (QRCode preview +
+          QRWarnings + QRCustomizationPanel), so presets/colors/gradient/
+          logo/error-correction behave identically everywhere. Changes flow
+          into qrSettings, which every QR-drawing path reads. */}
+      {showQrEditor && (
+        <div className="confirm-overlay" onClick={() => setShowQrEditor(false)}>
+          <div className="bce-qr-editor-dialog" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="bce-qr-editor-close"
+              aria-label="Close"
+              onClick={() => setShowQrEditor(false)}
+            >
+              <X size={16} />
+            </button>
+            <h2>Edit your QR code</h2>
+            <p className="bce-qr-editor-sub">
+              Links to {destinationLabel(qrDestination).toLowerCase()}. Change that under “Links to” in the QR panel.
+            </p>
+
+            <div className="bce-qr-editor-cols">
+              <div className="bce-qr-editor-preview">
+                {panelQrValue
+                  ? <QRCode settings={{ ...qrSettings, data: panelQrValue }} size={220} />
+                  : <div className="bce-qr-editor-empty">Add your details to preview the QR</div>}
+                <QRWarnings settings={{ ...qrSettings, data: panelQrValue }} />
+              </div>
+              <div className="bce-qr-editor-controls">
+                <QRCustomizationPanel
+                  settings={qrSettings}
+                  onChange={setQrSettings}
+                  brandTheme={palette}
+                />
+              </div>
+            </div>
+
+            {/* Placing the QR is part of this flow, so the Add/Remove
+                controls live here too — applying a design and putting it on
+                a face shouldn't need two separate trips. */}
+            <div className="bce-qr-editor-actions">
+              <button
+                type="button"
+                className={faceHasQR('front') ? 'secondary-button' : 'primary-button'}
+                onClick={() => toggleQRForFace('front')}
+              >
+                {faceHasQR('front') ? 'Remove from Front' : 'Add to Front'}
+              </button>
+              <button
+                type="button"
+                className={faceHasQR('back') ? 'secondary-button' : 'primary-button'}
+                onClick={() => toggleQRForFace('back')}
+              >
+                {faceHasQR('back') ? 'Remove from Back' : 'Add to Back'}
+              </button>
+              <div style={{ flex: 1 }} />
+              <button type="button" className="primary-button" onClick={applyQrDesign}>
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 1 — confirm a paid QR destination change before anything is
+          added to the cart or drawn on the canvas. */}
+      {pendingQrDest && (
+        <div className="confirm-overlay" onClick={cancelQrDestination}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <h2>Replace your QR code?</h2>
+            <p>
+              This will replace the current QR on your card with a new one
+              linking to {destinationLabel(pendingQrDest).toLowerCase()}.
+            </p>
+            <div className="confirm-actions">
+              <button type="button" className="secondary-button" onClick={cancelQrDestination}>
+                Cancel
+              </button>
+              <button type="button" className="primary-button" onClick={confirmQrDestination}>
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2 — review what's in the cart without leaving the canvas.
+          Checkout itself stays where it already lives (/cart → CheckoutPage);
+          this only reads CartContext, it never takes payment. */}
+      {showQrCart && (
+        <div className="confirm-overlay" onClick={() => setShowQrCart(false)}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <h2>Added to your cart</h2>
+            <p>Your QR upgrade is applied once you complete checkout.</p>
+            <div className="bce-cart-lines">
+              {cart.items.map((item) => (
+                <div key={item.id} className="bce-cart-line">
+                  <span>{item.name}</span>
+                  <strong>{formatCartAmount(item.amount)}</strong>
+                </div>
+              ))}
+              <div className="bce-cart-line bce-cart-line--total">
+                <span>Total</span>
+                <strong>{formatCartAmount(cartTotal(cart.items))}</strong>
+              </div>
+            </div>
+            <div className="confirm-actions">
+              <button type="button" className="secondary-button" onClick={() => setShowQrCart(false)}>
+                Keep Editing
+              </button>
+              <button type="button" className="primary-button" onClick={() => requestExit(() => navigate('/cart'))}>
+                Go to Checkout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {exitDialog && (
         <div className="bc-confirm-overlay">

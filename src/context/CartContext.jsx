@@ -3,6 +3,24 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 const CartContext = createContext(null)
 const STORAGE_KEY = 'bb_cart_items'
 
+/**
+ * The one way a cart line's price is rendered. `amount` (a number) is the
+ * single source of truth — items used to also carry a pre-formatted `price`
+ * string, which drifted out of sync (QR Studio shipped a literal '₹X'
+ * placeholder, and different surfaces disagreed on the same item's price).
+ *
+ * Falls back to 0, not to a default price: a missing amount is a bug, and
+ * showing 0 surfaces it, whereas silently substituting some other product's
+ * price mischarges the user.
+ */
+export function formatCartAmount(amount) {
+  return `INR ${Number(amount || 0).toLocaleString('en-IN')}`
+}
+
+export function cartTotal(items) {
+  return items.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+}
+
 function loadInitial() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
