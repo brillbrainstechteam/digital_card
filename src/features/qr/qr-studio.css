@@ -1,0 +1,541 @@
+/* QR Studio — styles scoped to the features/qr module. Reuses the host
+   app's existing design tokens (--navy, --muted, --line) so QR Studio,
+   Digital Cards, and any future product stay visually consistent without
+   this module importing anything from the Digital Card feature. */
+
+.qr-destination-picker,
+.qr-customization-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.qr-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.qr-field select,
+.qr-field input[type='text'],
+.qr-field input[type='email'],
+.qr-field input[type='tel'],
+.qr-field input[type='password'] {
+  background: #fbfaf8;
+  border: 1px solid #e8e5df;
+  border-radius: 10px;
+  color: var(--navy);
+  font-size: 13px;
+  padding: 10px 12px;
+}
+
+.qr-field-label {
+  color: #687679;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.qr-field--inline {
+  align-items: center;
+  flex-direction: row;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.qr-field--inline input[type='color'] {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  height: 32px;
+  padding: 2px;
+  width: 48px;
+}
+
+.qr-field--checkbox {
+  align-items: center;
+  flex-direction: row;
+  gap: 8px;
+}
+
+.qr-section {
+  border-top: 1px solid #f2efe9;
+  padding-top: 14px;
+}
+
+.qr-section:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.qr-section-title {
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0 0 10px;
+}
+
+.qr-preset-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.qr-preset-btn {
+  background: #f7f5f0;
+  border: 1px solid #e8e5df;
+  border-radius: 10px;
+  color: var(--navy);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 9px 10px;
+}
+
+.qr-preset-btn:hover:not(:disabled) {
+  background: #efece5;
+}
+
+.qr-preset-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.qr-apply-brand-btn {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.qr-gradient-type-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.qr-gradient-type-btn {
+  background: #f7f5f0;
+  border: 1px solid #e8e5df;
+  border-radius: 999px;
+  color: var(--navy);
+  cursor: pointer;
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 10px;
+}
+
+.qr-gradient-type-btn.active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+
+.qr-logo-preview-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.qr-logo-thumb {
+  background: #f4f2ed;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  height: 44px;
+  object-fit: contain;
+  padding: 4px;
+  width: 44px;
+}
+
+.qr-upload-btn {
+  background: #f7f5f0;
+  border: 1px dashed #cfcabf;
+  border-radius: 10px;
+  color: var(--navy);
+  cursor: pointer;
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 14px;
+  text-align: center;
+  width: 100%;
+}
+
+.qr-preview-canvas {
+  align-items: center;
+  background: #fbfaf8;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  display: flex;
+  justify-content: center;
+  padding: 14px;
+}
+
+.qr-studio-preview {
+  gap: 10px;
+  height: calc(100vh - 76px);
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 14px;
+  padding-top: 14px;
+}
+
+.qr-studio-preview .preview-toolbar {
+  min-height: 36px;
+}
+
+.qr-studio-preview .qr-preview-canvas {
+  flex: 0 0 auto;
+}
+
+.qr-studio-preview .qr-warnings {
+  margin-top: 4px;
+  max-height: 90px;
+  overflow: auto;
+}
+
+.qr-studio-preview .qr-publish-btn {
+  margin-top: 4px;
+}
+
+.qr-code-surface {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
+
+.qr-code-surface svg,
+.qr-code-surface canvas {
+  height: 100% !important;
+  max-width: 100%;
+  width: 100% !important;
+}
+
+.qr-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.qr-warning-item {
+  align-items: flex-start;
+  background: #fff7e6;
+  border: 1px solid #f2d896;
+  border-radius: 10px;
+  color: #7a5b00;
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.qr-warning-icon {
+  flex: none;
+}
+
+.qr-palette-swatch {
+  border-radius: 50%;
+  display: inline-block;
+  flex: none;
+  height: 22px;
+  width: 22px;
+}
+
+.qr-extracted-palette {
+  margin-bottom: 8px;
+}
+
+.qr-publish-btn {
+  margin-top: 16px;
+  width: 100%;
+}
+
+.qr-download-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.qr-download-row button {
+  flex: 1;
+  min-width: 120px;
+}
+
+/* Generic "Add/Edit QR Code" integration panel — embedded by any product
+   editor (Digital Card today, Business Card later) via <QrIntegrationPanel>. */
+.qr-integration-dialog {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.2);
+  max-height: 88vh;
+  max-width: 780px;
+  overflow-y: auto;
+  padding: 28px;
+  width: 100%;
+}
+
+.qr-integration-dialog h2 {
+  color: var(--navy);
+  margin-bottom: 6px;
+}
+
+.qr-integration-dialog > p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.qr-integration-close {
+  margin-top: 16px;
+  width: 100%;
+}
+
+.qr-integration-columns {
+  display: grid;
+  gap: 28px;
+  grid-template-columns: minmax(280px, 1fr) minmax(220px, 260px);
+}
+
+.qr-integration-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.qr-integration-preview {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+}
+
+.qr-integration-actions {
+  border-top: 1px solid #efece5;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 20px;
+}
+
+@media (max-width: 720px) {
+  .qr-integration-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .qr-integration-preview {
+    position: static;
+  }
+}
+
+/* ─── My QR Codes list (QR Studio sidebar) ─────────────────────────── */
+
+.qr-codes-list-item {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.qr-codes-list-item--focused {
+  border-color: var(--accent, #b87424);
+  box-shadow: 0 0 0 3px rgb(184 116 36 / 14%);
+}
+
+.qr-codes-list-thumb {
+  align-items: center;
+  background: #fbfaf8;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  flex: none;
+  height: 64px;
+  justify-content: center;
+  width: 64px;
+}
+
+.qr-management-panel {
+  background: #fbfaf8;
+  border-top: 1px solid var(--line);
+  flex: 0 0 100%;
+  margin-top: 4px;
+  padding: 18px;
+}
+
+.qr-management-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.qr-management-heading h4,
+.qr-analytics-detail h5 {
+  color: var(--navy);
+  margin: 0 0 4px;
+}
+
+.qr-management-heading p,
+.qr-device-list p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.qr-save-destination {
+  margin-top: 16px;
+}
+
+.qr-download-menu {
+  position: relative;
+}
+
+.qr-download-options {
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 24px rgb(15 46 55 / 14%);
+  display: grid;
+  min-width: 110px;
+  padding: 5px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+}
+
+.qr-download-options button {
+  background: transparent;
+  border: 0;
+  color: var(--navy);
+  cursor: pointer;
+  font: inherit;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.qr-download-options button:hover {
+  background: #f5f3ef;
+}
+
+.qr-analytics-summary {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 20px;
+}
+
+.qr-analytics-summary > div {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.qr-analytics-summary span,
+.qr-analytics-summary strong {
+  display: block;
+}
+
+.qr-analytics-summary span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.qr-analytics-summary strong {
+  color: var(--navy);
+  font-size: 24px;
+  margin-top: 5px;
+}
+
+.qr-daily-chart {
+  align-items: end;
+  background: #fff;
+  border: 1px solid var(--line);
+  display: flex;
+  gap: 3px;
+  height: 120px;
+  margin: 10px 0 20px;
+  padding: 10px;
+}
+
+.qr-daily-column {
+  align-items: end;
+  display: flex;
+  flex: 1;
+  height: 100%;
+}
+
+.qr-daily-column span {
+  background: var(--accent, #b87424);
+  border-radius: 2px 2px 0 0;
+  display: block;
+  min-height: 3px;
+  width: 100%;
+}
+
+.qr-device-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  margin-top: 10px;
+}
+
+.qr-device-list > div {
+  background: #fff;
+  border: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.qr-scan-redirect {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.qr-scan-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 14px 34px rgb(15 46 55 / 10%);
+  max-width: 420px;
+  padding: 24px;
+  width: 100%;
+}
+
+.qr-analytics-page-section {
+  margin-top: 20px;
+}
+
+.qr-analytics-filter {
+  align-items: end;
+  display: flex;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.qr-analytics-filter .field {
+  margin: 0;
+  max-width: 480px;
+  width: 100%;
+}
+
+.qr-analytics-filter-status {
+  color: var(--muted);
+  font-size: 13px;
+  padding-bottom: 11px;
+}
+
+.qr-daily-chart--page {
+  height: 180px;
+}
+
+.qr-device-list--page {
+  margin-top: 12px;
+}

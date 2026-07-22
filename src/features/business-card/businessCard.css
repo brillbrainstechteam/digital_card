@@ -1,0 +1,1875 @@
+/* ════════════════════════════════════════════════════════
+   Business Card Module  –  businessCard.css
+   Uses existing CSS variables: --navy, --shell, --line, --muted
+   Never modifies any Digital Card styles.
+   ════════════════════════════════════════════════════════ */
+
+/* ── Shared fade/slide animations ─────────────────────── */
+@keyframes bcFadeIn   { from { opacity:0 }             to { opacity:1 } }
+@keyframes bcSlideUp  { from { transform:translateY(14px); opacity:0 } to { transform:translateY(0); opacity:1 } }
+
+/* ════════════════════════════════════════════════════════
+   PRODUCT SWITCHER  (inside Dashboard)
+   ════════════════════════════════════════════════════════ */
+.product-switcher-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.product-switcher {
+  display: inline-flex;
+  background: var(--line, #e5e3dd);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 2px;
+}
+
+.product-switcher-btn {
+  border: none;
+  border-radius: 9px;
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted, #657174);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  letter-spacing: -0.01em;
+}
+
+.product-switcher-btn.active {
+  background: #fff;
+  color: var(--navy, #112d37);
+  box-shadow: 0 2px 8px rgba(17,45,55,0.1);
+}
+
+/* ── BC Dashboard ─────────────────────────────────────── */
+.bc-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.bc-dash-card {
+  background: #fff;
+  border: 1.5px solid var(--line, #e5e3dd);
+  border-radius: 18px;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+}
+.bc-dash-card:hover {
+  border-color: #c5c1bb;
+  box-shadow: 0 6px 24px rgba(17,45,55,0.08);
+}
+
+.bc-dash-card-thumb {
+  position: relative;
+  height: 140px;
+  background: #f0ede8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.bc-dash-card-thumb-inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bc-dash-card-thumb img {
+  /* contain (not cover) so the full card is always visible — vertical
+     cards were getting cropped to a horizontal sliver otherwise. */
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.bc-dash-card-thumb-empty {
+  height: 140px;
+  background: #f8f7f3;
+  border-bottom: 1.5px dashed #ddd9d0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--muted, #657174);
+  font-size: 13px;
+}
+
+.bc-dash-card-body {
+  padding: 14px 16px 16px;
+}
+.bc-dash-card-body h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--navy, #112d37);
+  letter-spacing: -0.02em;
+  margin-bottom: 3px;
+}
+.bc-dash-card-body p {
+  font-size: 12px;
+  color: var(--muted, #657174);
+  margin-bottom: 12px;
+}
+.bc-dash-card-actions { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+
+/* Archive toggle floating over the card thumbnail's top-right corner.
+   Translucent so the artwork stays readable underneath, solidifying on
+   hover to confirm it's interactive. */
+.bc-thumb-archive-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--navy, #112d37);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(17, 45, 55, 0.18);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.bc-thumb-archive-btn:hover {
+  background: #fff;
+  transform: scale(1.06);
+}
+
+/* Filled cart action, pinned to the right end of the action row. */
+.bc-cart-button {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 8px;
+  background: var(--navy, #112d37);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.bc-cart-button:hover { opacity: 0.85; }
+
+.bc-dash-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin-bottom: 3px;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+}
+.bc-dash-card-title h4 { margin-bottom: 0; }
+.bc-dash-card-title svg {
+  color: var(--muted, #657174);
+  opacity: 0;
+  transition: opacity 0.12s;
+  flex-shrink: 0;
+}
+.bc-dash-card-title:hover svg { opacity: 1; }
+.bc-dash-card-title:disabled { cursor: default; }
+
+.bc-dash-card-title-input {
+  display: block;
+  width: 100%;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--navy, #112d37);
+  letter-spacing: -0.02em;
+  margin-bottom: 3px;
+  border: 1.5px solid var(--navy, #112d37);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-family: inherit;
+  outline: none;
+}
+
+/* ════════════════════════════════════════════════════════
+   SETUP DIALOG
+   ════════════════════════════════════════════════════════ */
+.bc-setup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17,45,55,0.5);
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+  animation: bcFadeIn 0.2s ease;
+}
+
+.bc-setup-dialog {
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: 0 32px 80px rgba(17,45,55,0.22);
+  max-width: 540px;
+  width: 100%;
+  padding: 36px;
+  animation: bcSlideUp 0.25s ease;
+}
+
+.bc-setup-dialog h2 {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--navy, #112d37);
+  letter-spacing: -0.04em;
+  margin-bottom: 5px;
+}
+.bc-setup-dialog .bc-dialog-sub {
+  font-size: 14px;
+  color: var(--muted, #657174);
+  margin-bottom: 28px;
+  line-height: 1.5;
+}
+
+.bc-setup-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted, #657174);
+  margin-bottom: 10px;
+}
+
+.bc-setup-section { margin-bottom: 22px; }
+
+.bc-opt-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.bc-opt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1.5px solid var(--line, #e5e3dd);
+  border-radius: 11px;
+  background: #fff;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy, #112d37);
+  cursor: pointer;
+  transition: all 0.14s;
+  font-family: inherit;
+}
+.bc-opt:hover { border-color: var(--navy, #112d37); background: #f8f7f3; }
+.bc-opt.selected { border-color: var(--navy, #112d37); background: var(--navy, #112d37); color: #fff; }
+.bc-opt-meta { display: flex; flex-direction: column; text-align: left; }
+.bc-opt-meta strong { font-size: 13px; font-weight: 700; line-height: 1.2; }
+.bc-opt-meta small { font-size: 10px; opacity: 0.65; margin-top: 1px; }
+
+.bc-toggle-list { display: flex; flex-direction: column; gap: 8px; }
+.bc-toggle-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 15px;
+  border: 1px solid var(--line, #e5e3dd);
+  border-radius: 12px;
+}
+.bc-toggle-text h4 { font-size: 14px; font-weight: 700; color: var(--navy, #112d37); margin-bottom: 2px; }
+.bc-toggle-text p  { font-size: 12px; color: var(--muted, #657174); line-height: 1.4; }
+
+.bc-switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+.bc-switch input { opacity: 0; position: absolute; width: 0; height: 0; }
+.bc-switch-track {
+  position: absolute; inset: 0;
+  background: var(--line, #e5e3dd);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.bc-switch-track::after {
+  content: '';
+  position: absolute;
+  width: 18px; height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  top: 3px; left: 3px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+}
+.bc-switch input:checked + .bc-switch-track { background: var(--navy, #112d37); }
+.bc-switch input:checked + .bc-switch-track::after { transform: translateX(20px); }
+
+.bc-setup-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line, #e5e3dd);
+}
+
+/* ════════════════════════════════════════════════════════
+   DETAILS FORM
+   ════════════════════════════════════════════════════════ */
+.bc-details-overlay {
+  min-height: 100vh;
+  background: var(--shell, #f8f7f3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.bc-details-card {
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: 0 32px 80px rgba(17,45,55,0.14);
+  max-width: 620px;
+  width: 100%;
+  padding: 40px;
+  animation: bcSlideUp 0.25s ease;
+}
+
+.bc-details-card h2 {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--navy, #112d37);
+  letter-spacing: -0.04em;
+  margin-bottom: 6px;
+}
+
+.bc-details-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 26px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line, #e5e3dd);
+}
+
+.bc-details-logo-upload {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  border: 2px dashed var(--line, #e5e3dd);
+  background: #fdfcf9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: border-color 0.14s;
+}
+.bc-details-logo-upload:hover { border-color: var(--navy, #112d37); }
+.bc-details-logo-upload img { width: 100%; height: 100%; object-fit: cover; }
+
+.bc-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.bc-details-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bc-details-field span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted, #657174);
+}
+.bc-details-field .bce-input { width: 100%; }
+
+/* ════════════════════════════════════════════════════════
+   TEMPLATE GALLERY
+   ════════════════════════════════════════════════════════ */
+.bc-gallery-root {
+  min-height: 100vh;
+  background: var(--shell, #f8f7f3);
+  display: flex;
+  flex-direction: column;
+}
+
+.bc-gallery-topbar {
+  background: rgba(248,247,243,0.92);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line, #e5e3dd);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  height: 58px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.bc-gallery-topbar h2 {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--navy, #112d37);
+  letter-spacing: -0.03em;
+}
+
+.bc-gallery-search {
+  flex: 1;
+  max-width: 320px;
+  border: 1px solid var(--line, #e5e3dd);
+  border-radius: 10px;
+  padding: 8px 13px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--navy, #112d37);
+  outline: none;
+  background: #fff;
+}
+.bc-gallery-search:focus { border-color: var(--navy, #112d37); }
+
+.bc-gallery-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - 58px);
+}
+
+/* Styled to match the app's shared Sidebar card (.editor-sidebar in
+   App.css) — white rounded card, same label/button treatment — so this
+   in-page category filter reads as visually consistent with the rest of
+   the app's navigation, without actually duplicating the app-level
+   Business Card nav (redundant on a page already inside that section). */
+.bc-gallery-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid #edeae4;
+  border-radius: 18px;
+  margin: 18px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.bc-sidebar-section { margin-bottom: 22px; }
+.bc-sidebar-title {
+  color: #99a3a5;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0 12px 8px;
+}
+.bc-sidebar-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--navy, #112d37);
+  cursor: pointer;
+  transition: all 0.12s;
+  font-family: inherit;
+}
+.bc-sidebar-btn:hover,
+.bc-sidebar-btn.active { background: #f4f2ed; }
+
+.bc-gallery-main {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.bc-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.bc-tmpl-card {
+  border: 1.5px solid var(--line, #e5e3dd);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.bc-tmpl-card:hover {
+  border-color: var(--navy, #112d37);
+  box-shadow: 0 8px 28px rgba(17,45,55,0.12);
+  transform: translateY(-2px);
+}
+.bc-tmpl-card.selected {
+  border-color: var(--navy, #112d37);
+  box-shadow: 0 0 0 3px rgba(17,45,55,0.15);
+}
+
+.bc-tmpl-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 7/4;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0ede8;
+}
+
+
+/* ── HTML/CSS back-side mockup (hover toggle + preview modal) ──── */
+.bc-back-preview {
+  position: relative;
+  width: 100%;
+  /* Height comes from the inline aspect-ratio (matches card orientation),
+     not a fixed 100% — the lightbox's preview column has no fixed height
+     for that to resolve against, unlike the grid thumbnail's own
+     aspect-ratio box. */
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 9% 8%;
+  font-family: inherit;
+}
+.bc-back-preview-accent {
+  position: absolute;
+  right: -20%;
+  bottom: -30%;
+  width: 55%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  opacity: 0.16;
+}
+.bc-back-preview-main {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+.bc-back-preview-contact { min-width: 0; }
+.bc-back-preview-name {
+  font-size: 14px;
+  font-weight: 800;
+  font-family: Georgia, serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bc-back-preview-designation {
+  font-size: 9px;
+  opacity: 0.75;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bc-back-preview-lines {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 7.5px;
+  opacity: 0.85;
+}
+.bc-back-preview-lines div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bc-back-preview-qr {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  background: #d9d9d9;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  color: #888;
+}
+/* Larger variant for the preview modal, where the card renders much bigger
+   than a grid thumbnail. */
+.bc-back-preview--lg .bc-back-preview-name { font-size: 22px; }
+.bc-back-preview--lg .bc-back-preview-designation { font-size: 13px; margin-top: 4px; }
+.bc-back-preview--lg .bc-back-preview-lines { font-size: 11px; gap: 6px; margin-top: 16px; }
+.bc-back-preview--lg .bc-back-preview-qr { width: 60px; height: 60px; font-size: 11px; border-radius: 6px; }
+.bc-tmpl-preview img {
+  /* contain, not cover — a vertical-orientation card forced to cover a
+     7:4 box was getting cropped down to a thin horizontal strip. */
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* Inline svgPreview fallback, shown until the rendered thumbnail arrives.
+   Horizontal templates carry a 7:4 viewBox that happens to match this tile,
+   but a vertical one (4:7) overflowed it and got sliced into a horizontal
+   band by overflow:hidden. Pinning the svg to the box lets its default
+   preserveAspectRatio ("xMidYMid meet") letterbox it — correct for either
+   orientation, and identical to how the <img> above behaves. */
+.bc-svg-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.bc-tmpl-preview .bc-svg-preview svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* The lightbox has no fixed aspect box, so the svg keeps its natural ratio
+   and is capped by height instead. */
+.bc-lightbox-preview .bc-svg-preview svg {
+  max-width: 100%;
+  max-height: 50vh;
+  display: block;
+}
+
+/* Editor's Templates panel tiles — same letterboxing, own aspect box. */
+.bce-tmpl-thumb {
+  aspect-ratio: 7/4;
+  background: #f0ede8;
+  line-height: 0;
+  overflow: hidden;
+}
+.bce-tmpl-thumb svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.bc-tmpl-info {
+  padding: 10px 12px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.bc-tmpl-info h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy, #112d37);
+  letter-spacing: -0.01em;
+}
+.bc-tmpl-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #f0ede8;
+  color: var(--muted, #657174);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.bc-tmpl-card.bc-tmpl-customise {
+  border-style: dashed;
+  border-color: var(--navy, #112d37);
+  background: #f8f7f3;
+}
+.bc-tmpl-card.bc-tmpl-customise:hover { background: #f0ede8; }
+.bc-tmpl-customise-preview {
+  width: 100%;
+  aspect-ratio: 7/4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--navy, #112d37);
+  background: repeating-linear-gradient(45deg, #f0ede8, #f0ede8 8px, #f8f7f3 8px, #f8f7f3 16px);
+}
+.bc-tmpl-customise-preview span {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ── Preview lightbox (larger preview before choosing) ──── */
+.bc-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17,45,55,0.55);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 250;
+  padding: 24px;
+  animation: bcFadeIn 0.2s ease;
+  /* Ultimate fallback: if the dialog is still too tall for a very short
+     viewport even after capping below, let the overlay itself scroll
+     rather than clipping the action buttons with no way to reach them. */
+  overflow-y: auto;
+}
+.bc-lightbox {
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: 0 32px 80px rgba(17,45,55,0.25);
+  max-width: 640px;
+  width: 100%;
+  padding: 32px;
+  animation: bcSlideUp 0.22s ease;
+  /* A vertical-orientation card (aspect ~1:1.75) rendered at max-width:640px
+     used to come out ~1120px tall with no cap, pushing Cancel/"Use This
+     Template" far below the fold. Capping the dialog itself and letting the
+     preview image shrink (not the buttons) keeps both actions reachable
+     regardless of card orientation. */
+  max-height: min(85vh, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  margin: auto;
+}
+/* Front + Back shown side by side needs more horizontal room than the
+   single-card lightbox. */
+.bc-lightbox--both { max-width: 880px; }
+
+.bc-lightbox-cards {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  align-items: flex-start;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  margin-bottom: 26px;
+}
+.bc-lightbox-card-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  max-width: 50%;
+}
+.bc-lightbox-card-col .bc-lightbox-preview {
+  margin-bottom: 0;
+  width: 100%;
+}
+.bc-lightbox-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted, #657174);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+.bc-lightbox h3 {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--navy, #112d37);
+  letter-spacing: -0.03em;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+.bc-lightbox-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted, #657174);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 20px;
+  display: block;
+  flex-shrink: 0;
+}
+.bc-lightbox-preview {
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 12px 36px rgba(17,45,55,0.18);
+  margin-bottom: 26px;
+  background: #f0ede8;
+  flex-shrink: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bc-lightbox-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 50vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+.bc-lightbox-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.bc-lightbox-preview-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  aspect-ratio: 7/4;
+  color: var(--muted, #657174);
+  font-size: 12px;
+}
+.bc-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2.5px solid var(--line, #e2ded4);
+  border-top-color: var(--navy, #112d37);
+  animation: bc-spin 0.7s linear infinite;
+}
+@keyframes bc-spin {
+  to { transform: rotate(360deg); }
+}
+
+.bc-gallery-footer {
+  border-top: 1px solid var(--line, #e5e3dd);
+  background: #fff;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ════════════════════════════════════════════════════════
+   BUSINESS CARD EDITOR  (Canva-like layout)
+   ════════════════════════════════════════════════════════ */
+.bce-root {
+  display: flex;
+  flex-direction: column;
+  /* AppLayout's sticky 76px header sits above this in normal flow, so a
+     literal 100vh here makes the page 76px taller than the viewport,
+     forcing the whole page to scroll — which pushes the top toolbar out of
+     view behind the sticky header before the bottom bar ever comes into
+     view. Subtracting the header's height makes the editor exactly fill
+     the remaining viewport, so no page-level scroll is ever needed and
+     both toolbars stay reachable at all times. */
+  height: calc(100vh - 76px);
+  overflow: hidden;
+  background: #ebe9e4;
+}
+
+/* Top toolbar ─────────────────────────────────────────── */
+.bce-topbar {
+  height: 50px;
+  background: #fff;
+  border-bottom: 1px solid var(--line, #e5e3dd);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 4px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.bce-topbar-sep {
+  width: 1px;
+  height: 22px;
+  background: var(--line, #e5e3dd);
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+.bce-topbar-space { flex: 1; }
+
+.bce-tb-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--navy, #112d37);
+  cursor: pointer;
+  transition: background 0.12s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.bce-tb-btn:hover:not(:disabled) { background: #f4f2ed; }
+.bce-tb-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.bce-tb-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--navy, #112d37);
+  transition: background 0.12s;
+  flex-shrink: 0;
+}
+.bce-tb-icon:hover:not(:disabled) { background: #f4f2ed; }
+.bce-tb-icon:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Body ──────────────────────────────────────────────── */
+.bce-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  /* Flex items default to min-height:auto, which lets a tall child (a
+     vertical-orientation canvas) force this row taller than the viewport,
+     pushing the bottom bar and clipping the rail/side panel under
+     .bce-root's overflow:hidden. min-height:0 lets .bce-canvas-area's own
+     overflow:auto scroll internally instead, so the toolbar, rail and side
+     panel always stay fully visible regardless of canvas size. */
+  min-height: 0;
+}
+
+/* Left icon rail ───────────────────────────────────── */
+.bce-rail {
+  width: 72px;
+  background: #fff;
+  border-right: 1px solid var(--line, #e5e3dd);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 6px;
+  gap: 2px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.bce-rail-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 60px;
+  padding: 9px 4px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted, #657174);
+  cursor: pointer;
+  transition: all 0.12s;
+  font-family: inherit;
+  line-height: 1;
+}
+.bce-rail-btn:hover { background: #f4f2ed; color: var(--navy, #112d37); }
+.bce-rail-btn.active { background: #edeae4; color: var(--navy, #112d37); }
+
+/* Left panel ────────────────────────────────────────── */
+.bce-lpanel {
+  width: 240px;
+  background: #fff;
+  border-right: 1px solid var(--line, #e5e3dd);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.bce-lpanel-head {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #f0ede8;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--navy, #112d37);
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+
+.bce-lpanel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 12px;
+}
+
+.bce-lsec { margin-bottom: 20px; }
+.bce-lsec-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted, #657174);
+  margin-bottom: 9px;
+  padding: 0 2px;
+}
+
+.bce-text-style-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line, #e5e3dd);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  margin-bottom: 6px;
+  font-family: inherit;
+  transition: all 0.12s;
+  text-align: left;
+}
+.bce-text-style-btn:hover { border-color: var(--navy, #112d37); background: #f8f7f3; }
+.bce-text-style-btn small { font-size: 10px; color: var(--muted, #657174); }
+
+.bce-tool-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.bce-tool {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 6px;
+  border: 1px solid var(--line, #e5e3dd);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--navy, #112d37);
+  cursor: pointer;
+  transition: all 0.12s;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.bce-tool:hover { border-color: var(--navy, #112d37); transform: translateY(-1px); }
+
+.bce-palette { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.bce-swatch {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  border: 2px solid rgba(255,255,255,0.5);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.14);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.bce-swatch:hover { transform: scale(1.15); box-shadow: 0 3px 8px rgba(0,0,0,0.2); }
+
+.bce-upload-zone {
+  border: 2px dashed var(--line, #e5e3dd);
+  border-radius: 12px;
+  padding: 22px 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.14s;
+  background: #fdfcf9;
+}
+.bce-upload-zone:hover { border-color: var(--navy, #112d37); background: #f8f7f3; }
+.bce-upload-zone p { font-size: 12px; color: var(--muted, #657174); margin-top: 8px; line-height: 1.5; }
+
+/* QR Code placeholder section (UI only — not wired to canvas yet) ─── */
+.bce-qr-placeholder-box {
+  width: 100%;
+  aspect-ratio: 1.6 / 1;
+  border-radius: 10px;
+  border: 1.5px dashed var(--line, #e5e3dd);
+  background: #f4f2ed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bce-qr-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted, #657174);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 14px 0 8px;
+}
+.bce-qr-dest-options { display: flex; flex-direction: column; gap: 2px; }
+.bce-qr-dest-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--navy, #112d37);
+  transition: background 0.12s;
+}
+.bce-qr-dest-option:hover { background: #f4f2ed; }
+
+/* Marks a destination as a paid upgrade, so the price is visible before the
+   confirm dialog rather than being a surprise. */
+.bce-qr-dest-badge {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+/* QR design editor dialog — wider than the plain confirm-dialog because it
+   hosts the full two-column QRCustomizationPanel. */
+.bce-qr-editor-dialog {
+  position: relative;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+  width: min(94vw, 940px);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 26px;
+}
+.bce-qr-editor-dialog h2 {
+  color: var(--navy, #112d37);
+  font-size: 22px;
+  letter-spacing: -0.03em;
+  margin-bottom: 4px;
+}
+.bce-qr-editor-sub {
+  color: var(--muted, #657174);
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+.bce-qr-editor-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: #f4f2ed;
+  color: var(--navy, #112d37);
+  cursor: pointer;
+}
+.bce-qr-editor-close:hover { background: #edeae4; }
+.bce-qr-editor-cols {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.bce-qr-editor-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.bce-qr-editor-empty {
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1.5px dashed var(--line, #e5e3dd);
+  background: #f4f2ed;
+  color: var(--muted, #657174);
+  font-size: 12px;
+}
+.bce-qr-editor-controls { min-width: 0; }
+.bce-qr-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line, #e5e3dd);
+}
+@media (max-width: 780px) {
+  .bce-qr-editor-cols { grid-template-columns: 1fr; }
+}
+
+/* Cart review lines inside the editor's "Added to your cart" dialog. */
+.bce-cart-lines {
+  margin: 14px 0 4px;
+  border-top: 1px solid var(--line, #e5e3dd);
+}
+.bce-cart-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  font-size: 13px;
+  color: var(--navy, #112d37);
+  border-bottom: 1px solid var(--line, #e5e3dd);
+}
+.bce-cart-line--total {
+  border-bottom: none;
+  font-weight: 800;
+}
+.bce-qr-dest-option input[type="radio"] { accent-color: var(--navy, #112d37); cursor: pointer; }
+.bce-qr-target-row { display: flex; gap: 6px; margin-bottom: 12px; }
+.bce-qr-target-btn {
+  flex: 1;
+  padding: 8px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--line, #e5e3dd);
+  background: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--navy, #112d37);
+  cursor: pointer;
+  transition: all 0.12s;
+  font-family: inherit;
+}
+.bce-qr-target-btn.active { border-color: var(--navy, #112d37); background: #eef1f6; }
+.bce-qr-target-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.bce-qr-coming-soon {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted, #657174);
+  text-align: center;
+}
+
+.bce-layer-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.bce-layer-item:hover  { background: #f4f2ed; }
+.bce-layer-item.active { background: #e8eef8; }
+.bce-layer-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--navy, #112d37);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bce-layer-action {
+  width: 22px; height: 22px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted, #657174);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+}
+.bce-layer-action:hover { background: rgba(0,0,0,0.06); color: var(--navy, #112d37); }
+
+/* Canvas area ────────────────────────────────────────── */
+.bce-canvas-area {
+  flex: 1;
+  /* Same warm off-white as the app's top navbar (--shell) so the editor's
+     work surface reads as part of the app chrome, not a separate grey box. */
+  background: var(--shell, #f8f7f3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Real space between the two View Both cards. In single-face mode the
+     second slot is display:none, so this has no effect there. */
+  gap: 32px;
+  overflow: auto;
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+}
+
+.bce-canvas-wrap {
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin: auto;
+  transition: width 0.15s ease, height 0.15s ease;
+}
+/* Sized 0x0 and scaled from its top-left corner so it exactly fills the
+   parent wrap (whose box is set to the scaled dimensions). Keeps the card's
+   layout footprint equal to its visual size, so flex spacing is honest and
+   two cards can't overlap. */
+.bce-canvas-scale {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  transition: transform 0.15s ease;
+}
+
+/* View Both — both cards are live, interactive Fabric canvases sharing
+   the same two <canvas> elements used in single-face mode (see the
+   render's comment on why they're never conditionally unmounted); this
+   just lays them out side by side. `.bce-canvas-area` is already a flex
+   container, so `order` on these slots is what puts Front on the left
+   regardless of which physical canvas (primary/secondary) currently
+   holds which face. */
+.bce-vb-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border-radius: 10px;
+}
+.bce-vb-slot-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--navy, #112d37);
+}
+
+/* Elements panel FRONT/BACK section header while that side is focused
+   in View Both mode. */
+.bce-lsec-label.active-face {
+  color: var(--navy, #112d37);
+  background: #e8eef8;
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-left: -8px;
+}
+
+/* Right panel ────────────────────────────────────────── */
+.bce-rpanel {
+  width: 288px;
+  background: #fff;
+  border-left: 1px solid var(--line, #e5e3dd);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.bce-rp-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #f0ede8;
+  flex-shrink: 0;
+}
+.bce-rp-title h3 {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--navy, #112d37);
+  letter-spacing: -0.025em;
+}
+
+.bce-rp-body { flex: 1; overflow-y: auto; padding: 14px 14px; }
+
+.bce-rp-section { margin-bottom: 20px; }
+.bce-rp-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted, #657174);
+  margin-bottom: 9px;
+}
+
+.bce-rp-row { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+.bce-rp-key {
+  font-size: 11px;
+  color: var(--muted, #657174);
+  width: 48px;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.bce-input {
+  flex: 1;
+  border: 1px solid var(--line, #e5e3dd);
+  border-radius: 8px;
+  padding: 7px 9px;
+  font-size: 13px;
+  color: var(--navy, #112d37);
+  outline: none;
+  background: #fff;
+  font-family: inherit;
+}
+.bce-input:focus { border-color: var(--navy, #112d37); }
+
+.bce-input-sm {
+  width: 60px;
+  border: 1px solid var(--line, #e5e3dd);
+  border-radius: 8px;
+  padding: 6px 6px;
+  font-size: 12px;
+  color: var(--navy, #112d37);
+  outline: none;
+  text-align: center;
+  font-family: inherit;
+  background: #fff;
+}
+.bce-input-sm:focus { border-color: var(--navy, #112d37); }
+
+.bce-select {
+  flex: 1;
+  border: 1px solid var(--line, #e5e3dd);
+  border-radius: 8px;
+  padding: 7px 9px;
+  font-size: 12px;
+  color: var(--navy, #112d37);
+  outline: none;
+  background: #fff;
+  font-family: inherit;
+  cursor: pointer;
+}
+.bce-select:focus { border-color: var(--navy, #112d37); }
+
+.bce-color-btn {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  border: 1.5px solid var(--line, #e5e3dd);
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.bce-slider {
+  flex: 1;
+  accent-color: var(--navy, #112d37);
+  cursor: pointer;
+}
+
+.bce-align-row { display: flex; gap: 4px; }
+.bce-align-btn {
+  flex: 1;
+  height: 32px;
+  border-radius: 7px;
+  border: 1px solid var(--line, #e5e3dd);
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s;
+  color: var(--navy, #112d37);
+}
+.bce-align-btn.active, .bce-align-btn:hover {
+  background: var(--navy, #112d37);
+  color: #fff;
+  border-color: var(--navy, #112d37);
+}
+
+.bce-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #f4f2ed;
+}
+.bce-toggle-row:last-child { border-bottom: none; }
+.bce-toggle-row span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy, #112d37);
+}
+
+.bce-arrange-row { display: flex; gap: 5px; flex-wrap: wrap; }
+.bce-arrange-btn {
+  flex: 1;
+  min-width: 48px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line, #e5e3dd);
+  background: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--navy, #112d37);
+  cursor: pointer;
+  transition: all 0.12s;
+  text-align: center;
+  font-family: inherit;
+}
+.bce-arrange-btn:hover { background: #f4f2ed; }
+.bce-arrange-btn.del:hover { background: #fef2f2; color: #b91c1c; border-color: rgba(185,28,28,0.2); }
+
+.bce-rp-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--muted, #657174);
+}
+.bce-rp-empty-icon { font-size: 32px; margin-bottom: 10px; opacity: 0.4; }
+.bce-rp-empty p { font-size: 13px; line-height: 1.6; }
+
+/* Bottom bar ─────────────────────────────────────────── */
+.bce-bottombar {
+  height: 56px;
+  background: #fff;
+  border-top: 1px solid var(--line, #e5e3dd);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 8px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+.bce-bottombar-space { flex: 1; }
+
+/* Passive "everything is saved" state that replaces the Save Progress
+   button — deliberately not styled as a button, since there's nothing to
+   click when there are no pending changes. */
+.bce-saved-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted, #657174);
+}
+.bce-saved-indicator svg { color: #2f6f4e; }
+
+.bce-face-tabs {
+  display: flex;
+  gap: 3px;
+  background: #f0ede8;
+  padding: 3px;
+  border-radius: 10px;
+}
+.bce-face-tab {
+  padding: 5px 16px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted, #657174);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.bce-face-tab.active {
+  background: #fff;
+  color: var(--navy, #112d37);
+  box-shadow: 0 1px 5px rgba(17,45,55,0.1);
+}
+
+.bce-zoom-row { display: flex; align-items: center; gap: 6px; }
+.bce-zoom-btn {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  border: 1px solid var(--line, #e5e3dd);
+  background: #fff;
+  color: var(--navy, #112d37);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+.bce-zoom-btn:hover { background: #f4f2ed; }
+.bce-zoom-val { font-size: 12px; font-weight: 700; color: var(--navy, #112d37); min-width: 40px; text-align: center; }
+
+/* Opacity popover ────────────────────────────────────── */
+.bce-opacity-pop {
+  position: absolute;
+  top: 54px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  border: 1px solid var(--line, #e5e3dd);
+  border-radius: 12px;
+  padding: 14px 18px;
+  box-shadow: 0 8px 28px rgba(17,45,55,0.14);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 50;
+  min-width: 200px;
+}
+.bce-opacity-pop label { font-size: 12px; font-weight: 700; color: var(--navy, #112d37); white-space: nowrap; }
+
+/* Add Element popover ────────────────────────────────── */
+.bce-add-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--line, #e5e3dd);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(17,45,55,0.14);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+.bce-add-menu button,
+.bce-add-menu-item {
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--navy, #112d37);
+  padding: 8px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+}
+.bce-add-menu button:hover,
+.bce-add-menu-item:hover { background: #f4f2ed; }
+
+.bce-icon-grid-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--line, #e5e3dd);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(17,45,55,0.14);
+  z-index: 60;
+  padding: 8px;
+}
+.bce-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.bce-icon-grid button {
+  border: 1px solid var(--line, #e5e3dd);
+  background: #fff;
+  border-radius: 7px;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--navy, #112d37);
+  cursor: pointer;
+}
+.bce-icon-grid button:hover { border-color: var(--navy, #112d37); background: #f8f7f3; }
+
+/* Confirm dialog ─────────────────────────────────────── */
+.bc-confirm-overlay {
+  position: fixed; inset: 0;
+  background: rgba(17,45,55,0.45);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 300;
+}
+.bc-confirm-box {
+  background: #fff;
+  border-radius: 20px;
+  padding: 34px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 24px 60px rgba(17,45,55,0.2);
+  animation: bcSlideUp 0.2s ease;
+}
+.bc-confirm-box h3 { font-size: 18px; font-weight: 800; color: var(--navy, #112d37); letter-spacing: -0.03em; margin-bottom: 8px; }
+.bc-confirm-box p { font-size: 14px; color: var(--muted, #657174); line-height: 1.6; margin-bottom: 22px; }
+.bc-confirm-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* Toast ──────────────────────────────────────────────── */
+.bc-toast {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  background: var(--navy, #112d37);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 8px 28px rgba(17,45,55,0.22);
+  z-index: 400;
+  animation: bcSlideUp 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Preview page ─────────────────────────────────────────
+   Same fixed-viewport pattern as the canvas editor (.bce-root): height is
+   the viewport minus AppLayout's sticky 76px header, not a bare 100vh, so
+   this never grows taller than the screen and needs no page-level scroll.
+   Header and action buttons are flex-shrink:0 so "Close"/"Edit This Card"
+   are always on-screen; only the card image area scrolls if it doesn't fit. */
+.bc-preview-page {
+  height: calc(100vh - 76px);
+  overflow: hidden;
+  background: var(--shell, #f8f7f3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px clamp(20px, 5vw, 60px) 16px;
+}
+.bc-preview-header { flex-shrink: 0; width: 100%; text-align: center; }
+.bc-preview-page h2 {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--navy, #112d37);
+  letter-spacing: -0.05em;
+  margin-bottom: 4px;
+  text-align: center;
+}
+.bc-preview-page > p,
+.bc-preview-header p {
+  font-size: 14px;
+  color: var(--muted, #657174);
+  margin-bottom: 12px;
+  text-align: center;
+}
+.bc-preview-body {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  /* hidden, not auto: the card is sized to fit this box on both axes (see
+     .bc-flip-zone), so a scrollbar here would only ever mean something has
+     mis-sized — never a legitimate reason for the user to scroll. */
+  overflow: hidden;
+}
+.bc-preview-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted, #657174);
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+.bc-preview-img {
+  box-shadow: 0 24px 64px rgba(17,45,55,0.2);
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 480px;
+  width: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0ede8;
+  flex-shrink: 0;
+  margin: auto;
+}
+.bc-preview-img img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+.bc-preview-actions {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  justify-content: center;
+  flex-shrink: 0;
+  padding-top: 14px;
+}
+
+/* ---- Hover-to-flip preview — same mechanics and feel as the Digital
+   Card publish flow's sample business card (see publish-flow.css's
+   .sample-bcard-flip-zone), so both surfaces behave identically. ---- */
+/* The zone carries the card's aspect ratio and is bounded on BOTH axes
+   (sizing is set inline, since only the component knows the orientation).
+   Constraining width alone made a vertical 288x504 card render ~480x840 and
+   overflow the page into a scrollbar. */
+.bc-flip-zone {
+  perspective: 1800px;
+  margin: auto;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+}
+.bc-flip-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1);
+}
+.bc-flip-zone--flippable:hover .bc-flip-card { transform: rotateY(180deg); }
+/* Both faces fill the zone and stack on top of each other, so the card's
+   height comes from the zone's aspect box rather than from image content. */
+.bc-flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(17, 45, 55, 0.2);
+  background: #f0ede8;
+}
+.bc-flip-face img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.bc-flip-face--back {
+  transform: rotateY(180deg);
+}
+.bc-flip-face--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted, #657174);
+  font-size: 13px;
+}
+.bc-flip-hint {
+  color: var(--muted, #657174);
+  font-size: 12px;
+  margin: 0; /* spacing comes from .bc-preview-body's gap */
+  text-align: center;
+  flex-shrink: 0;
+}

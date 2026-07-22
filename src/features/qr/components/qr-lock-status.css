@@ -1,0 +1,30 @@
+.qr-preview-notice {
+  align-items: flex-start;
+  background: #fff7e6;
+  border: 1px solid #f2d896;
+  border-radius: 12px;
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.qr-preview-notice-icon {
+  align-items: center;
+  color: #a3760a;
+  display: flex;
+  flex: none;
+  padding-top: 2px;
+}
+
+.qr-preview-notice p {
+  color: #7a5b00;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.qr-preview-notice strong {
+  color: #5c4400;
+}

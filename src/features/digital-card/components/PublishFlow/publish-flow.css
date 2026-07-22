@@ -1,0 +1,436 @@
+/* Post-publish flow: business card curation -> QR -> cart. Scoped to this
+   module; reuses the host app's .confirm-overlay for the backdrop and
+   .primary-button/.secondary-button for actions so it stays visually
+   consistent with the rest of the studio. */
+
+.publish-flow-overlay {
+  align-items: flex-start;
+  overflow-y: auto;
+  padding: 40px 16px;
+}
+
+.publish-flow-dialog {
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.28);
+  margin: 0 auto;
+  max-height: 92vh;
+  max-width: 720px;
+  overflow-y: auto;
+  padding: 32px;
+  position: relative;
+  transition: max-width 0.25s ease;
+  width: 100%;
+}
+
+.publish-flow-dialog--wide {
+  max-width: 1040px;
+}
+
+.publish-flow-close {
+  background: #f4f2ed;
+  border: none;
+  border-radius: 999px;
+  color: var(--navy);
+  cursor: pointer;
+  font-size: 20px;
+  height: 34px;
+  line-height: 1;
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  width: 34px;
+}
+
+.publish-flow-close:hover {
+  background: #ebe8e1;
+}
+
+.publish-flow-steps {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.publish-flow-step-pill {
+  align-items: center;
+  background: #f7f5f0;
+  border-radius: 999px;
+  color: #9a958a;
+  display: flex;
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: center;
+  padding: 9px 8px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.publish-flow-step-num {
+  align-items: center;
+  background: #e8e5df;
+  border-radius: 999px;
+  display: flex;
+  font-size: 11px;
+  height: 18px;
+  justify-content: center;
+  width: 18px;
+}
+
+.publish-flow-step-pill.active {
+  background: var(--navy);
+  color: #fff;
+}
+
+.publish-flow-step-pill.active .publish-flow-step-num {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.publish-flow-step-pill.done {
+  background: #eaf3ec;
+  color: #2f7a4d;
+}
+
+.publish-flow-step-pill.done .publish-flow-step-num {
+  background: #2f7a4d;
+  color: #fff;
+}
+
+.publish-flow-business-card-step h2,
+.publish-flow-qr-heading,
+.publish-flow-cart-step h2 {
+  color: var(--navy);
+  font-size: 22px;
+  margin: 0 0 6px;
+}
+
+.publish-flow-business-card-step > p,
+.publish-flow-qr-subheading,
+.publish-flow-cart-step > p {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0 0 22px;
+}
+
+.publish-flow-actions {
+  border-top: 1px solid #efece5;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 20px;
+}
+
+/* ---- Sample business card + flip ---- */
+
+.sample-bcard-wrap {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 auto 8px;
+}
+
+.sample-bcard-flip-zone {
+  height: 220px;
+  perspective: 1400px;
+  width: 360px;
+}
+
+.sample-bcard-flip {
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1);
+  width: 100%;
+}
+
+.sample-bcard-flip-zone:hover .sample-bcard-flip {
+  transform: rotateY(180deg);
+}
+
+.sample-bcard-face {
+  backface-visibility: hidden;
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.16);
+  height: 100%;
+  padding: 26px;
+  position: absolute;
+  width: 100%;
+}
+
+.sample-bcard-front {
+  align-items: center;
+  background: var(--brand-surface, #fff);
+  color: var(--brand-surface-text, #10202a);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.sample-bcard-logo {
+  border-radius: 12px;
+  height: 44px;
+  margin-bottom: 10px;
+  object-fit: contain;
+  width: 44px;
+}
+
+.sample-bcard-company {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0 0 6px;
+}
+
+.sample-bcard-tagline {
+  font-size: 13px;
+  margin: 0;
+  opacity: 0.8;
+}
+
+.sample-bcard-back {
+  background: var(--brand-primary, #10202a);
+  color: var(--brand-primary-text, #fff);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transform: rotateY(180deg);
+}
+
+.sample-bcard-back-name {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0 0 2px;
+}
+
+.sample-bcard-back-role {
+  font-size: 13px;
+  margin: 0;
+  opacity: 0.85;
+}
+
+.sample-bcard-back-divider {
+  background: currentColor;
+  height: 1px;
+  margin: 14px 0;
+  opacity: 0.25;
+  width: 40px;
+}
+
+.sample-bcard-back-contact {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  gap: 6px;
+  opacity: 0.9;
+}
+
+.sample-bcard-hint {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.sample-bcard-template-face {
+  background: #fff;
+  overflow: hidden;
+  padding: 0;
+}
+
+.sample-bcard-template-face img {
+  display: block;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.sample-bcard-template-back {
+  transform: rotateY(180deg);
+}
+
+.sample-bcard-loading {
+  opacity: 0.6;
+}
+
+.publish-flow-template-controls {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(100%, 420px);
+}
+
+.publish-flow-template-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  width: 100%;
+}
+.publish-flow-template-row .secondary-button {
+  flex: 1;
+}
+
+.publish-flow-template-field {
+  width: 100%;
+}
+
+.publish-flow-template-field select {
+  background: #fbfaf8;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--navy);
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.publish-flow-template-field small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* ---- QR step ---- */
+
+.publish-flow-qr-columns {
+  align-items: start;
+  display: grid;
+  gap: 28px;
+  grid-template-columns: minmax(220px, 260px) 1fr;
+}
+
+.publish-flow-qr-preview {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+}
+
+.publish-flow-qr-note {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+  text-align: center;
+}
+
+/* Reflow the customization panel's sections into two columns so a wide
+   dialog fits colors/gradient/logo/error-correction without the page
+   needing to scroll — Presets stays full-width above the pair rows. */
+.publish-flow-qr-controls .qr-customization-panel {
+  display: grid;
+  column-gap: 28px;
+  grid-template-columns: 1fr 1fr;
+  row-gap: 14px;
+}
+
+.publish-flow-qr-controls .qr-customization-panel > .qr-section:first-child {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 760px) {
+  .publish-flow-qr-controls .qr-customization-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .publish-flow-qr-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .sample-bcard-flip-zone {
+    width: 100%;
+  }
+}
+
+/* ---- Cart step ---- */
+
+.cart-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+}
+
+.cart-item {
+  align-items: center;
+  background: #fbfaf8;
+  border: 1px solid #efece5;
+  border-radius: 14px;
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.cart-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cart-item-name {
+  color: var(--navy);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.cart-item-desc {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.cart-item-price {
+  color: var(--navy);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.cart-item-side {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.cart-item-remove {
+  background: none;
+  border: none;
+  border-radius: 999px;
+  color: #a7a29a;
+  cursor: pointer;
+  font-size: 18px;
+  height: 26px;
+  line-height: 1;
+  width: 26px;
+}
+
+.cart-item-remove:hover {
+  background: #f4e3df;
+  color: #b3402c;
+}
+
+.cart-empty-note {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0 0 18px;
+  text-align: center;
+}
+
+.cart-total-row {
+  align-items: center;
+  border-top: 2px solid #efece5;
+  display: flex;
+  font-size: 16px;
+  font-weight: 800;
+  justify-content: space-between;
+  padding-top: 16px;
+}
+
+.cart-total-amount {
+  color: var(--navy);
+  font-size: 20px;
+}
