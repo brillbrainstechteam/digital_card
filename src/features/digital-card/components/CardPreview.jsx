@@ -3,6 +3,11 @@ import { createPortal } from 'react-dom'
 import { paletteVariables } from '../theme'
 import { trackButtonClick, submitCardLead, submitSubscriber } from '../services/api'
 import { BUTTON_LABEL_DEFAULTS } from '../data'
+import { buildDestinationValue } from '../../qr/utils/destinations'
+
+function capitalize(value) {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value
+}
 
 function ActionIcon({ type }) {
   const paths = {
@@ -93,16 +98,27 @@ function safeLink(value, fallback = '#') {
 function buildContactFile(profile) {
   const displayName = profile.personName || profile.brandName || profile.companyName
   const companyName = profile.companyName || profile.brandName || displayName
-  const content = [
-    'BEGIN:VCARD',
-    'VERSION:3.0',
-    `FN:${displayName}`,
-    `ORG:${companyName}`,
-    `TEL:${profile.phone}`,
-    `EMAIL:${profile.email}`,
-    `URL:${safeLink(profile.website)}`,
-    'END:VCARD',
-  ].join('\n')
+
+  const websites = []
+  if (profile.website) websites.push({ label: 'Website', url: profile.website })
+  if (profile.showGoogleMaps && profile.googleMapsUrl) websites.push({ label: 'Google Maps', url: profile.googleMapsUrl })
+  ;(profile.socials || [])
+    .filter((s) => s.enabled !== false && s.url)
+    .forEach((s) => websites.push({ label: capitalize(s.platform), url: s.url }))
+
+  // Shares the same vCard builder as the QR module's "Save Contact"
+  // destination — one implementation for labels/TYPE-params/escaping
+  // instead of a second, simpler one that silently dropped labels,
+  // multiple links, and social profiles.
+  const content = buildDestinationValue('saveContact', {
+    fullName: displayName,
+    companyName,
+    designation: profile.designation,
+    phones: profile.phone ? [{ label: 'Mobile', number: profile.phone }] : [],
+    email: profile.email,
+    websites,
+    address: profile.location,
+  })
   const blob = new Blob([content], { type: 'text/vcard' })
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
@@ -405,12 +421,50 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
               {buttonLabels.website}
             </a>
           )}
+          {(profile.customLinks || []).filter((l) => l.enabled !== false && l.url).map((link, i) => (
+            <a
+              key={i}
+              className="website-action custom-link-action"
+              href={safeLink(link.url)}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => track(`custom_link_${i}`)}
+            >
+              {link.label || link.url}
+            </a>
+          ))}
         </div>
       )}
 
       {profile.showAbout !== false && profile.about && <p className="card-about">{profile.about}</p>}
 
       <footer className="card-footer">
+        {profile.showGoogleMaps && profile.googleMapsUrl && (
+          <a
+            className="maps-card"
+            href={safeLink(profile.googleMapsUrl)}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => track('google_maps')}
+          >
+            <div className="maps-card-visual">
+              <div className="maps-card-grid">
+                {Array.from({ length: 20 }).map((_, i) => <span key={i} />)}
+              </div>
+              <div className="maps-card-pin">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
+              </div>
+            </div>
+            <div className="maps-card-info">
+              <span className="maps-card-name">{profile.companyName || profile.personName || profile.brandName}</span>
+              {profile.location && <span className="maps-card-address">{profile.location}</span>}
+              <span className="maps-card-action">{buttonLabels.googleMaps} →</span>
+            </div>
+          </a>
+        )}
+
         {profile.showSocialLinks !== false && visibleSocials.length > 0 && (
           <div className="socials">
             {visibleSocials.map(({ platform, url }) => (
@@ -421,24 +475,11 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
           </div>
         )}
 
-        {(profile.showSubscribe || (profile.showGoogleMaps && profile.googleMapsUrl)) && (
+        {profile.showSubscribe && (
           <div className="footer-text-actions">
-            {profile.showSubscribe && (
-              <button type="button" className="subscribe-text-action" onClick={() => setShowSubscribeModal(true)}>
-                {buttonLabels.subscribe}
-              </button>
-            )}
-            {profile.showGoogleMaps && profile.googleMapsUrl && (
-              <a
-                className="google-maps-text-action"
-                href={safeLink(profile.googleMapsUrl)}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => track('google_maps')}
-              >
-                {buttonLabels.googleMaps}
-              </a>
-            )}
+            <button type="button" className="subscribe-text-action" onClick={() => setShowSubscribeModal(true)}>
+              {buttonLabels.subscribe}
+            </button>
           </div>
         )}
 

@@ -27,6 +27,38 @@ async function testConnection() {
 }
 
 async function ensureSchema() {
+  // users
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name TEXT NOT NULL,
+      business_name TEXT,
+      email TEXT NOT NULL UNIQUE,
+      phone TEXT,
+      password_hash TEXT NOT NULL,
+      is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+
+  // cards
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS cards (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      logo_url TEXT,
+      status TEXT NOT NULL DEFAULT 'draft',
+      card_data JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS cards_user_id_idx ON cards (user_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS cards_slug_idx ON cards (slug)')
+
   // card_views
   await pool.query(`
     CREATE TABLE IF NOT EXISTS card_views (

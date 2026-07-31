@@ -35,6 +35,16 @@ export async function activateQrPurchase(qrId) {
   return data.data.qr
 }
 
+export async function updateQrSlug(qrId, slug) {
+  const { data } = await client.patch(`/qr/${qrId}/slug`, { slug })
+  return data.data.qr
+}
+
+export async function updateQrSettings(qrId, settings) {
+  const { data } = await client.patch(`/qr/${qrId}/settings`, { settings })
+  return data.data.qr
+}
+
 export async function updateQrDestination(qrId, destinationType, destinationFields) {
   const { data } = await client.patch(`/qr/${qrId}/destination`, { destinationType, destinationFields })
   return data.data.qr

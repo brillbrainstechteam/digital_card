@@ -46,7 +46,10 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
     [destinationType, destinationFields],
   )
 
-  const liveSettings = useMemo(() => ({ ...settings, data }), [settings, data])
+  const liveSettings = useMemo(
+    () => ({ ...settings, data, destinationType, destinationFields }),
+    [settings, data, destinationType, destinationFields],
+  )
 
   function handleDestinationChange(type, fields) {
     setDestinationType(type)

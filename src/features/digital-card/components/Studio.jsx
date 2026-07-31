@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { CardPreview } from './CardPreview'
 import { PageHeader } from '../../../components/PageHeader'
 import { Sidebar } from '../../../components/Sidebar'
@@ -6,46 +6,11 @@ import { FONT_OPTIONS } from '../fontOptions'
 import { PRESET_DEFAULTS, getVisibilityFlags, ABOUT_MAX_LENGTH, BUTTON_LABEL_DEFAULTS, BUTTON_LABEL_MAX_LENGTH } from '../data'
 import { autoTextFor } from '../theme'
 
-const CIRCLE = 260
-
-const PREVIEW_MIN_SCALE = 0.55
-
-// Shrinks the live card preview to fit the available viewport space so most
-// cards are visible without scrolling, while still allowing the panel to
-// scroll once content is tall enough that PREVIEW_MIN_SCALE isn't enough.
 function ScaledCardPreview({ profile }) {
-  const outerRef = useRef(null)
-  const cardRef = useRef(null)
-  const [scale, setScale] = useState(1)
-  const [naturalHeight, setNaturalHeight] = useState(0)
-
-  useLayoutEffect(() => {
-    const outerEl = outerRef.current
-    const cardEl = cardRef.current
-    if (!outerEl || !cardEl) return undefined
-
-    function recompute() {
-      const naturalH = cardEl.scrollHeight
-      const availableH = outerEl.clientHeight
-      if (!naturalH || !availableH) return
-      setNaturalHeight(naturalH)
-      setScale(Math.min(1, Math.max(PREVIEW_MIN_SCALE, availableH / naturalH)))
-    }
-
-    recompute()
-    const resizeObserver = new ResizeObserver(recompute)
-    resizeObserver.observe(outerEl)
-    resizeObserver.observe(cardEl)
-    return () => resizeObserver.disconnect()
-  }, [])
-
   return (
-    <div className="preview-canvas" ref={outerRef}>
-      <div
-        className="preview-canvas-inner"
-        style={{ transform: `scale(${scale})`, height: naturalHeight ? naturalHeight * scale : undefined }}
-      >
-        <div ref={cardRef} className="preview-canvas-card">
+    <div className="preview-canvas">
+      <div className="preview-canvas-inner">
+        <div className="preview-canvas-card">
           <CardPreview profile={profile} />
         </div>
       </div>
@@ -448,18 +413,19 @@ function VisibilityToggle({ checked, onChange, label }) {
 }
 
 function ButtonSettingRow({ title, checked, onToggle, value, onChange, onBegin, onCommit, colorControl = null, textColorControl = null }) {
+  const checkboxId = `btn-toggle-${title.toLowerCase().replace(/\s+/g, '-')}`
   return (
     <div className="button-setting-row">
-      <label className="button-setting-toggle-row">
-        <span>Show {title} Button</span>
+      <div className="button-setting-toggle-row">
+        <label htmlFor={checkboxId} className="button-setting-toggle-label">Show {title} Button</label>
         <span className="button-setting-toggle-controls">
           {colorControl}
-          <span className="switch">
-            <input type="checkbox" checked={checked} onChange={(event) => onToggle(event.target.checked)} />
+          <label className="switch">
+            <input id={checkboxId} type="checkbox" checked={checked} onChange={(event) => onToggle(event.target.checked)} />
             <span />
-          </span>
+          </label>
         </span>
-      </label>
+      </div>
       {checked && (
         <div className="button-setting-expand">
           <Field
@@ -1224,7 +1190,7 @@ export function Studio({
         </section>
         )}
 
-        {activePanel === 'design' && (profile.showCompanyName !== false || profile.showTagline !== false || profile.showAbout !== false) && (
+        {activePanel === 'info' && (profile.showCompanyName !== false || profile.showTagline !== false || profile.showAbout !== false) && (
         <section className="editor-section">
           <h2>Business Information</h2>
           <div className="field-grid">
@@ -1284,7 +1250,7 @@ export function Studio({
         </section>
         )}
 
-        {activePanel === 'design' && (
+        {activePanel === 'info' && (
         <section className="editor-section">
           <h2>Contact Information</h2>
           <div className="field-grid field-grid--two">
@@ -1319,7 +1285,40 @@ export function Studio({
         {activePanel === 'buttons' && (
         <section className="editor-section">
           <h2>Button Settings</h2>
-          <p className="settings-description">Choose which buttons appear on your card and customize their labels.</p>
+          <p className="settings-description">Choose which buttons appear on your card and customize their labels and colors.</p>
+          <div className="global-button-colors">
+            <h3>Global Button Style</h3>
+            <p className="settings-description">Change all button colors at once.</p>
+            <div className="theme-color-grid" style={{ marginTop: 8 }}>
+              <InlineColorControl
+                {...liveControlProps}
+                label="All Buttons Color"
+                value={profile.theme?.primaryButton || profile.palette.primary}
+                onChange={(value) => {
+                  beginLiveEdit?.()
+                  ;(setProfileLive || setProfile)((cur) => ({
+                    ...cur,
+                    theme: {
+                      ...cur.theme,
+                      primaryButton: value,
+                      callButton: value,
+                      emailButton: value,
+                      whatsappButton: value,
+                      websiteButton: value,
+                      saveContactButton: value,
+                    },
+                  }))
+                  scheduleLiveCommit()
+                }}
+              />
+              <InlineColorControl
+                {...liveControlProps}
+                label="All Buttons Border"
+                value={profile.theme?.buttonBorder || '#00000000'}
+                onChange={(value) => updateTheme('buttonBorder', value)}
+              />
+            </div>
+          </div>
           <div className="button-settings-list">
             <ButtonSettingRow
               title="Call"
@@ -1366,9 +1365,21 @@ export function Studio({
               textColorControl={<ColorField {...liveControlProps} {...applyColorProps} label="Website Button Text" value={profile.theme?.websiteButtonText || autoTextFor(profile.theme?.websiteButton || profile.theme?.primaryButton || profile.palette.primary)} onChange={(value) => updateTheme('websiteButtonText', value)} />}
             />
 
+            <ButtonSettingRow
+              title="Save Contact"
+              checked={profile.showSaveContactButton !== false}
+              onToggle={(v) => updateVisibility('showSaveContactButton', v)}
+              value={profile.buttonLabels?.saveContact ?? BUTTON_LABEL_DEFAULTS.saveContact}
+              onChange={(value) => updateButtonLabel('saveContact', value)}
+              onBegin={beginLiveEdit}
+              onCommit={() => commitButtonLabel('saveContact')}
+              colorControl={<ColorField {...liveControlProps} {...applyColorProps} label="Save Contact Button" value={profile.theme?.saveContactButton || profile.palette.accent} onChange={(value) => updateTheme('saveContactButton', value)} />}
+              textColorControl={<ColorField {...liveControlProps} {...applyColorProps} label="Save Contact Button Text" value={profile.theme?.saveContactButtonText || autoTextFor(profile.theme?.saveContactButton || profile.palette.accent)} onChange={(value) => updateTheme('saveContactButtonText', value)} />}
+            />
+
             <div className="button-setting-row">
-              <label className="button-setting-toggle-row">
-                <span>Enable Google Maps</span>
+              <div className="button-setting-toggle-row">
+                <label className="button-setting-toggle-label">Enable Google Maps</label>
                 <span className="button-setting-toggle-controls">
                   <span className="switch">
                     <input
@@ -1379,7 +1390,7 @@ export function Studio({
                     <span />
                   </span>
                 </span>
-              </label>
+              </div>
               {profile.showGoogleMaps === true && (
                 <div className="button-setting-expand">
                   <Field
@@ -1478,6 +1489,74 @@ export function Studio({
 
         {activePanel === 'social' && (
         <section className="editor-section">
+          <h2>Custom Links</h2>
+          <p className="settings-description">Add custom buttons with a label and URL — they appear as full-width buttons on your card, just below the Website button.</p>
+          <div className="links-editor">
+            {(profile.customLinks || []).map((link, index) => (
+              <div key={index} className="link-editor">
+                <div className="link-head">
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={link.enabled !== false}
+                      onChange={(e) => {
+                        const next = [...(profile.customLinks || [])]
+                        next[index] = { ...next[index], enabled: e.target.checked }
+                        setProfile((cur) => ({ ...cur, customLinks: next }))
+                      }}
+                    />
+                    <span />
+                  </label>
+                  <div className="reorder">
+                    <button type="button" disabled={index === 0} onClick={() => {
+                      const next = [...(profile.customLinks || [])]
+                      ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
+                      setProfile((cur) => ({ ...cur, customLinks: next }))
+                    }}>↑</button>
+                    <button type="button" disabled={index === (profile.customLinks || []).length - 1} onClick={() => {
+                      const next = [...(profile.customLinks || [])]
+                      ;[next[index], next[index + 1]] = [next[index + 1], next[index]]
+                      setProfile((cur) => ({ ...cur, customLinks: next }))
+                    }}>↓</button>
+                    <button className="remove" type="button" onClick={() => {
+                      setProfile((cur) => ({ ...cur, customLinks: (cur.customLinks || []).filter((_, i) => i !== index) }))
+                    }}>×</button>
+                  </div>
+                </div>
+                <CommitInput
+                  value={link.label}
+                  onChange={(val) => {
+                    const next = [...(profile.customLinks || [])]
+                    next[index] = { ...next[index], label: val }
+                    setProfile((cur) => ({ ...cur, customLinks: next }))
+                  }}
+                  placeholder="Button label (e.g. Our Portfolio)"
+                />
+                <CommitInput
+                  value={link.url}
+                  onChange={(val) => {
+                    const next = [...(profile.customLinks || [])]
+                    next[index] = { ...next[index], url: val }
+                    setProfile((cur) => ({ ...cur, customLinks: next }))
+                  }}
+                  placeholder="https://"
+                />
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="secondary-button"
+            style={{ marginTop: 8 }}
+            onClick={() => setProfile((cur) => ({ ...cur, customLinks: [...(cur.customLinks || []), { label: '', url: '', enabled: true }] }))}
+          >
+            + Add Custom Link
+          </button>
+        </section>
+        )}
+
+        {activePanel === 'social' && (
+        <section className="editor-section">
           <h2>Social Links</h2>
           <p className="settings-description">Add, remove, recolor and reorder the social icons shown on your card.</p>
           <div className="social-add-grid">
@@ -1522,19 +1601,34 @@ export function Studio({
         </section>
         )}
 
-        {activePanel === 'design' && (
+        {activePanel === 'footer' && (
         <section className="editor-section">
           <h2>BrillBrains Footer</h2>
           <label className="toggle-row branding-toggle">
             <div>
               <strong>Powered by BrillBrains Consultants</strong>
-              <small>Available in Premium Subscription.</small>
+              <small>Toggle to show or hide the footer branding on your card.</small>
             </div>
             <span className="switch">
-              <input type="checkbox" checked disabled readOnly />
+              <input
+                type="checkbox"
+                checked={profile.branding?.poweredBy !== false}
+                onChange={(event) => {
+                  const enabled = event.target.checked
+                  setProfile((cur) => ({
+                    ...cur,
+                    branding: { ...(cur.branding || {}), poweredBy: enabled },
+                  }))
+                }}
+              />
               <span />
             </span>
           </label>
+          {profile.branding?.poweredBy === false && (
+            <p className="branding-off-warning">
+              ⚠️ Removing the BrillBrains footer is a premium feature and will incur an additional charge on your subscription. Re-enable it to avoid extra billing.
+            </p>
+          )}
         </section>
         )}
 
@@ -1549,9 +1643,6 @@ export function Studio({
               <h3>Card</h3>
               <div className="theme-color-grid">
                 <InlineColorControl {...liveControlProps} label="Card Background" value={profile.theme?.cardBackground || profile.palette.surface} onChange={(value) => updateTheme('cardBackground', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Border" value={profile.theme?.borderColor || profile.palette.accent} onChange={(value) => updateTheme('borderColor', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Button Border" value={profile.theme?.buttonBorder || '#00000000'} onChange={(value) => updateTheme('buttonBorder', value)} />
-                <ColorField {...liveControlProps} {...applyColorProps} label="Powered by BrillBrains" value={profile.theme?.footerText || profile.palette.ink} onChange={(value) => updateTheme('footerText', value)} />
               </div>
             </div>
           </div>

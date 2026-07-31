@@ -16,7 +16,7 @@ export { useQrDownload } from './hooks/useQrDownload'
 
 export { createDefaultQrSettings, downloadQrCode, renderQrToDataUrl } from './services/qrEngine'
 export {
-  fetchCardQr, fetchMyQrCodes, saveCardQr, publishStandaloneQr, removeCardQr, fetchQrAnalytics, fetchOverallQrAnalytics, resolveQrScan, updateQrDestination, updateQrLifecycle, deleteQr, withDynamicQrData,
+  fetchCardQr, fetchMyQrCodes, saveCardQr, publishStandaloneQr, removeCardQr, fetchQrAnalytics, fetchOverallQrAnalytics, resolveQrScan, updateQrSlug, updateQrDestination, updateQrLifecycle, deleteQr, withDynamicQrData,
 } from './services/qrApi'
 export { buildDestinationValue, defaultFieldsForType, DESTINATION_TYPES } from './utils/destinations'
 export { validateQrSettings, contrastRatio } from './utils/validation'

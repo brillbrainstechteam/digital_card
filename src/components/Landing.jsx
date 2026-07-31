@@ -7,44 +7,12 @@ import { Footer } from './Footer'
 
 const USE_HERO_ANIMATION = true
 
-function BusinessCardMockup() {
-  return (
-    <div className="business-card-home-mockup" tabIndex="0" aria-label="Business card front and back preview">
-      <div className="business-card-home-inner">
-        <div className="business-card-home-face business-card-home-front">
-          <div>
-            <div className="business-card-home-logo">BB</div>
-            <div className="business-card-home-name">Your Name</div>
-            <div className="business-card-home-role">Job Title · Company</div>
-          </div>
-          <div className="business-card-home-contact">
-            <span>+91 XXXXX XXXXX<br />you@company.com</span>
-            <span className="business-card-home-qr" aria-hidden="true" />
-          </div>
-        </div>
-        <div className="business-card-home-face business-card-home-back">
-          <div className="business-card-home-back-mark">BB</div>
-          <div>
-            <div className="business-card-home-name">Brill Brains</div>
-            <div className="business-card-home-role">Digital identity, beautifully connected</div>
-          </div>
-          <span className="business-card-home-qr business-card-home-back-qr" aria-hidden="true" />
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function Landing() {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
 
   function handleCreate() {
     navigate(isAuthenticated ? '/dashboard' : '/create')
-  }
-
-  function handleCreateBusiness() {
-    navigate(isAuthenticated ? '/business-cards' : '/login')
   }
 
   return (
@@ -75,37 +43,13 @@ export function Landing() {
           </div>
         </section>
 
-        <section className="landing" id="business-cards">
-          <div className="hero-copy">
-            <p className="eyebrow">Brill Brains Business Cards</p>
-            <h1>Design cards.<br />Print or share.</h1>
-            <p className="hero-description">
-              Turn your profile into a print-ready business card. Pick a template, customize
-              every detail on a live canvas, and export or print in seconds.
-            </p>
-            <div className="hero-buttons">
-              <button className="primary-button" type="button" onClick={handleCreateBusiness}>
-                Create your business card!
-              </button>
-            </div>
-            <div className="feature-row">
-              <span>Print ready</span>
-              <span>Custom templates</span>
-              <span>QR built in</span>
-            </div>
-          </div>
-
-          <div className="hero-preview">
-            <BusinessCardMockup />
-          </div>
-        </section>
       </main>
 
       <section className="stats-ribbon">
         <div className="stats-ribbon-inner">
           <div className="stat-item"><strong>500+</strong><span>Cards Created</span></div>
           <div className="stat-item"><strong>50+</strong><span>Businesses Trust Us</span></div>
-          <div className="stat-item"><strong>3</strong><span>Products in One</span></div>
+          <div className="stat-item"><strong>2</strong><span>Products in One</span></div>
           <div className="stat-item"><strong>100%</strong><span>Customizable</span></div>
         </div>
       </section>
@@ -124,7 +68,7 @@ export function Landing() {
           <div className="hiw-step">
             <div className="hiw-step-num">2</div>
             <h3>Customize everything</h3>
-            <p>Fine-tune your digital card, business card, and QR code to perfection.</p>
+            <p>Fine-tune your digital card and QR code to perfection.</p>
           </div>
           <div className="hiw-step">
             <div className="hiw-step-num">3</div>

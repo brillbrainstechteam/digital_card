@@ -170,7 +170,7 @@ export function paletteVariables(palette, theme = {}) {
     '--theme-applemusic-button': theme.applemusicButton || theme.primaryButton || palette.primary,
     '--theme-reddit-button': theme.redditButton || theme.primaryButton || palette.primary,
     '--theme-github-button': theme.githubButton || theme.primaryButton || palette.primary,
-    '--theme-footer-text': theme.footerText || surfaceText,
+    '--theme-footer-text': autoTextFor(theme.cardBackground || palette.surface),
     '--theme-border-color': theme.borderColor || palette.accent,
     '--theme-button-border': theme.buttonBorder || 'transparent',
     '--theme-accent-color': theme.accentColor || palette.accent,

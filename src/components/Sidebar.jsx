@@ -16,20 +16,16 @@ const QR_APP_ITEMS = [
   { key: 'settings', label: 'Settings', path: '/settings' },
 ]
 
-const BUSINESS_ITEMS = [
-  { key: 'business', label: 'Your Business Cards', path: '/business-cards' },
-  { key: 'templates', label: 'Templates', path: '/business-cards/templates' },
-  { key: 'settings', label: 'Settings', path: '/settings' },
-]
-
 const EDITOR_ITEMS = [
   { key: 'design', label: 'Design' },
+  { key: 'info', label: 'Info' },
   { key: 'buttons', label: 'Button Settings' },
   { key: 'leads', label: 'Leads' },
   { key: 'social', label: 'Social Links' },
   { key: 'settings', label: 'Logo Settings' },
   { key: 'colors', label: 'Colors' },
   { key: 'fonts', label: 'Fonts' },
+  { key: 'footer', label: 'Footer' },
 ]
 
 function UnsavedChangesModal({ onSave, onDiscard, onCancel, busy }) {
@@ -53,7 +49,6 @@ function UnsavedChangesModal({ onSave, onDiscard, onCancel, busy }) {
 export function Sidebar({
   mode,
   section = 'cards',
-  product = 'digital',
   activeApp,
   activeEditor,
   onEditorNav,
@@ -67,19 +62,9 @@ export function Sidebar({
   const [pendingPath, setPendingPath] = useState(null)
   const [busy, setBusy] = useState(false)
 
-  const appItems = section === 'qr'
-    ? QR_APP_ITEMS
-    : product === 'business'
-      ? BUSINESS_ITEMS
-      : APP_ITEMS
-  const appGroupLabel = section === 'qr'
-    ? 'QR Studio'
-    : product === 'business'
-      ? 'Business Card'
-      : 'Digital Card'
-  const backItem = product === 'business'
-    ? { label: 'Business Cards', path: '/business-cards' }
-    : { label: 'Digital Cards', path: '/dashboard' }
+  const appItems = section === 'qr' ? QR_APP_ITEMS : APP_ITEMS
+  const appGroupLabel = section === 'qr' ? 'QR Studio' : 'Digital Card'
+  const backItem = { label: 'Digital Cards', path: '/dashboard' }
 
   function handleAppNav(item) {
     if (item.key === activeApp && mode === 'app') return

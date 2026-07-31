@@ -18,29 +18,9 @@ function getParentCardName(item, items) {
 
 function getItemDetails(item, items) {
   const parentName = getParentCardName(item, items)
-  if (item.type === 'business-card') return {
-    name: parentName ? `${parentName} - Business Card` : item.name,
-    description: 'Personalized print-ready card created from this Digital Card',
-    path: item.path,
-    action: 'Edit Business Card',
-  }
-  if (item.type === 'card-qr') return {
+  if (item.type === 'card-qr' || item.type === 'qr') return {
     name: parentName ? `${parentName} - QR Code` : item.name,
-    description: 'Branded QR code linked to this Digital Card',
-    path: item.qrId ? `/qr-studio/codes?qrId=${item.qrId}` : item.path,
-    action: 'View QR Code',
-  }
-  // Without this, a Business Card QR upgrade fell through to the default
-  // below and was labelled "Edit Digital Card" — the wrong product entirely.
-  if (item.type === 'business-card-qr') return {
-    name: item.name,
-    description: item.description,
-    path: item.path,
-    action: 'Edit Business Card',
-  }
-  if (item.type === 'qr') return {
-    name: item.name,
-    description: item.description,
+    description: item.description || 'Branded QR code linked to your Digital Card',
     path: item.qrId ? `/qr-studio/codes?qrId=${item.qrId}` : item.path,
     action: 'View QR Code',
   }
@@ -66,7 +46,7 @@ export function CartPage() {
           {items.length === 0 ? (
             <div className="dashboard-empty cart-page-empty">
               <h2>Your cart is empty</h2>
-              <p>Add a Digital Card, Business Card, or QR code to continue.</p>
+              <p>Add a Digital Card or QR code to continue.</p>
               <button className="primary-button" type="button" onClick={() => navigate('/dashboard')}>
                 Browse your cards
               </button>

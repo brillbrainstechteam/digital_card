@@ -123,6 +123,18 @@
   padding-top: 20px;
 }
 
+/* Modal has white bg — override secondary-button so it's visible */
+.publish-flow-dialog .secondary-button {
+  color: var(--navy);
+  border-color: rgba(14,26,53,0.25);
+}
+
+.publish-flow-dialog .secondary-button:hover {
+  color: var(--navy);
+  border-color: var(--navy);
+  background: rgba(14,26,53,0.06);
+}
+
 /* ---- Sample business card + flip ---- */
 
 .sample-bcard-wrap {

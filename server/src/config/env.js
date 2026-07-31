@@ -15,6 +15,16 @@ const env = {
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD || '',
   },
+  admin: {
+    email: process.env.ADMIN_EMAIL || 'admin@brillbrainsconsultants.com',
+    password: process.env.ADMIN_PASSWORD || 'admin@123',
+    secret: process.env.ADMIN_JWT_SECRET || 'admin-secret-change-in-prod',
+  },
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID || '',
+    keySecret: process.env.RAZORPAY_KEY_SECRET || '',
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
+  },
 }
 
 module.exports = env

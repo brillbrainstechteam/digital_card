@@ -179,4 +179,5 @@ export const defaultProfile = {
     { platform: 'linkedin', url: 'https://www.linkedin.com/company/brillbrains-consultants/posts/?feedView=all' },
     { platform: 'facebook', url: 'https://www.facebook.com/profile.php?id=61568944060109' },
   ],
+  customLinks: [],
 }

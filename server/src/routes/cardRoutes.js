@@ -26,7 +26,8 @@ router.put(
   [
     body('title').optional().trim().notEmpty().withMessage('Title cannot be empty'),
     body('card_data').optional().isObject().withMessage('card_data must be a JSON object'),
-    body('status').optional().isIn(['draft', 'published']).withMessage('Status must be "draft" or "published"'),
+    body('status').optional().isIn(['draft', 'published', 'suspended']).withMessage('Invalid status'),
+    body('slug').optional().trim().isLength({ min: 3, max: 30 }).withMessage('Link must be 3-30 characters'),
   ],
   validate,
   cardController.updateCard
@@ -34,5 +35,7 @@ router.put(
 
 router.delete('/:id', authenticate, cardController.deleteCard)
 router.patch('/:id/unarchive', authenticate, cardController.unarchiveCard)
+router.patch('/:id/cancel-subscription', authenticate, cardController.cancelSubscription)
+router.patch('/:id/resubscribe', authenticate, cardController.resubscribe)
 
 module.exports = router

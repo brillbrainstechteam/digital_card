@@ -39,8 +39,8 @@ async function getCard(req, res, next) {
 
 async function updateCard(req, res, next) {
   try {
-    const { title, logo_url, card_data, status } = req.body
-    const card = await cardService.updateCard(req.params.id, req.user.id, { title, logo_url, card_data, status })
+    const { title, logo_url, card_data, status, slug } = req.body
+    const card = await cardService.updateCard(req.params.id, req.user.id, { title, logo_url, card_data, status, slug })
     res.json({
       success: true,
       message: 'Card updated successfully',
@@ -67,14 +67,28 @@ async function deleteCard(req, res, next) {
 async function unarchiveCard(req, res, next) {
   try {
     const card = await cardService.unarchiveCard(req.params.id, req.user.id)
-    res.json({
-      success: true,
-      message: 'Card restored to draft',
-      data: { card },
-    })
+    res.json({ success: true, message: 'Card restored to draft', data: { card } })
   } catch (err) {
     next(err)
   }
 }
 
-module.exports = { createCard, getCards, getCard, updateCard, deleteCard, unarchiveCard }
+async function cancelSubscription(req, res, next) {
+  try {
+    const card = await cardService.cancelSubscription(req.params.id, req.user.id)
+    res.json({ success: true, message: 'Subscription cancelled — card will work until expiry date', data: { card } })
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function resubscribe(req, res, next) {
+  try {
+    const card = await cardService.resubscribe(req.params.id, req.user.id)
+    res.json({ success: true, message: 'Re-subscribed — card is live again for 30 days', data: { card } })
+  } catch (err) {
+    next(err)
+  }
+}
+
+module.exports = { createCard, getCards, getCard, updateCard, deleteCard, unarchiveCard, cancelSubscription, resubscribe }

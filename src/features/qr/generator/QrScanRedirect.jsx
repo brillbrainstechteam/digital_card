@@ -19,13 +19,10 @@ export function QrScanRedirect() {
           return
         }
         if (destinationType === 'saveContact') {
-          const url = URL.createObjectURL(new Blob([finalDestination], { type: 'text/vcard;charset=utf-8' }))
-          const anchor = document.createElement('a')
-          anchor.href = url
-          anchor.download = `${destinationFields?.fullName || 'contact'}.vcf`
-          anchor.click()
-          setTimeout(() => URL.revokeObjectURL(url), 1000)
-          setMessage('Your contact file is ready. Open it to save the contact.')
+          // Redirect to the server vcard endpoint so iOS opens Contacts directly
+          // instead of triggering a browser download prompt
+          const apiBase = window.location.origin
+          window.location.replace(`${apiBase}/api/public/qr/${slug}/vcard`)
           return
         }
         if (destinationType === 'wifi') {
@@ -49,7 +46,19 @@ export function QrScanRedirect() {
           {wifi.security !== 'nopass' && <p><strong>Password:</strong> {wifi.password}</p>}
           <p>Open Wi-Fi settings and use these details to connect.</p>
         </div>
-      ) : <p>{message}</p>}
+      ) : message === 'CONTACT_READY' ? (
+        <div className="qr-scan-card">
+          <div className="qr-scan-icon">👤</div>
+          <h1>Contact Card Downloaded</h1>
+          <p>A contact file (.vcf) has been sent to your device. Open it to save the contact to your phone.</p>
+          <p className="qr-scan-hint">If the file didn&apos;t open or the download didn&apos;t start, tap the button below to try again.</p>
+          <button className="qr-scan-btn" onClick={() => window.location.reload()}>
+            Download Again
+          </button>
+        </div>
+      ) : (
+        <p>{message}</p>
+      )}
     </main>
   )
 }

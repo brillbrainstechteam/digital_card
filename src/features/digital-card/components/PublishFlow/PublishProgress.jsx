@@ -2,16 +2,11 @@ import './publish-progress.css'
 
 const STAGES = [
   'Saving your design...',
-  'Curating your customized Business Card...',
   'Generating your branded QR Code...',
   'Preparing secure checkout...',
   'Ready for payment!',
 ]
 
-// Presentational only — StudioPage drives `stage` (0..STAGES.length-1)
-// through the actual publish sequence, pausing on each just long enough to
-// read before advancing. Replaces the old instant toast + spinner with
-// something that reads as real progress instead of a black box.
 export function PublishProgress({ stage }) {
   if (stage === null || stage === undefined) return null
 

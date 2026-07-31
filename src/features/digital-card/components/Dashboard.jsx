@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchCards, createCard, updateCard, deleteCard, unarchiveCard } from '../services/api'
+import { fetchCards, createCard, updateCard, deleteCard, unarchiveCard, cancelCardSubscription, resubscribeCard } from '../services/api'
 import { useToast } from '../../../context/ToastContext'
 import { isDigitalCard } from '../../../cardTypeUtils'
 
@@ -24,17 +24,22 @@ function ConfirmDialog({ title, message, actionLabel, onCancel, onConfirm }) {
   )
 }
 
-function ShareModal({ card, onClose }) {
+function ShareModal({ card, onClose, onSlugUpdated }) {
   const [copied, setCopied] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [slugInput, setSlugInput] = useState(card.slug)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
   const inputRef = useRef(null)
-  const url = `${window.location.origin}/card/${card.slug}`
+  const toast = useToast()
+  const url = `${window.location.origin}/${card.slug}`
 
   useEffect(() => {
     function onKeyDown(e) { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKeyDown)
-    inputRef.current?.select()
+    if (!editing) inputRef.current?.select()
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  }, [onClose, editing])
 
   function handleCopy() {
     navigator.clipboard.writeText(url)
@@ -42,34 +47,77 @@ function ShareModal({ card, onClose }) {
       .catch(() => {})
   }
 
+  async function handleSaveSlug() {
+    const nextSlug = slugInput.trim().toLowerCase()
+    if (nextSlug === card.slug) { setEditing(false); return }
+    setSaving(true)
+    setError('')
+    try {
+      const updated = await updateCard(card.id, { slug: nextSlug })
+      onSlugUpdated(updated)
+      setEditing(false)
+      toast.success('Link updated')
+    } catch (err) {
+      setError(err.message || 'Could not update link')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="confirm-overlay" onClick={onClose}>
       <div className="share-modal" onClick={(e) => e.stopPropagation()}>
         <h2>Share Card</h2>
         <p>Anyone with this link can view your published card.</p>
-        <div className="share-modal-link">
-          <input
-            ref={inputRef}
-            type="text"
-            readOnly
-            value={url}
-            className="share-link-input"
-            onFocus={(e) => e.target.select()}
-          />
-        </div>
-        {copied && <p className="share-copied-msg">✓ Link copied to clipboard!</p>}
+        {editing ? (
+          <div className="share-modal-link">
+            <span className="share-link-prefix">{window.location.origin}/</span>
+            <input
+              type="text"
+              value={slugInput}
+              onChange={(e) => setSlugInput(e.target.value.toLowerCase())}
+              className="share-link-input"
+              placeholder="your-name"
+              autoFocus
+            />
+          </div>
+        ) : (
+          <div className="share-modal-link">
+            <input
+              ref={inputRef}
+              type="text"
+              readOnly
+              value={url}
+              className="share-link-input"
+              onFocus={(e) => e.target.select()}
+            />
+          </div>
+        )}
+        {error && <p className="share-error-msg">{error}</p>}
+        {copied && !editing && <p className="share-copied-msg">✓ Link copied to clipboard!</p>}
         <div className="share-modal-actions">
-          <button className="secondary-button" type="button" onClick={onClose}>Go Back</button>
-          <button className="primary-button" type="button" onClick={handleCopy}>
-            {copied ? '✓ Copied!' : 'Copy Link'}
-          </button>
+          {editing ? (
+            <>
+              <button className="secondary-button" type="button" onClick={() => { setEditing(false); setSlugInput(card.slug); setError('') }} disabled={saving}>Cancel</button>
+              <button className="primary-button" type="button" onClick={handleSaveSlug} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Link'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="secondary-button" type="button" onClick={() => setEditing(true)}>Edit Link</button>
+              <button className="primary-button" type="button" onClick={handleCopy}>
+                {copied ? '✓ Copied!' : 'Copy Link'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-const FILTERS = ['all', 'draft', 'published', 'archived']
+const FILTERS = ['all', 'draft', 'published', 'suspended', 'archived']
 
 export function Dashboard() {
   const navigate = useNavigate()
@@ -165,8 +213,43 @@ export function Dashboard() {
     }
   }
 
+  async function handleCancelSubscription(card) {
+    try {
+      await cancelCardSubscription(card.id)
+      toast.success('Subscription cancelled — card stays live until expiry date')
+      await loadCards()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setPendingConfirm(null)
+    }
+  }
+
+  function confirmCancelSubscription(card) {
+    const expiryDate = card.subscription_expires_at
+      ? new Date(card.subscription_expires_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+      : '30 days from now'
+    setPendingConfirm({
+      card,
+      title: 'Cancel Subscription?',
+      message: `Your card will keep working until ${expiryDate}. After that it will stop automatically. No future payments will be charged. You can re-subscribe anytime.`,
+      actionLabel: 'Cancel Subscription',
+      onConfirm: () => handleCancelSubscription(card),
+    })
+  }
+
+  async function handleResubscribe(card) {
+    try {
+      await resubscribeCard(card.id)
+      toast.success('Re-subscribed — card is live again for 30 days!')
+      await loadCards()
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
   function openInNewTab(card) {
-    window.open(`/card/${card.slug}`, '_blank')
+    window.open(`/${card.slug}`, '_blank')
   }
 
   function formatDate(iso) {
@@ -179,6 +262,7 @@ export function Dashboard() {
     all: cards.length,
     draft: cards.filter((c) => c.status === 'draft').length,
     published: cards.filter((c) => c.status === 'published').length,
+    suspended: cards.filter((c) => c.status === 'suspended').length,
     archived: cards.filter((c) => c.status === 'archived').length,
   }
 
@@ -221,6 +305,7 @@ export function Dashboard() {
             ['Total Cards', counts.all],
             ['Published', counts.published],
             ['Draft', counts.draft],
+            ['Suspended', counts.suspended],
             ['Archived', counts.archived],
           ].map(([label, value]) => (
             <div className="dashboard-summary-card" key={label}>
@@ -276,53 +361,76 @@ export function Dashboard() {
           </div>
         ) : (
           <div className="card-list">
-            {filteredCards.map((card) => (
-              <div key={card.id} className="card-list-item">
-                <div className="card-list-info">
-                  <h3>{card.title}</h3>
-                  <div className="card-list-meta">
-                    <span className={`status-badge status-${card.status}`}>{card.status}</span>
-                    <span>{formatDate(card.created_at)}</span>
+            {filteredCards.map((card) => {
+              const isCancelling = card.status === 'published' && card.subscription_cancelled
+              const isSuspended = card.status === 'suspended'
+              const expiryText = card.subscription_expires_at
+                ? new Date(card.subscription_expires_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                : null
+              return (
+                  <div key={card.id} className="card-list-item">
+                    <div className="card-list-info">
+                      <h3>{card.title}</h3>
+                      <div className="card-list-meta">
+                        {isCancelling ? (
+                          <span className="status-badge status-suspended">Cancels {expiryText}</span>
+                        ) : (
+                          <span className={`status-badge status-${card.status}`}>{card.status}</span>
+                        )}
+                        <span>{formatDate(card.created_at)}</span>
+                        {isCancelling && expiryText && (
+                          <span style={{ fontSize: 12, color: 'var(--muted)' }}>Active until {expiryText}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="card-list-actions">
+                      {card.status === 'archived' ? (
+                        <button className="secondary-button" type="button" onClick={() => handleUnarchive(card)}>
+                          Restore
+                        </button>
+                      ) : (isCancelling || isSuspended) ? (
+                        <button className="primary-button" type="button" onClick={() => handleResubscribe(card)}>
+                          Re-subscribe
+                        </button>
+                      ) : (
+                        <button className="secondary-button" type="button" onClick={() => navigate(`/studio/${card.id}`)}>
+                          Edit
+                        </button>
+                      )}
+                      {card.status === 'published' && !isCancelling && (
+                        <button className="secondary-button" type="button" onClick={() => confirmCancelSubscription(card)}>
+                          Cancel Subscription
+                        </button>
+                      )}
+                      <div className="share-group">
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={() => setShareCard(card)}
+                          disabled={card.status !== 'published'}
+                          title={card.status !== 'published' ? 'Publish the card first to share' : 'Share public link'}
+                        >
+                          Share
+                        </button>
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={() => openInNewTab(card)}
+                          disabled={card.status !== 'published'}
+                          title={card.status !== 'published' ? 'Publish the card first' : 'Open public card'}
+                        >
+                          Open ↗
+                        </button>
+                      </div>
+                      {card.status !== 'archived' && card.status !== 'suspended' && !isCancelling && (
+                        <button className="text-button card-delete-btn" type="button" onClick={() => handleDelete(card)}>
+                          {card.status === 'draft' ? 'Delete' : 'Archive'}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="card-list-actions">
-                  {card.status === 'archived' ? (
-                    <button className="secondary-button" type="button" onClick={() => handleUnarchive(card)}>
-                      Unarchive
-                    </button>
-                  ) : (
-                    <button className="secondary-button" type="button" onClick={() => navigate(`/studio/${card.id}`)}>
-                      Edit
-                    </button>
-                  )}
-                  <div className="share-group">
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => setShareCard(card)}
-                      disabled={card.status !== 'published'}
-                      title={card.status !== 'published' ? 'Publish the card first to share' : 'Share public link'}
-                    >
-                      Share
-                    </button>
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => openInNewTab(card)}
-                      disabled={card.status !== 'published'}
-                      title={card.status !== 'published' ? 'Publish the card first' : 'Open public card'}
-                    >
-                      Open ↗
-                    </button>
-                  </div>
-                  {card.status !== 'archived' && (
-                    <button className="text-button card-delete-btn" type="button" onClick={() => handleDelete(card)}>
-                      {card.status === 'draft' ? 'Delete' : 'Archive'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+                )
+            })}
           </div>
         )}
 
@@ -332,7 +440,7 @@ export function Dashboard() {
             message={pendingConfirm.message}
             actionLabel={pendingConfirm.actionLabel}
             onCancel={() => setPendingConfirm(null)}
-            onConfirm={() => confirmDelete(pendingConfirm.card)}
+            onConfirm={pendingConfirm.onConfirm ?? (() => confirmDelete(pendingConfirm.card))}
           />
         )}
 
@@ -340,6 +448,10 @@ export function Dashboard() {
           <ShareModal
             card={shareCard}
             onClose={() => setShareCard(null)}
+            onSlugUpdated={(updated) => {
+              setShareCard(updated)
+              setCards((cur) => cur.map((c) => (c.id === updated.id ? updated : c)))
+            }}
           />
         )}
       </section>

@@ -65,7 +65,7 @@ function AssetUpload({ label, required, value, progress, error, onChange, onRemo
           <span className="upload-icon">↑</span>
         )}
         <strong>{label}{required ? ' *' : ''}</strong>
-        <span>{value ? 'Image uploaded successfully' : 'Drag and drop or click to upload'}</span>
+        <span>{value && !error ? 'Image uploaded successfully' : !value ? 'Drag and drop or click to upload' : 'Upload failed — try again'}</span>
         <small>PNG, JPG, WEBP or SVG</small>
       </label>
       {uploading && (

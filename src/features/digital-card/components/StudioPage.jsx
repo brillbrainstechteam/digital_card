@@ -254,11 +254,9 @@ export function StudioPage() {
         id = created.id
       }
       await sleep(650)
-      setPublishStage(1) // Curating your customized Business Card...
+      setPublishStage(1) // Generating your branded QR Code...
       await sleep(900)
-      setPublishStage(2) // Generating your branded QR Code...
-      await sleep(900)
-      setPublishStage(3) // Preparing checkout...
+      setPublishStage(2) // Preparing secure checkout...
       const updated = await updateCard(id, {
         title: editorProfile.brandName,
         logo_url: editorProfile.logo,
@@ -279,7 +277,7 @@ export function StudioPage() {
       if (isGuest) window.history.replaceState(null, '', `/studio/${id}`)
 
       await sleep(400)
-      setPublishStage(4) // Done!
+      setPublishStage(3) // Done!
       await sleep(500)
       setPublishStage(null)
       toast.success('Card prepared for checkout')
@@ -550,7 +548,7 @@ export function StudioPage() {
     })
   }
 
-  const publicUrl = cardSlug ? `${window.location.origin}/card/${cardSlug}` : null
+  const publicUrl = cardSlug ? `${window.location.origin}/${cardSlug}` : null
 
   // Requirement: creating a QR from a Digital Card should need zero manual
   // setup — brand colors, logo, and destination are all pre-filled from the
@@ -577,11 +575,9 @@ export function StudioPage() {
         fullName: editorProfile.personName || editorProfile.brandName || '',
         companyName: editorProfile.companyName || '',
         designation: editorProfile.designation || '',
-        phone: editorProfile.phone || '',
-        phone2: '',
-        phone3: '',
+        phones: editorProfile.phone ? [{ label: 'Mobile', number: editorProfile.phone }] : [{ label: 'Mobile', number: '' }],
         email: editorProfile.email || '',
-        website: editorProfile.website || '',
+        websites: editorProfile.website ? [{ label: 'Website', url: editorProfile.website }] : [{ label: 'Website', url: '' }],
         address: editorProfile.location || '',
       }
     }

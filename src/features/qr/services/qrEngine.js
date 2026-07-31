@@ -91,6 +91,13 @@ export function buildQrCodeOptions(settings, { lockable = false } = {}) {
       imageSize: settings.logoSizeRatio ?? 0.22,
       hideBackgroundDots: true,
       margin: 4,
+      // Our logos are already data URLs, so we never need the library's
+      // re-fetch-as-blob step. That step performs an XMLHttpRequest GET
+      // against the image URL (even for data: URIs) to re-encode it, which
+      // CSP's connect-src (no `data:` exception under helmet's default
+      // policy) silently blocks in production — the logo would then never
+      // render at all despite `image` being set correctly.
+      saveAsBlob: false,
     },
     dotsOptions: dotsGradient
       ? { type: settings.dotsType || 'square', gradient: dotsGradient }

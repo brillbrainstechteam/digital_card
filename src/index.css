@@ -2,17 +2,29 @@
 
 :root {
   font-family: Manrope, Arial, sans-serif;
-  color: #15282c;
-  background: #f8f7f3;
+  color: #F4EFE2;
+  background: #08122A;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --shell: #f8f7f3;
-  --line: #e5e3dd;
-  --muted: #657174;
-  --ink: #15282c;
-  --navy: #112d37;
-  --white: #ffffff;
+
+  /* Brand palette */
+  --navy-deep: #08122A;
+  --navy:      #0E1A35;
+  --navy-soft: #152340;
+  --gold:      #D4AF37;
+  --gold-bright: #F2D680;
+  --cream:     #F4EFE2;
+  --white:     #ffffff;
+
+  /* UI aliases */
+  --shell:   #08122A;
+  --surface: #0E1A35;
+  --line:    rgba(212,175,55,0.18);
+  --muted:   #8898BB;
+  --ink:     #F4EFE2;
+  --primary: #D4AF37;
+  --primary-bright: #F2D680;
 }
 
 * {

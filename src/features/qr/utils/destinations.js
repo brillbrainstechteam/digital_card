@@ -47,28 +47,105 @@ function escapeVCardValue(value) {
     .replace(/;/g, '\\;')
 }
 
+// Labels that map cleanly to a native phone category on every platform.
+const STANDARD_PHONE_LABELS = new Set([
+  '', 'mobile', 'cell', 'phone', 'home', 'work', 'office', 'landline', 'main', 'fax', 'pager', 'personal', 'other',
+])
+
+function phoneVcardTypes(label) {
+  const value = String(label || '').toLowerCase()
+  if (['landline', 'office', 'work', 'department', 'sales', 'marketing'].some((k) => value.includes(k))) return 'WORK,VOICE'
+  if (['home', 'personal'].some((k) => value.includes(k))) return 'HOME,VOICE'
+  return 'CELL,VOICE'
+}
+
+// Turns any custom label into a single safe TYPE token: strips characters
+// that would break vCard parameter parsing (comma splits values, semicolon
+// or colon end the param, backslash escapes), keeps spaces so it stays readable.
+function phoneTypeToken(label) {
+  return String(label || '').replace(/[,;:\\]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40)
+}
+
+// Known label -> standard TYPE (native category dropdown on every device).
+// Custom label (a name, role, anything) -> the exact text as TYPE, so
+// Android's quick "Add to contacts" shows it as the label; the X-ABLabel
+// line below carries the same text for iOS/Google Contacts either way.
+function phoneTypeParam(label) {
+  const lower = String(label || '').trim().toLowerCase()
+  if (STANDARD_PHONE_LABELS.has(lower)) return `TYPE=${phoneVcardTypes(label)}`
+  const token = phoneTypeToken(label)
+  return token ? `TYPE=${token}` : `TYPE=${phoneVcardTypes(label)}`
+}
+
+// Splits a full name into vCard N: components (last;first;middle). Needed
+// because iOS/Android read the structured N: field, not just FN:, when
+// deciding how to file a contact under First/Last name search.
+function nameParts(fullName) {
+  const display = String(fullName || '').trim()
+  const parts = display.split(/\s+/).filter(Boolean)
+  if (parts.length <= 1) return { display, first: display, middle: '', last: '' }
+  if (parts.length === 2) return { display, first: parts[0], middle: '', last: parts[1] }
+  return { display, first: parts.slice(0, -2).join(' '), middle: parts[parts.length - 2], last: parts[parts.length - 1] }
+}
+
 // Builds a standards-compliant vCard 3.0 payload. Encoding the contact data
 // directly (rather than linking to a webpage) is what makes iOS and Android
 // show a native "Add Contact" preview immediately on scan, with no website
-// needing to load.
+// needing to load. Supports multiple phones/websites, each with its own
+// label, using the grouped item.TEL/item.X-ABLabel convention so custom
+// labels survive on iOS while every number still imports on Android/Samsung
+// (which drop any TEL with no recognizable TYPE).
 function buildVCard(fields = {}) {
-  const fullName = (fields.fullName || '').trim()
-  if (!fullName) return ''
+  const fullName = String(fields.fullName || '').trim()
+  const companyName = String(fields.companyName || '').trim()
+  if (!fullName && !companyName) return ''
 
+  const name = nameParts(fullName || companyName)
   const lines = [
     'BEGIN:VCARD',
     'VERSION:3.0',
-    `N:${escapeVCardValue(fullName)};;;;`,
-    `FN:${escapeVCardValue(fullName)}`,
+    `N:${escapeVCardValue(name.last)};${escapeVCardValue(name.first)};${escapeVCardValue(name.middle)};;`,
+    `FN:${escapeVCardValue(name.display)}`,
   ]
-  if (fields.companyName) lines.push(`ORG:${escapeVCardValue(fields.companyName)}`)
+
+  if (companyName) {
+    lines.push(`ORG:${escapeVCardValue(companyName)}`)
+    // No personal name — this card represents the company itself. iOS reads
+    // this to file the card under the company name, not "person at company".
+    if (!fullName) lines.push('X-ABShowAs:COMPANY')
+  }
   if (fields.designation) lines.push(`TITLE:${escapeVCardValue(fields.designation)}`)
-  // Up to three phone numbers — only non-empty ones are included.
-  if (fields.phone) lines.push(`TEL;TYPE=CELL,VOICE:${escapeVCardValue(onlyDigits(fields.phone))}`)
-  if (fields.phone2) lines.push(`TEL;TYPE=HOME,VOICE:${escapeVCardValue(onlyDigits(fields.phone2))}`)
-  if (fields.phone3) lines.push(`TEL;TYPE=WORK,VOICE:${escapeVCardValue(onlyDigits(fields.phone3))}`)
+
+  let itemIndex = 1
+  const phones = Array.isArray(fields.phones) ? fields.phones : []
+  phones.forEach((entry) => {
+    const number = onlyDigits(entry?.number)
+    if (!number) return
+    const label = String(entry?.label || '').trim() || 'Mobile'
+    const item = `item${itemIndex}`
+    itemIndex += 1
+    lines.push(`${item}.TEL;${phoneTypeParam(label)}:${escapeVCardValue(number)}`)
+    lines.push(`${item}.X-ABLabel:${escapeVCardValue(label)}`)
+  })
+
   if (fields.email) lines.push(`EMAIL;TYPE=INTERNET:${escapeVCardValue(fields.email.trim())}`)
-  if (fields.website) lines.push(`URL:${escapeVCardValue(ensureUrlScheme(fields.website))}`)
+
+  const websites = Array.isArray(fields.websites) ? fields.websites : []
+  websites.forEach((entry) => {
+    const url = ensureUrlScheme(entry?.url)
+    if (!url) return
+    const label = String(entry?.label || '').trim() || 'Website'
+    const item = `item${itemIndex}`
+    itemIndex += 1
+    // Plain URL + grouped X-ABLabel — NO TYPE= param. Both iOS and Google
+    // Contacts read the grouped X-ABLabel to show the custom link label.
+    // Adding a TYPE= with a non-standard value (e.g. "Google Maps") makes
+    // Google Contacts fall back to its default "Website" label and ignore
+    // X-ABLabel entirely, so every link shows as "Website".
+    lines.push(`${item}.URL:${escapeVCardValue(url)}`)
+    lines.push(`${item}.X-ABLabel:${escapeVCardValue(label)}`)
+  })
+
   if (fields.address) lines.push(`ADR;TYPE=WORK:;;${escapeVCardValue(fields.address)};;;;`)
   lines.push('END:VCARD')
 
@@ -86,7 +163,7 @@ function buildVCard(fields = {}) {
  *   whatsapp:     { number, message }
  *   wifi:         { ssid, security, password, hidden }
  *   maps:         { query } (address, place name, or "lat,lng")
- *   saveContact:  { fullName, companyName, designation, phone, phone2, phone3, email, website, address }
+ *   saveContact:  { fullName, companyName, designation, phones: [{ label, number }], email, websites: [{ label, url }], address }
  *   custom:       { value } (used verbatim, no scheme injected)
  * @returns {string} the exact string that should be encoded into the QR
  */
@@ -140,7 +217,16 @@ export function defaultFieldsForType(type) {
     case 'whatsapp': return { number: '', message: '' }
     case 'wifi': return { ssid: '', security: 'WPA', password: '', hidden: false }
     case 'maps': return { query: '' }
-    case 'saveContact': return { fullName: '', companyName: '', designation: '', phone: '', phone2: '', phone3: '', email: '', website: '', address: '' }
+    case 'saveContact':
+      return {
+        fullName: '',
+        companyName: '',
+        designation: '',
+        phones: [{ label: 'Mobile', number: '' }],
+        email: '',
+        websites: [{ label: 'Website', url: '' }],
+        address: '',
+      }
     case 'custom': return { value: '' }
     default: return {}
   }

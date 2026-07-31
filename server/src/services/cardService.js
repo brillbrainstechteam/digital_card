@@ -1,6 +1,7 @@
 const crypto = require('crypto')
 const { pool } = require('../config/database')
 const AppError = require('../utils/AppError')
+const { isValidSlugFormat, isReservedSlug } = require('../utils/slug')
 
 function generateSlug(title) {
   const base = title
@@ -61,7 +62,7 @@ async function getCardById(cardId, userId) {
   return card
 }
 
-const ALLOWED_STATUSES = ['draft', 'published']
+const ALLOWED_STATUSES = ['draft', 'published', 'suspended']
 
 async function updateCard(cardId, userId, updates) {
   const card = await getCardById(cardId, userId)
@@ -82,12 +83,37 @@ async function updateCard(cardId, userId, updates) {
     fields.push(`card_data = $${idx++}`)
     values.push(JSON.stringify(updates.card_data))
   }
+  if (updates.slug !== undefined) {
+    const slug = String(updates.slug).trim().toLowerCase()
+    if (!isValidSlugFormat(slug)) {
+      throw new AppError('Link must be 3-30 characters: lowercase letters, numbers, and hyphens only (no leading/trailing hyphen).', 400)
+    }
+    if (isReservedSlug(slug)) {
+      throw new AppError('That link is reserved. Please choose a different one.', 400)
+    }
+    const existing = await pool.query('SELECT id FROM cards WHERE slug = $1 AND id != $2', [slug, cardId])
+    if (existing.rows.length > 0) {
+      throw new AppError('That link is already taken. Please choose a different one.', 409)
+    }
+    fields.push(`slug = $${idx++}`)
+    values.push(slug)
+  }
   if (updates.status !== undefined) {
     if (!ALLOWED_STATUSES.includes(updates.status)) {
-      throw new AppError('Status must be "draft" or "published"', 400)
+      throw new AppError('Status must be "draft", "published", or "suspended"', 400)
     }
     fields.push(`status = $${idx++}`)
     values.push(updates.status)
+    // When re-publishing, clear subscription cancellation state
+    if (updates.status === 'published') {
+      fields.push(`subscription_cancelled = $${idx++}`)
+      values.push(false)
+      fields.push(`subscription_expires_at = $${idx++}`)
+      // New billing period: 30 days from now
+      const expires = new Date()
+      expires.setDate(expires.getDate() + 30)
+      values.push(expires.toISOString())
+    }
   }
 
   if (fields.length === 0) {
@@ -105,11 +131,59 @@ async function updateCard(cardId, userId, updates) {
   return result.rows[0]
 }
 
+async function cancelSubscription(cardId, userId) {
+  const card = await getCardById(cardId, userId)
+
+  if (card.status !== 'published') {
+    throw new AppError('Only published cards can have their subscription cancelled', 400)
+  }
+
+  // Card keeps working until subscription_expires_at (30 days from last publish)
+  // If already has an expiry, honour it; otherwise set 30 days from now
+  const expiresAt = card.subscription_expires_at && new Date(card.subscription_expires_at) > new Date()
+    ? card.subscription_expires_at
+    : (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString() })()
+
+  const result = await pool.query(
+    `UPDATE cards SET subscription_cancelled = TRUE, subscription_expires_at = $1, updated_at = NOW()
+     WHERE id = $2 RETURNING *`,
+    [expiresAt, cardId]
+  )
+  return result.rows[0]
+}
+
+async function resubscribe(cardId, userId) {
+  const card = await getCardById(cardId, userId)
+
+  if (card.status !== 'published' && card.status !== 'suspended') {
+    throw new AppError('Card must be published or suspended to re-subscribe', 400)
+  }
+
+  const expires = new Date()
+  expires.setDate(expires.getDate() + 30)
+
+  const result = await pool.query(
+    `UPDATE cards SET status = 'published', subscription_cancelled = FALSE,
+     subscription_expires_at = $1, updated_at = NOW()
+     WHERE id = $2 RETURNING *`,
+    [expires.toISOString(), cardId]
+  )
+  return result.rows[0]
+}
+
 async function deleteCard(cardId, userId) {
   const card = await getCardById(cardId, userId)
 
   if (card.status === 'archived') {
     return { action: 'none', message: 'Card is already archived' }
+  }
+
+  if (card.status === 'suspended') {
+    await pool.query(
+      "UPDATE cards SET status = 'archived', updated_at = NOW() WHERE id = $1",
+      [cardId]
+    )
+    return { action: 'archived', message: 'Suspended card has been archived' }
   }
 
   if (card.status === 'draft') {
@@ -154,4 +228,4 @@ async function unarchiveCard(cardId, userId) {
   return result.rows[0]
 }
 
-module.exports = { createCard, getCardsByUser, getCardById, updateCard, deleteCard, unarchiveCard }
+module.exports = { createCard, getCardsByUser, getCardById, updateCard, deleteCard, unarchiveCard, cancelSubscription, resubscribe }

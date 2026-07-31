@@ -20,15 +20,11 @@ import {
   PublicCard,
   CardPreviewTemp,
 } from './features/digital-card'
-import {
-  BusinessCardsPage,
-  BusinessCardFlow,
-  BusinessCardTemplatesPage,
-} from './features/business-card'
 import { QRStudioPage } from './features/qr/generator/QRStudioPage'
 import { QrCodesListPage } from './features/qr/generator/QrCodesListPage'
 import { QrAnalyticsPage } from './features/qr/generator/QrAnalyticsPage'
 import { QrScanRedirect } from './features/qr'
+import { AdminPanel } from './features/admin/AdminPanel'
 
 function GuestRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
@@ -58,13 +54,13 @@ function App() {
               <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
               <Route path="/studio/:cardId" element={<ProtectedRoute><StudioPage /></ProtectedRoute>} />
               <Route path="/create" element={<CreateCardPage />} />
-              <Route path="/business-cards" element={<ProtectedRoute><BusinessCardsPage /></ProtectedRoute>} />
-              <Route path="/business-cards/templates" element={<ProtectedRoute><BusinessCardTemplatesPage /></ProtectedRoute>} />
-              <Route path="/business-card/:cardId" element={<ProtectedRoute><BusinessCardFlow /></ProtectedRoute>} />
             </Route>
             <Route path="/card/:slug" element={<PublicCard />} />
+            <Route path="/:slug" element={<PublicCard />} />
             <Route path="/preview/:token" element={<CardPreviewTemp />} />
             <Route path="/q/:slug" element={<QrScanRedirect />} />
+            <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/admin/*" element={<AdminPanel />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </CartProvider>

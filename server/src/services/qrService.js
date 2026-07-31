@@ -2,6 +2,7 @@ const crypto = require('crypto')
 const { UAParser } = require('ua-parser-js')
 const { pool } = require('../config/database')
 const AppError = require('../utils/AppError')
+const { isValidSlugFormat } = require('../utils/slug')
 
 function generateSlug() {
   return crypto.randomBytes(5).toString('hex')
@@ -19,6 +20,46 @@ function onlyDigits(value) {
 
 function escapePayload(value) {
   return String(value || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;')
+}
+
+// Labels that map cleanly to a native phone category on every platform.
+const STANDARD_PHONE_LABELS = new Set([
+  '', 'mobile', 'cell', 'phone', 'home', 'work', 'office', 'landline', 'main', 'fax', 'pager', 'personal', 'other',
+])
+
+function phoneVcardTypes(label) {
+  const value = String(label || '').toLowerCase()
+  if (['landline', 'office', 'work', 'department', 'sales', 'marketing'].some((k) => value.includes(k))) return 'WORK,VOICE'
+  if (['home', 'personal'].some((k) => value.includes(k))) return 'HOME,VOICE'
+  return 'CELL,VOICE'
+}
+
+// Turns any custom label into a single safe TYPE token: strips characters
+// that would break vCard parameter parsing (comma splits values, semicolon
+// or colon end the param, backslash escapes), keeps spaces so it stays readable.
+function phoneTypeToken(label) {
+  return String(label || '').replace(/[,;:\\]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40)
+}
+
+// Known label -> standard TYPE (native category dropdown on every device).
+// Custom label -> exact text as TYPE, so Android's quick "Add to contacts"
+// shows it as the label; X-ABLabel carries the same text for iOS/Google.
+function phoneTypeParam(label) {
+  const lower = String(label || '').trim().toLowerCase()
+  if (STANDARD_PHONE_LABELS.has(lower)) return `TYPE=${phoneVcardTypes(label)}`
+  const token = phoneTypeToken(label)
+  return token ? `TYPE=${token}` : `TYPE=${phoneVcardTypes(label)}`
+}
+
+// Splits a full name into vCard N: components (last;first;middle). Needed
+// because iOS/Android read the structured N: field, not just FN:, when
+// deciding how to file a contact under First/Last name search.
+function nameParts(fullName) {
+  const display = String(fullName || '').trim()
+  const parts = display.split(/\s+/).filter(Boolean)
+  if (parts.length <= 1) return { display, first: display, middle: '', last: '' }
+  if (parts.length === 2) return { display, first: parts[0], middle: '', last: parts[1] }
+  return { display, first: parts.slice(0, -2).join(' '), middle: parts[parts.length - 2], last: parts[parts.length - 1] }
 }
 
 function buildDestinationValue(type, fields = {}, cardSlug = null) {
@@ -55,16 +96,53 @@ function buildDestinationValue(type, fields = {}, cardSlug = null) {
       return /^https?:\/\//i.test(query) ? query : (query ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}` : '')
     }
     case 'saveContact': {
-      const name = String(fields.fullName || '').trim()
-      if (!name) return ''
-      const lines = ['BEGIN:VCARD', 'VERSION:3.0', `N:${escapePayload(name)};;;;`, `FN:${escapePayload(name)}`]
-      if (fields.companyName) lines.push(`ORG:${escapePayload(fields.companyName)}`)
-      if (fields.designation) lines.push(`TITLE:${escapePayload(fields.designation)}`)
-      for (const [key, label] of [['phone', 'CELL,VOICE'], ['phone2', 'HOME,VOICE'], ['phone3', 'WORK,VOICE']]) {
-        if (fields[key]) lines.push(`TEL;TYPE=${label}:${escapePayload(onlyDigits(fields[key]))}`)
+      const fullName = String(fields.fullName || '').trim()
+      const companyName = String(fields.companyName || '').trim()
+      if (!fullName && !companyName) return ''
+
+      const name = nameParts(fullName || companyName)
+      const lines = [
+        'BEGIN:VCARD',
+        'VERSION:3.0',
+        `N:${escapePayload(name.last)};${escapePayload(name.first)};${escapePayload(name.middle)};;`,
+        `FN:${escapePayload(name.display)}`,
+      ]
+      if (companyName) {
+        lines.push(`ORG:${escapePayload(companyName)}`)
+        if (!fullName) lines.push('X-ABShowAs:COMPANY')
       }
+      if (fields.designation) lines.push(`TITLE:${escapePayload(fields.designation)}`)
+
+      let itemIndex = 1
+      const phones = Array.isArray(fields.phones) ? fields.phones : []
+      phones.forEach((entry) => {
+        const number = onlyDigits(entry?.number)
+        if (!number) return
+        const label = String(entry?.label || '').trim() || 'Mobile'
+        const item = `item${itemIndex}`
+        itemIndex += 1
+        lines.push(`${item}.TEL;${phoneTypeParam(label)}:${escapePayload(number)}`)
+        lines.push(`${item}.X-ABLabel:${escapePayload(label)}`)
+      })
+
       if (fields.email) lines.push(`EMAIL;TYPE=INTERNET:${escapePayload(String(fields.email).trim())}`)
-      if (fields.website) lines.push(`URL:${escapePayload(ensureUrlScheme(fields.website))}`)
+
+      const websites = Array.isArray(fields.websites) ? fields.websites : []
+      websites.forEach((entry) => {
+        const url = ensureUrlScheme(entry?.url)
+        if (!url) return
+        const label = String(entry?.label || '').trim() || 'Website'
+        const item = `item${itemIndex}`
+        itemIndex += 1
+        // Plain URL + grouped X-ABLabel — NO TYPE= param. Both iOS and Google
+        // Contacts read the grouped X-ABLabel to show the custom link label.
+        // Adding a TYPE= with a non-standard value (e.g. "Google Maps") makes
+        // Google Contacts fall back to its default "Website" label and ignore
+        // X-ABLabel entirely, so every link shows as "Website".
+        lines.push(`${item}.URL:${escapePayload(url)}`)
+        lines.push(`${item}.X-ABLabel:${escapePayload(label)}`)
+      })
+
       if (fields.address) lines.push(`ADR;TYPE=WORK:;;${escapePayload(fields.address)};;;;`)
       lines.push('END:VCARD')
       return lines.join('\r\n')
@@ -175,6 +253,66 @@ function getQrLifecycleStatus(qr) {
   return qr?.settings?.lifecycleStatus === 'archived' ? 'archived' : 'active'
 }
 
+async function updateQrSlug(userId, qrId, slug) {
+  await verifyQrOwnership(userId, qrId)
+  const normalized = String(slug || '').trim().toLowerCase()
+  if (!isValidSlugFormat(normalized)) {
+    throw new AppError('Link must be 3-30 characters: lowercase letters, numbers, and hyphens only (no leading/trailing hyphen).', 400)
+  }
+  const dupe = await pool.query('SELECT id FROM qr_codes WHERE slug = $1 AND id != $2', [normalized, qrId])
+  if (dupe.rows.length > 0) {
+    throw new AppError('That link is already taken. Please choose a different one.', 409)
+  }
+  const result = await pool.query(
+    'UPDATE qr_codes SET slug = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3 RETURNING *',
+    [normalized, qrId, userId]
+  )
+  return result.rows[0]
+}
+
+// Only these keys are ever writable through "Edit QR" — visual design and
+// destination, nothing else. `settingsPatch` comes straight from the
+// client, so server-managed flags (purchased, lifecycleStatus) MUST be
+// picked field-by-field rather than spread wholesale onto the stored
+// settings — otherwise a request like {"settings":{"purchased":true}}
+// would flip the paid-QR-addon flag for free.
+const EDITABLE_QR_SETTINGS_KEYS = [
+  'destinationType', 'destinationFields', 'size', 'margin', 'errorCorrectionLevel',
+  'dotsType', 'foreground', 'background', 'transparentBackground', 'gradient',
+  'logo', 'logoSizeRatio', 'brandTheme',
+]
+
+// Full "Edit QR" — replaces the visual design (colors, logo, dots, error
+// correction) in addition to the destination. Merges onto the existing
+// settings rather than trusting the client to send a complete object, so
+// server-managed flags (purchased, lifecycleStatus, destinationOverride)
+// can never be touched by an edit that only meant to change, say, the
+// logo. The QR's slug/id never change, so any already-printed QR keeps
+// working — only what it looks like and where it leads on future
+// downloads/scans is affected.
+async function updateQrSettings(userId, qrId, settingsPatch) {
+  const owned = await verifyQrOwnership(userId, qrId)
+  const destinationType = settingsPatch.destinationType ?? owned.settings?.destinationType
+  const destinationFields = settingsPatch.destinationFields ?? owned.settings?.destinationFields
+  if (!buildDestinationValue(destinationType, destinationFields)) {
+    throw new AppError('Add a valid destination before saving', 400)
+  }
+  const allowedPatch = {}
+  for (const key of EDITABLE_QR_SETTINGS_KEYS) {
+    if (settingsPatch[key] !== undefined) allowedPatch[key] = settingsPatch[key]
+  }
+  const settings = {
+    ...(owned.settings || {}),
+    ...allowedPatch,
+    destinationOverride: true,
+  }
+  const result = await pool.query(
+    'UPDATE qr_codes SET settings = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3 RETURNING *',
+    [JSON.stringify(settings), qrId, userId]
+  )
+  return result.rows[0]
+}
+
 async function updateQrDestination(userId, qrId, destinationType, destinationFields) {
   const allowedTypes = new Set(['website', 'digitalCard', 'phone', 'email', 'whatsapp', 'wifi', 'maps', 'saveContact', 'custom'])
   if (!allowedTypes.has(destinationType)) throw new AppError('Invalid QR destination type', 400)
@@ -247,9 +385,7 @@ async function getQrBySlugPublic(slug) {
   )
   if (result.rows.length === 0) throw new AppError('QR code not found', 404)
   const qr = result.rows[0]
-  if (qr.settings?.purchased !== true) throw new AppError('QR code is awaiting payment', 404)
-  if (qr.card_id && qr.card_status !== 'published') throw new AppError('QR code is not published', 404)
-  if (getQrLifecycleStatus(qr) === 'archived') throw new AppError('QR code is archived', 404)
+  if (getQrLifecycleStatus(qr) === 'archived') throw new AppError('QR code is inactive', 404)
   return qr
 }
 
@@ -410,6 +546,8 @@ module.exports = {
   upsertCardQr,
   createStandaloneQr,
   activateQrPurchase,
+  updateQrSlug,
+  updateQrSettings,
   updateQrDestination,
   updateQrLifecycle,
   deleteQr,

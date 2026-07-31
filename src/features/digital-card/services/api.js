@@ -30,6 +30,16 @@ export async function unarchiveCard(id) {
   return data.data.card
 }
 
+export async function cancelCardSubscription(id) {
+  const { data } = await client.patch(`/cards/${id}/cancel-subscription`)
+  return data.data.card
+}
+
+export async function resubscribeCard(id) {
+  const { data } = await client.patch(`/cards/${id}/resubscribe`)
+  return data.data.card
+}
+
 export async function fetchPublicCard(slug) {
   const { data } = await client.get(`/public/cards/${slug}`)
   return data.data.card

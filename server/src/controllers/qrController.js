@@ -35,6 +35,20 @@ async function activatePurchase(req, res, next) {
   } catch (err) { next(err) }
 }
 
+async function updateSlug(req, res, next) {
+  try {
+    const qr = await qrService.updateQrSlug(req.user.id, req.params.qrId, req.body.slug)
+    res.json({ success: true, message: 'QR link updated', data: { qr } })
+  } catch (err) { next(err) }
+}
+
+async function updateSettings(req, res, next) {
+  try {
+    const qr = await qrService.updateQrSettings(req.user.id, req.params.qrId, req.body.settings || {})
+    res.json({ success: true, message: 'QR code updated', data: { qr } })
+  } catch (err) { next(err) }
+}
+
 async function updateDestination(req, res, next) {
   try {
     const qr = await qrService.updateQrDestination(req.user.id, req.params.qrId, req.body.destinationType, req.body.destinationFields || {})
@@ -87,13 +101,36 @@ async function getOverallAnalytics(req, res, next) {
   } catch (err) { next(err) }
 }
 
+// Public: serves the VCard (.vcf) directly with correct MIME type so iOS
+// opens it straight in Contacts instead of triggering a download prompt.
+async function serveVcard(req, res, next) {
+  try {
+    const qr = await qrService.getQrBySlugPublic(req.params.slug)
+    const destinationType = qr.settings?.destinationType
+    if (destinationType !== 'saveContact') {
+      return res.status(400).json({ success: false, message: 'Not a contact QR code' })
+    }
+    const fields = qr.settings?.destinationFields || {}
+    const vcfContent = qrService.buildDestinationValue('saveContact', fields)
+    const name = fields.fullName || fields.companyName || 'contact'
+    const safeName = name.replace(/[^a-z0-9_\- ]/gi, '').trim() || 'contact'
+    res.set({
+      'Content-Type': 'text/vcard; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${safeName}.vcf"`,
+      'Cache-Control': 'no-store',
+    })
+    res.send(vcfContent)
+  } catch (err) { next(err) }
+}
+
 // Public: scanning the printed/displayed QR hits this endpoint first so the
 // scan is recorded, then the frontend redirect page sends the visitor on to
 // the real destination (the Digital Card's public URL).
 async function resolveScan(req, res, next) {
   try {
     const qr = await qrService.getQrBySlugPublic(req.params.slug)
-    await qrService.recordScan(qr, req)
+    // Fire-and-forget: scan recording must never block the redirect response.
+    qrService.recordScan(qr, req).catch((err) => console.error('[QR recordScan]', err.message))
     const destinationType = qr.settings?.destinationType || (qr.card_id ? 'digitalCard' : 'website')
     const savedDestinationFields = qr.settings?.destinationFields || {}
     // Older card QR records stored a temporary browser preview URL. Keep
@@ -129,4 +166,4 @@ async function resolveScan(req, res, next) {
   } catch (err) { next(err) }
 }
 
-module.exports = { getCardQr, listQrs, upsertCardQr, createStandaloneQr, activatePurchase, updateDestination, updateLifecycle, deleteQr, deleteCardQr, getAnalytics, getCardAnalytics, getOverallAnalytics, resolveScan }
+module.exports = { getCardQr, listQrs, upsertCardQr, createStandaloneQr, activatePurchase, updateSlug, updateSettings, updateDestination, updateLifecycle, deleteQr, deleteCardQr, getAnalytics, getCardAnalytics, getOverallAnalytics, resolveScan, serveVcard }

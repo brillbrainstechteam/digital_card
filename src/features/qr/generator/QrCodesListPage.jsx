@@ -5,8 +5,9 @@ import { Sidebar } from '../../../components/Sidebar'
 import { useToast } from '../../../context/ToastContext'
 import { QRCode } from '../components/QRCode'
 import { QrManagementPanel } from '../components/QrManagementPanel'
-import { deleteQr, fetchMyQrCodes, updateQrLifecycle, withDynamicQrData } from '../services/qrApi'
+import { deleteQr, fetchMyQrCodes, updateQrLifecycle, updateQrSlug, withDynamicQrData } from '../services/qrApi'
 import { createDefaultQrSettings, downloadQrCode } from '../services/qrEngine'
+import { getDynamicQrUrl } from '../utils/publicQrUrl'
 import '../qr-studio.css'
 
 function formatDate(iso) {
@@ -42,6 +43,10 @@ export function QrCodesListPage() {
   const [openPanel, setOpenPanel] = useState(null)
   const [pendingConfirm, setPendingConfirm] = useState(null)
   const [actionBusy, setActionBusy] = useState(false)
+  const [editingSlugId, setEditingSlugId] = useState(null)
+  const [slugDraft, setSlugDraft] = useState('')
+  const [slugSaving, setSlugSaving] = useState(false)
+  const [slugError, setSlugError] = useState('')
 
   useEffect(() => {
     fetchMyQrCodes()
@@ -86,6 +91,29 @@ export function QrCodesListPage() {
     }
   }
 
+  function startEditSlug(qr) {
+    setEditingSlugId(qr.id)
+    setSlugDraft(qr.slug || '')
+    setSlugError('')
+  }
+
+  async function handleSaveSlug(qr) {
+    const nextSlug = slugDraft.trim().toLowerCase()
+    if (nextSlug === qr.slug) { setEditingSlugId(null); return }
+    setSlugSaving(true)
+    setSlugError('')
+    try {
+      const updated = await updateQrSlug(qr.id, nextSlug)
+      setQrs((current) => current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)))
+      setEditingSlugId(null)
+      toast.success('QR link updated')
+    } catch (err) {
+      setSlugError(err.message || 'Could not update link')
+    } finally {
+      setSlugSaving(false)
+    }
+  }
+
   async function handleLifecycleChange() {
     if (!pendingConfirm) return
     setActionBusy(true)
@@ -95,11 +123,15 @@ export function QrCodesListPage() {
         setQrs((current) => current.filter((item) => item.id !== pendingConfirm.qr.id))
         if (openPanel === pendingConfirm.qr.id) setOpenPanel(null)
         toast.success('QR code deleted.')
+      } else if (pendingConfirm.kind === 'cancel') {
+        const updated = await updateQrLifecycle(pendingConfirm.qr.id, 'archived')
+        setQrs((current) => current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)))
+        toast.success('Subscription cancelled — QR code is now inactive.')
       } else {
         const nextStatus = pendingConfirm.qr.settings?.lifecycleStatus === 'archived' ? 'active' : 'archived'
         const updated = await updateQrLifecycle(pendingConfirm.qr.id, nextStatus)
         setQrs((current) => current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)))
-        toast.success(nextStatus === 'archived' ? 'QR code archived.' : 'QR code restored.')
+        toast.success(nextStatus === 'archived' ? 'QR code deactivated.' : 'QR code reactivated.')
       }
     } catch (err) {
       toast.error(err.message || 'Could not update this QR code')
@@ -113,17 +145,25 @@ export function QrCodesListPage() {
     <main className="studio studio-workspace">
       {pendingConfirm && (
         <ConfirmDialog
-          title={pendingConfirm.kind === 'delete' ? 'Delete QR Code?' : pendingConfirm.qr.settings?.lifecycleStatus === 'archived' ? 'Restore QR Code?' : 'Archive QR Code?'}
-          message={pendingConfirm.kind === 'delete'
-            ? 'This QR code and its saved settings will be permanently removed.'
-            : pendingConfirm.qr.settings?.lifecycleStatus === 'archived'
-              ? 'This QR code will become active again and its dynamic link will start working.'
-              : 'This QR code will no longer work for public scans until you restore it.'}
-          actionLabel={pendingConfirm.kind === 'delete'
-            ? 'Delete'
-            : pendingConfirm.qr.settings?.lifecycleStatus === 'archived'
-              ? 'Restore'
-              : 'Archive'}
+          title={
+            pendingConfirm.kind === 'delete' ? 'Delete QR Code?' :
+            pendingConfirm.kind === 'cancel' ? 'Cancel Subscription?' :
+            pendingConfirm.qr.settings?.lifecycleStatus === 'archived' ? 'Re-subscribe QR Code?' : 'Deactivate QR Code?'
+          }
+          message={
+            pendingConfirm.kind === 'delete'
+              ? 'This QR code and its saved settings will be permanently removed.'
+              : pendingConfirm.kind === 'cancel'
+                ? 'This QR code will stop working immediately. No future payments will be charged. You can re-subscribe anytime to reactivate it.'
+                : pendingConfirm.qr.settings?.lifecycleStatus === 'archived'
+                  ? 'This QR code will become active again and its dynamic link will start working immediately.'
+                  : 'This QR code will stop working for public scans immediately. You can reactivate it anytime.'
+          }
+          actionLabel={
+            pendingConfirm.kind === 'delete' ? 'Delete' :
+            pendingConfirm.kind === 'cancel' ? 'Cancel Subscription' :
+            pendingConfirm.qr.settings?.lifecycleStatus === 'archived' ? 'Re-subscribe' : 'Deactivate'
+          }
           destructive={pendingConfirm.kind === 'delete'}
           busy={actionBusy}
           onCancel={() => !actionBusy && setPendingConfirm(null)}
@@ -190,14 +230,43 @@ export function QrCodesListPage() {
                       <span>Updated {formatDate(qr.updated_at)}</span>
                       {!unlocked && !archived && <span className="status-badge status-draft">Payment pending</span>}
                     </div>
+                    {editingSlugId === qr.id ? (
+                      <div className="qr-slug-editor">
+                        <span className="share-link-prefix">{window.location.origin}/q/</span>
+                        <input
+                          type="text"
+                          value={slugDraft}
+                          onChange={(e) => setSlugDraft(e.target.value.toLowerCase())}
+                          className="share-link-input"
+                          placeholder="your-name"
+                          autoFocus
+                        />
+                        <button className="secondary-button" type="button" onClick={() => setEditingSlugId(null)} disabled={slugSaving}>Cancel</button>
+                        <button className="primary-button" type="button" onClick={() => handleSaveSlug(qr)} disabled={slugSaving}>
+                          {slugSaving ? 'Saving...' : 'Save'}
+                        </button>
+                        {slugError && <p className="share-error-msg">{slugError}</p>}
+                      </div>
+                    ) : (
+                      <div className="qr-slug-display">
+                        <span className="qr-slug-link">{getDynamicQrUrl(qr.slug)}</span>
+                        <button className="link-button" type="button" onClick={() => startEditSlug(qr)}>Edit Link</button>
+                      </div>
+                    )}
                   </div>
                   <div className="card-list-actions">
                     <button className="secondary-button" type="button" onClick={() => setOpenPanel((current) => current === qr.id ? null : qr.id)}>
-                      Change Destination
+                      Edit QR
                     </button>
-                    <button className="secondary-button" type="button" onClick={() => setPendingConfirm({ kind: 'archive', qr })}>
-                      {archived ? 'Restore' : 'Archive'}
-                    </button>
+                    {archived ? (
+                      <button className="primary-button" type="button" onClick={() => setPendingConfirm({ kind: 'archive', qr })}>
+                        Re-subscribe
+                      </button>
+                    ) : (
+                      <button className="secondary-button" type="button" onClick={() => setPendingConfirm({ kind: 'cancel', qr })}>
+                        Cancel Subscription
+                      </button>
+                    )}
                     <button className="secondary-button" type="button" onClick={() => setPendingConfirm({ kind: 'delete', qr })}>
                       Delete
                     </button>
