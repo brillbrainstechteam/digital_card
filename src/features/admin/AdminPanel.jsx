@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Component } from 'react'
 import {
   adminLogin, adminLogout, isAdminLoggedIn,
   fetchStats, fetchUsers, fetchCards, fetchQrCodes, fetchActivity,
@@ -63,14 +63,18 @@ function OverviewTab() {
   const [stats, setStats] = useState(null)
   const [activity, setActivity] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     Promise.all([fetchStats(), fetchActivity()])
       .then(([s, a]) => { setStats(s); setActivity(a) })
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }, [])
 
   if (loading) return <div className="admin-empty">Loading…</div>
+  if (error) return <div className="admin-empty" style={{ color: '#ff6b6b' }}>Error: {error}</div>
+  if (!stats) return <div className="admin-empty">No data</div>
 
   const mrr = (stats.publishedCards * PRICE_PER_CARD) + (stats.totalQrCodes * PRICE_PER_QR)
 
@@ -119,14 +123,18 @@ function RevenueTab() {
   const [cards, setCards] = useState([])
   const [qrs, setQrs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     Promise.all([fetchStats(), fetchCards(), fetchQrCodes()])
       .then(([s, c, q]) => { setStats(s); setCards(c); setQrs(q) })
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }, [])
 
   if (loading) return <div className="admin-empty">Loading…</div>
+  if (error) return <div className="admin-empty" style={{ color: '#ff6b6b' }}>Error: {error}</div>
+  if (!stats) return <div className="admin-empty">No data</div>
 
   const publishedCards = cards.filter((c) => c.status === 'published')
   const purchasedQrs = qrs.filter((q) => q.purchased === 'true')
@@ -204,12 +212,15 @@ function SubscriptionsTab() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    fetchSubscriptions().then(setData).finally(() => setLoading(false))
+    fetchSubscriptions().then(setData).catch((err) => setError(err.message)).finally(() => setLoading(false))
   }, [])
 
   if (loading) return <div className="admin-empty">Loading…</div>
+  if (error) return <div className="admin-empty" style={{ color: '#ff6b6b' }}>Error: {error}</div>
+  if (!data) return <div className="admin-empty">No data</div>
 
   const { stats, list } = data
   const now = new Date()
@@ -556,9 +567,38 @@ function AdminDashboard({ onLogout }) {
   )
 }
 
-export function AdminPanel() {
+class AdminErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null } }
+  static getDerivedStateFromError(error) { return { error } }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="admin-login-wrap">
+          <div className="admin-login-box" style={{ textAlign: 'center' }}>
+            <h1 style={{ color: '#ff6b6b' }}>Something went wrong</h1>
+            <p style={{ marginBottom: 16 }}>{this.state.error.message}</p>
+            <button className="admin-login-btn" onClick={() => { localStorage.removeItem('admin_token'); window.location.href = '/admin' }}>
+              Reset &amp; Try Again
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+function AdminPanelInner() {
   const [loggedIn, setLoggedIn] = useState(isAdminLoggedIn())
   function handleLogout() { adminLogout(); setLoggedIn(false) }
   if (!loggedIn) return <AdminLogin onSuccess={() => setLoggedIn(true)} />
   return <div className="admin-shell"><AdminDashboard onLogout={handleLogout} /></div>
+}
+
+export function AdminPanel() {
+  return (
+    <AdminErrorBoundary>
+      <AdminPanelInner />
+    </AdminErrorBoundary>
+  )
 }

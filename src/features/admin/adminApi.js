@@ -11,7 +11,13 @@ function headers() {
 async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, { headers: headers(), ...options })
   const data = await res.json()
-  if (!res.ok) throw new Error(data.message || 'Request failed')
+  if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem('admin_token')
+      window.location.href = '/admin'
+    }
+    throw new Error(data.message || 'Request failed')
+  }
   return data
 }
 
