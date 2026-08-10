@@ -744,6 +744,7 @@ export function Studio({
   backTo = null,
 }) {
   const [activePanel, setActivePanel] = useState('design')
+  const [showMobilePreview, setShowMobilePreview] = useState(false)
   const commitTimerRef = useRef(null)
   const uploadRef = useRef(null)
   const coverUploadRef = useRef(null)
@@ -1053,11 +1054,28 @@ export function Studio({
         onDiscard={onDiscard}
         backTo={backTo}
       />
-      <section className="editor-panel">
+      <div className="studio-mobile-tab-strip">
+        <button
+          type="button"
+          className={`studio-mobile-tab${!showMobilePreview ? ' studio-mobile-tab--active' : ''}`}
+          onClick={() => setShowMobilePreview(false)}
+        >
+          ✏ Edit
+        </button>
+        <button
+          type="button"
+          className={`studio-mobile-tab${showMobilePreview ? ' studio-mobile-tab--active' : ''}`}
+          onClick={() => setShowMobilePreview(true)}
+        >
+          👁 Preview
+        </button>
+      </div>
+      <section className={`editor-panel${showMobilePreview ? ' studio-panel--mobile-hidden' : ''}`}>
         {(
           <PageHeader
             badge="CARD STUDIO"
-            title="Design your card"
+            title={profile.personName || profile.companyName || profile.brandName || 'Design your card'}
+            subtitle={profile.personName || profile.companyName || profile.brandName ? 'Editing your card' : undefined}
             actions={(
               <>
                 <button className="secondary-button save-card-button" type="button" onClick={onUndo} disabled={!canUndo}>
@@ -1734,16 +1752,16 @@ export function Studio({
 
       </section>
 
-      <aside className="preview-panel">
+      <aside className={`preview-panel${!showMobilePreview ? ' studio-panel--mobile-hidden' : ''}`}>
         <div className="preview-toolbar">
-          <span>{hasUnsavedChanges ? 'Live preview - Unsaved changes' : 'Live preview'}</span>
+          <span>{hasUnsavedChanges ? 'Live preview · Unsaved' : 'Live preview'}</span>
           <div className="preview-toolbar-actions">
             {cardStatus === 'published' ? (
               <span className="preview-published-badge">Published</span>
             ) : (
               onPublish && (
-                <button className="secondary-button" type="button" onClick={onPublish} disabled={publishing}>
-                  {publishing ? 'Publishing...' : 'Publish'}
+                <button className="primary-button preview-publish-btn" type="button" onClick={onPublish} disabled={publishing}>
+                  {publishing ? 'Publishing...' : 'Publish Card'}
                 </button>
               )
             )}

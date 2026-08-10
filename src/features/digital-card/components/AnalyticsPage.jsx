@@ -381,6 +381,39 @@ export function AnalyticsPage() {
 
         {loading || !summary ? (
           <p className="settings-placeholder">Loading analytics...</p>
+        ) : summary.totalViews === 0 && !showSample ? (
+          <div className="analytics-empty-state">
+            <div className="analytics-empty-icon">📊</div>
+            <h2>No data yet</h2>
+            <p>Your analytics will appear here once people start viewing your card.</p>
+            <div className="analytics-empty-steps">
+              <div className="analytics-empty-step">
+                <span className="analytics-empty-step-num">1</span>
+                <div>
+                  <strong>Publish your card</strong>
+                  <p>Go to your card in the Studio and hit Publish.</p>
+                </div>
+              </div>
+              <div className="analytics-empty-step">
+                <span className="analytics-empty-step-num">2</span>
+                <div>
+                  <strong>Share your link</strong>
+                  <p>Send your card link via WhatsApp, email, or print a QR code.</p>
+                </div>
+              </div>
+              <div className="analytics-empty-step">
+                <span className="analytics-empty-step-num">3</span>
+                <div>
+                  <strong>Watch the data roll in</strong>
+                  <p>Views, button clicks, leads and more appear here in real time.</p>
+                </div>
+              </div>
+            </div>
+            <label className="analytics-sample-toggle" style={{ marginTop: '24px' }}>
+              <input type="checkbox" checked={showSample} onChange={(event) => setShowSample(event.target.checked)} />
+              <span>Preview with sample data</span>
+            </label>
+          </div>
         ) : (
         <>
           {/* Overview */}

@@ -87,7 +87,7 @@ export function PublicCard() {
   return (
     <div style={pageBackgroundVariables(profile.palette, profile.theme)}>
       <main className="public-view">
-        <CardPreview profile={profile} immersive trackingSlug={slug} />
+        <CardPreview profile={profile} immersive trackingSlug={slug} showCreateCta />
         {qrDisplaySettings && (
           <div className="public-view-qr-badge" aria-label="Scan QR code">
             <QRCode settings={qrDisplaySettings} size={180} lockable />

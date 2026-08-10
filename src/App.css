@@ -4840,6 +4840,211 @@
   }
 }
 
+/* ─── Create-own CTA on public card ─── */
+.card-create-own-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 16px auto 0;
+  padding: 10px 20px;
+  border-radius: 50px;
+  background: var(--navy, #0E1A35);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  transition: opacity 150ms ease, transform 150ms ease;
+  width: fit-content;
+}
+.card-create-own-cta:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+.card-create-own-cta-arrow {
+  font-size: 15px;
+}
+
+/* ─── Dashboard: search + sort row ─── */
+.dashboard-search-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+.dashboard-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+}
+.dashboard-search-input:focus {
+  outline: none;
+  border-color: var(--navy);
+}
+.dashboard-sort-select {
+  height: 40px;
+  padding: 0 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ─── Dashboard: card thumbnail ─── */
+.card-list-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.card-list-thumb {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--navy, #0E1A35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-list-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.card-list-thumb-initials {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.card-list-info {
+  flex: 1;
+  min-width: 0;
+}
+.card-list-actions {
+  flex-shrink: 0;
+}
+
+/* ─── Studio: mobile preview toggle strip ─── */
+.studio-mobile-tab-strip {
+  display: none;
+}
+@media (max-width: 1040px) {
+  .studio-mobile-tab-strip {
+    display: flex;
+    position: sticky;
+    top: 76px;
+    z-index: 10;
+    background: var(--surface);
+    border-bottom: 1.5px solid var(--line);
+    padding: 8px 16px;
+    gap: 8px;
+  }
+  .studio-panel--mobile-hidden {
+    display: none !important;
+  }
+}
+.studio-mobile-tab {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1.5px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.studio-mobile-tab--active {
+  background: var(--navy, #0E1A35);
+  color: #fff;
+  border-color: var(--navy, #0E1A35);
+}
+
+/* ─── Studio: prominent publish button in preview toolbar ─── */
+.preview-publish-btn {
+  font-size: 13px;
+  padding: 7px 16px;
+}
+
+/* ─── Analytics: empty state ─── */
+.analytics-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 48px 24px;
+  gap: 8px;
+}
+.analytics-empty-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+.analytics-empty-state h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+}
+.analytics-empty-state > p {
+  color: var(--muted);
+  font-size: 15px;
+  max-width: 380px;
+  margin: 4px 0 24px;
+}
+.analytics-empty-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+  max-width: 420px;
+  width: 100%;
+}
+.analytics-empty-step {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  background: var(--shell);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+.analytics-empty-step-num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--navy, #0E1A35);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.analytics-empty-step strong {
+  display: block;
+  font-size: 14px;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+.analytics-empty-step p {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+}
+
 /* ─── White theme: restore cream text in intentionally dark sections ─── */
 /* These sections keep their navy backgrounds, so text must remain light  */
 .topbar,

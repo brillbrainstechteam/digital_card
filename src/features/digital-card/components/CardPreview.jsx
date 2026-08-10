@@ -278,7 +278,7 @@ function SubscribeModal({ onClose, trackingSlug }) {
   )
 }
 
-export function CardPreview({ profile, immersive = false, trackingSlug = null }) {
+export function CardPreview({ profile, immersive = false, trackingSlug = null, showCreateCta = false }) {
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showSubscribeModal, setShowSubscribeModal] = useState(false)
 
@@ -508,6 +508,17 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
             rel="noreferrer"
           >
             {profile.branding?.label || 'Powered by Brillbrains Consultants'}
+          </a>
+        )}
+        {showCreateCta && (
+          <a
+            className="card-create-own-cta"
+            href="https://digitalcard.brillbrainsconsultants.com/create"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <span className="card-create-own-cta-text">Create your own digital card</span>
+            <span className="card-create-own-cta-arrow">→</span>
           </a>
         )}
       </footer>

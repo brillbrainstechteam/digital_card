@@ -131,6 +131,8 @@ export function Dashboard() {
   const [pendingConfirm, setPendingConfirm] = useState(null)
   const [shareCard, setShareCard] = useState(null)
   const [activeFilter, setActiveFilter] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState('newest')
 
   async function importGuestDraftIfNeeded() {
     if (guestDraftImportedRef.current) return false
@@ -266,9 +268,16 @@ export function Dashboard() {
     archived: cards.filter((c) => c.status === 'archived').length,
   }
 
-  const filteredCards = activeFilter === 'all'
-    ? cards
-    : cards.filter((c) => c.status === activeFilter)
+  const baseCards = activeFilter === 'all' ? cards : cards.filter((c) => c.status === activeFilter)
+  const searchedCards = searchQuery.trim()
+    ? baseCards.filter((c) => c.title?.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    : baseCards
+  const filteredCards = [...searchedCards].sort((a, b) => {
+    if (sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at)
+    if (sortBy === 'oldest') return new Date(a.created_at) - new Date(b.created_at)
+    if (sortBy === 'alphabetical') return (a.title || '').localeCompare(b.title || '')
+    return 0
+  })
 
   if (showWizard) {
     return (
@@ -313,6 +322,27 @@ export function Dashboard() {
               <strong>{loading ? '-' : value}</strong>
             </div>
           ))}
+        </div>
+
+        <div className="dashboard-search-row">
+          <input
+            className="dashboard-search-input"
+            type="search"
+            placeholder="Search cards..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search cards"
+          />
+          <select
+            className="dashboard-sort-select"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            aria-label="Sort cards"
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="alphabetical">A → Z</option>
+          </select>
         </div>
 
         <div className="dashboard-filter-chips">
@@ -369,6 +399,12 @@ export function Dashboard() {
                 : null
               return (
                   <div key={card.id} className="card-list-item">
+                    <div className="card-list-thumb" aria-hidden="true">
+                      {card.logo_url
+                        ? <img src={card.logo_url} alt="" className="card-list-thumb-img" />
+                        : <span className="card-list-thumb-initials">{(card.title || '?')[0].toUpperCase()}</span>
+                      }
+                    </div>
                     <div className="card-list-info">
                       <h3>{card.title}</h3>
                       <div className="card-list-meta">
