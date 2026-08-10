@@ -8,7 +8,7 @@ const NAV_TREE = [
     key: 'cards',
     label: 'Digital Card',
     icon: '🪪',
-    createPath: '/create',
+    createPath: '/dashboard',
     activePaths: ['/create', '/dashboard', '/analytics', '/activity', '/studio'],
     children: [
       { key: 'analytics', label: 'Analytics', path: '/analytics' },
