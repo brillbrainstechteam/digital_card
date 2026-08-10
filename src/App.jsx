@@ -55,12 +55,12 @@ function App() {
               <Route path="/studio/:cardId" element={<ProtectedRoute><StudioPage /></ProtectedRoute>} />
               <Route path="/create" element={<CreateCardPage />} />
             </Route>
-            <Route path="/card/:slug" element={<PublicCard />} />
-            <Route path="/:slug" element={<PublicCard />} />
-            <Route path="/preview/:token" element={<CardPreviewTemp />} />
-            <Route path="/q/:slug" element={<QrScanRedirect />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/admin/*" element={<AdminPanel />} />
+            <Route path="/card/:slug" element={<PublicCard />} />
+            <Route path="/preview/:token" element={<CardPreviewTemp />} />
+            <Route path="/q/:slug" element={<QrScanRedirect />} />
+            <Route path="/:slug" element={<PublicCard />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </CartProvider>
