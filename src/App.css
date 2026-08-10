@@ -120,6 +120,17 @@
   color: var(--white);
 }
 
+.topbar-nav-btn--dashboard {
+  border: 1.5px solid rgba(255,255,255,0.35);
+  color: var(--white);
+  padding: 9px 16px;
+}
+.topbar-nav-btn--dashboard:hover,
+.topbar-nav-btn--dashboard.active {
+  border-color: var(--white);
+  background: rgba(255,255,255,0.14);
+}
+
 .topbar-nav-comingsoon {
   background: transparent;
   border: 0;
@@ -887,7 +898,7 @@
 .card-header h2 {
   color: var(--theme-heading-text);
   font-family: var(--font-person-name);
-  font-size: 32px;
+  font-size: var(--fz-person-name, 32px);
   font-weight: 500;
   letter-spacing: -0.06em;
   line-height: 1.1;
@@ -896,7 +907,7 @@
 .tagline {
   color: var(--theme-tagline-text);
   font-family: var(--font-tagline);
-  font-size: 13px;
+  font-size: var(--fz-tagline, 13px);
   font-weight: 600;
   line-height: 1.45;
   margin-top: 7px;
@@ -906,7 +917,7 @@
 .company-name {
   color: var(--theme-designation-text);
   font-family: var(--font-designation);
-  font-size: 12px;
+  font-size: var(--fz-designation, 12px);
   font-weight: 700;
   line-height: 1.35;
   margin-top: 6px;
@@ -916,7 +927,7 @@
 .company-name {
   color: var(--theme-company-name-text);
   font-family: var(--font-company-name);
-  font-size: 16px;
+  font-size: var(--fz-company-name, 16px);
   opacity: 0.9;
 }
 
@@ -924,8 +935,34 @@
   color: var(--theme-location-text);
   font-family: var(--font-location);
   opacity: 0.68;
-  font-size: 12px;
+  font-size: var(--fz-location, 12px);
   margin-top: 6px;
+}
+
+.card-location--directions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  opacity: 0.75;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.card-location--directions:hover {
+  opacity: 1;
+}
+.card-location-pin {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+.card-location-cta {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.7;
+  margin-left: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: underline;
 }
 
 .profile-card[data-card-type="personal"] .profile-photo-ring {
@@ -1158,7 +1195,7 @@
   color: var(--theme-about-text);
   font-family: var(--font-about);
   opacity: 0.88;
-  font-size: 13px;
+  font-size: var(--fz-about, 13px);
   line-height: 1.55;
   margin-bottom: 19px;
   overflow-wrap: break-word;
@@ -2074,6 +2111,55 @@
 
 .control-with-apply--typography .typography-field {
   flex: 1;
+}
+
+.color-reset-btn {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  height: 22px;
+  line-height: 1;
+  padding: 0;
+  width: 22px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.12s, border-color 0.12s;
+}
+.color-reset-btn:hover {
+  border-color: var(--navy);
+  color: var(--navy);
+}
+
+.typography-field-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.typography-field-row .font-picker--inline {
+  flex: 1;
+  min-width: 0;
+}
+
+.font-size-input {
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  padding: 8px 6px;
+  text-align: center;
+  width: 56px;
+  flex-shrink: 0;
+}
+.font-size-input:focus {
+  border-color: var(--navy);
+  outline: none;
 }
 
 .apply-to-trigger-wrap {
@@ -4531,6 +4617,135 @@
   .ghost-button {
     font-size: 13px;
     padding: 11px 18px;
+  }
+}
+
+/* ─── Digital card responsive fixes ─── */
+
+/* Topbar: show nav links on mobile as small pills (was hidden) */
+@media (max-width: 640px) {
+  .topbar nav {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .topbar nav::-webkit-scrollbar { display: none; }
+  .topbar-nav-btn {
+    font-size: 11px;
+    padding: 7px 10px;
+    white-space: nowrap;
+  }
+  .topbar-nav-btn--dashboard {
+    padding: 6px 9px;
+  }
+  .product-mark strong { display: none; }
+}
+
+/* Studio editor: ensure no horizontal overflow */
+@media (max-width: 1040px) {
+  .studio,
+  .studio-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 20px 16px 60px;
+  }
+
+  .editor-panel,
+  .editor-sidebar,
+  .preview-panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .editor-sidebar {
+    position: static;
+    top: auto;
+  }
+
+  .editor-section {
+    max-width: 100%;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field-grid--two {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .control-with-apply {
+    width: 100%;
+  }
+
+  .control-with-apply--typography {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .field-grid--two {
+    grid-template-columns: 1fr;
+  }
+
+  .customize-color-group {
+    overflow-x: auto;
+  }
+
+  .theme-color-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .typography-field-row {
+    flex-wrap: wrap;
+  }
+
+  .font-size-input {
+    width: 52px;
+  }
+
+  /* Dashboard list: stack card items */
+  .card-list-item {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Analytics: single column on very small screens */
+  .analytics-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Modals: full width on small screens */
+  .confirm-dialog,
+  .share-card-dialog {
+    width: 95vw;
+    padding: 18px 14px;
+  }
+
+  /* QR studio */
+  .qr-studio-layout {
+    flex-direction: column;
+  }
+
+  .page-header h1 {
+    font-size: 22px;
+  }
+
+  .editor-sidebar-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .editor-sidebar-nav::-webkit-scrollbar { display: none; }
+  .editor-sidebar-nav button {
+    flex: 0 0 auto;
+    font-size: 12px;
+    padding: 8px 10px;
   }
 }
 

@@ -345,19 +345,62 @@ function ApplyToTrigger({ mode, value, lastTargets, onRemember, onApplyMany }) {
   )
 }
 
-function ColorField({ label, value, onChange, onBegin, onCommit, lastTargets, onRemember, onApplyMany }) {
+function ColorField({ label, value, onChange, onBegin, onCommit, lastTargets, onRemember, onApplyMany, defaultValue, onResetToDefault }) {
+  const isOverridden = defaultValue && value && value.toLowerCase() !== defaultValue.toLowerCase()
   return (
     <span className="control-with-apply">
       <InlineColorControl label={label} value={value} onChange={onChange} onBegin={onBegin} onCommit={onCommit} />
+      {isOverridden && onResetToDefault && (
+        <button
+          className="color-reset-btn"
+          type="button"
+          title="Restore original color"
+          onClick={() => { onResetToDefault(); onCommit?.() }}
+        >↺</button>
+      )}
       <ApplyToTrigger mode="color" value={value} lastTargets={lastTargets} onRemember={onRemember} onApplyMany={onApplyMany} />
     </span>
   )
 }
 
-function TypographyField({ label, value, onChange, onBegin, onCommit, lastTargets, onRemember, onApplyMany }) {
+function TypographyField({ label, value, onChange, onBegin, onCommit, lastTargets, onRemember, onApplyMany, sizeValue, onSizeChange }) {
   return (
     <span className="control-with-apply control-with-apply--typography">
-      <FontSelect label={label} value={value} onChange={onChange} onBegin={onBegin} onCommit={onCommit} />
+      <label className="field typography-field">
+        <span>{label}</span>
+        <span className="typography-field-row">
+          <select
+            className="font-picker font-picker--inline"
+            value={value}
+            onFocus={onBegin}
+            onChange={(event) => {
+              onChange(event.target.value)
+              if (onCommit) setTimeout(onCommit, 0)
+            }}
+          >
+            {FONT_OPTIONS.map((font) => (
+              <option key={font.value} value={font.value}>{font.label}</option>
+            ))}
+          </select>
+          {onSizeChange && (
+            <input
+              className="font-size-input"
+              type="number"
+              min={8}
+              max={72}
+              step={1}
+              value={sizeValue ?? ''}
+              placeholder="px"
+              onFocus={onBegin}
+              onChange={(event) => {
+                const n = parseInt(event.target.value, 10)
+                if (!isNaN(n)) onSizeChange(n)
+              }}
+              onBlur={() => onCommit?.()}
+            />
+          )}
+        </span>
+      </label>
       <ApplyToTrigger mode="typography" value={value} lastTargets={lastTargets} onRemember={onRemember} onApplyMany={onApplyMany} />
     </span>
   )
@@ -777,6 +820,28 @@ export function Studio({
     scheduleLiveCommit()
   }
 
+  function updateFontSize(field, value) {
+    beginLiveEdit?.()
+    ;(setProfileLive || setProfile)((current) => ({
+      ...current,
+      fontSizes: {
+        ...(current.fontSizes || {}),
+        [field]: value,
+      },
+    }))
+    scheduleLiveCommit()
+  }
+
+  function resetThemeField(field) {
+    beginLiveEdit?.()
+    ;(setProfileLive || setProfile)((current) => {
+      const next = { ...(current.theme || {}) }
+      delete next[field]
+      return { ...current, theme: next }
+    })
+    if (commitLiveEdit) setTimeout(commitLiveEdit, 0)
+  }
+
   function applyColorToFields(keys, value) {
     beginLiveEdit?.()
     ;(setProfileLive || setProfile)((current) => ({
@@ -1158,7 +1223,7 @@ export function Studio({
               colorControl={(
                 <span className="field-color-controls">
                   <VisibilityToggle label="Person Name" checked={profile.showPersonName !== false} onChange={(v) => updateVisibility('showPersonName', v)} />
-                  <ColorField {...liveControlProps} {...applyColorProps} label="Person Name" value={profile.theme?.headingText || profile.palette.ink} onChange={(value) => updateTheme('headingText', value)} />
+                  <ColorField {...liveControlProps} {...applyColorProps} label="Person Name" value={profile.theme?.headingText || profile.palette.ink} onChange={(value) => updateTheme('headingText', value)} defaultValue={profile.palette.ink} onResetToDefault={() => resetThemeField('headingText')} />
                 </span>
               )}
             />
@@ -1170,7 +1235,7 @@ export function Studio({
               colorControl={(
                 <span className="field-color-controls">
                   <VisibilityToggle label="Designation" checked={profile.showDesignation !== false} onChange={(v) => updateVisibility('showDesignation', v)} />
-                  <ColorField {...liveControlProps} {...applyColorProps} label="Designation" value={profile.theme?.designationText || profile.palette.ink} onChange={(value) => updateTheme('designationText', value)} />
+                  <ColorField {...liveControlProps} {...applyColorProps} label="Designation" value={profile.theme?.designationText || profile.palette.ink} onChange={(value) => updateTheme('designationText', value)} defaultValue={profile.palette.ink} onResetToDefault={() => resetThemeField('designationText')} />
                 </span>
               )}
             />
@@ -1182,7 +1247,7 @@ export function Studio({
               colorControl={(
                 <span className="field-color-controls">
                   <VisibilityToggle label="Location" checked={profile.showLocation !== false} onChange={(v) => updateVisibility('showLocation', v)} />
-                  <ColorField {...liveControlProps} {...applyColorProps} label="Location" value={profile.theme?.locationText || profile.palette.ink} onChange={(value) => updateTheme('locationText', value)} />
+                  <ColorField {...liveControlProps} {...applyColorProps} label="Location" value={profile.theme?.locationText || profile.palette.ink} onChange={(value) => updateTheme('locationText', value)} defaultValue={profile.palette.ink} onResetToDefault={() => resetThemeField('locationText')} />
                 </span>
               )}
             />
@@ -1202,7 +1267,7 @@ export function Studio({
               colorControl={(
                 <span className="field-color-controls">
                   <VisibilityToggle label="Company Name" checked={profile.showCompanyName !== false} onChange={(v) => updateVisibility('showCompanyName', v)} />
-                  <ColorField {...liveControlProps} {...applyColorProps} label="Company Name" value={profile.theme?.companyNameText || profile.palette.ink} onChange={(value) => updateTheme('companyNameText', value)} />
+                  <ColorField {...liveControlProps} {...applyColorProps} label="Company Name" value={profile.theme?.companyNameText || profile.palette.ink} onChange={(value) => updateTheme('companyNameText', value)} defaultValue={profile.palette.ink} onResetToDefault={() => resetThemeField('companyNameText')} />
                 </span>
               )}
             />
@@ -1215,7 +1280,7 @@ export function Studio({
                 colorControl={(
                   <span className="field-color-controls">
                     <VisibilityToggle label="Location" checked={profile.showLocation !== false} onChange={(v) => updateVisibility('showLocation', v)} />
-                    <ColorField {...liveControlProps} {...applyColorProps} label="Location" value={profile.theme?.locationText || profile.palette.ink} onChange={(value) => updateTheme('locationText', value)} />
+                    <ColorField {...liveControlProps} {...applyColorProps} label="Location" value={profile.theme?.locationText || profile.palette.ink} onChange={(value) => updateTheme('locationText', value)} defaultValue={profile.palette.ink} onResetToDefault={() => resetThemeField('locationText')} />
                   </span>
                 )}
               />
@@ -1642,7 +1707,7 @@ export function Studio({
             <div className="customize-color-group">
               <h3>Card</h3>
               <div className="theme-color-grid">
-                <InlineColorControl {...liveControlProps} label="Card Background" value={profile.theme?.cardBackground || profile.palette.surface} onChange={(value) => updateTheme('cardBackground', value)} />
+                <ColorField {...liveControlProps} {...applyColorProps} label="Card Background" value={profile.theme?.cardBackground || profile.palette.surface} onChange={(value) => updateTheme('cardBackground', value)} defaultValue={profile.palette.surface} onResetToDefault={() => resetThemeField('cardBackground')} />
               </div>
             </div>
           </div>
@@ -1653,12 +1718,12 @@ export function Studio({
         <section className="editor-section typography-panel">
           <h2>Typography</h2>
           <div className="field-grid field-grid--two">
-            <TypographyField {...liveControlProps} {...applyTypographyProps} label="Person Name" value={profile.typography?.personName || profile.typography?.companyName || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('personName', value)} />
-            <TypographyField {...liveControlProps} {...applyTypographyProps} label="Designation" value={profile.typography?.designation || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('designation', value)} />
-            <TypographyField {...liveControlProps} {...applyTypographyProps} label="Company Name" value={profile.typography?.companyName || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('companyName', value)} />
-            <TypographyField {...liveControlProps} {...applyTypographyProps} label="Tagline" value={profile.typography?.tagline || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('tagline', value)} />
-            <TypographyField {...liveControlProps} {...applyTypographyProps} label="Location" value={profile.typography?.location || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('location', value)} />
-            <TypographyField {...liveControlProps} {...applyTypographyProps} label="About" value={profile.typography?.about || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('about', value)} />
+            <TypographyField {...liveControlProps} {...applyTypographyProps} label="Person Name" value={profile.typography?.personName || profile.typography?.companyName || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('personName', value)} sizeValue={profile.fontSizes?.personName ?? 32} onSizeChange={(v) => updateFontSize('personName', v)} />
+            <TypographyField {...liveControlProps} {...applyTypographyProps} label="Designation" value={profile.typography?.designation || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('designation', value)} sizeValue={profile.fontSizes?.designation ?? 14} onSizeChange={(v) => updateFontSize('designation', v)} />
+            <TypographyField {...liveControlProps} {...applyTypographyProps} label="Company Name" value={profile.typography?.companyName || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('companyName', value)} sizeValue={profile.fontSizes?.companyName ?? 18} onSizeChange={(v) => updateFontSize('companyName', v)} />
+            <TypographyField {...liveControlProps} {...applyTypographyProps} label="Tagline" value={profile.typography?.tagline || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('tagline', value)} sizeValue={profile.fontSizes?.tagline ?? 14} onSizeChange={(v) => updateFontSize('tagline', v)} />
+            <TypographyField {...liveControlProps} {...applyTypographyProps} label="Location" value={profile.typography?.location || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('location', value)} sizeValue={profile.fontSizes?.location ?? 13} onSizeChange={(v) => updateFontSize('location', v)} />
+            <TypographyField {...liveControlProps} {...applyTypographyProps} label="About" value={profile.typography?.about || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('about', value)} sizeValue={profile.fontSizes?.about ?? 14} onSizeChange={(v) => updateFontSize('about', v)} />
             <FontSelect {...liveControlProps} label="Button Labels" value={profile.typography?.buttonLabels || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('buttonLabels', value)} />
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Footer Text" value={profile.typography?.footerText || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('footerText', value)} />
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Website" value={profile.typography?.website || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('website', value)} />

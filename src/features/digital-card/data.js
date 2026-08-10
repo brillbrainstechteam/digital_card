@@ -116,6 +116,14 @@ export const defaultProfile = {
     website: 'Inter, system-ui, sans-serif',
     googleMaps: 'Inter, system-ui, sans-serif',
   },
+  fontSizes: {
+    personName: 32,
+    designation: 14,
+    companyName: 18,
+    tagline: 14,
+    location: 13,
+    about: 14,
+  },
   logo: '/brillbrains-logo.jpg',
   logoSource: '/brillbrains-logo.jpg',
   logoSettings: {

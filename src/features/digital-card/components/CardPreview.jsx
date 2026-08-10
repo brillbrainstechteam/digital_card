@@ -331,6 +331,12 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
         '--font-footer-text': typography.footerText || defaultFont,
         '--font-website': typography.website || defaultFont,
         '--font-google-maps': typography.googleMaps || typography.buttonLabels || defaultFont,
+        '--fz-person-name': `${profile.fontSizes?.personName || 32}px`,
+        '--fz-designation': `${profile.fontSizes?.designation || 14}px`,
+        '--fz-company-name': `${profile.fontSizes?.companyName || 18}px`,
+        '--fz-tagline': `${profile.fontSizes?.tagline || 14}px`,
+        '--fz-location': `${profile.fontSizes?.location || 13}px`,
+        '--fz-about': `${profile.fontSizes?.about || 14}px`,
       }}
     >
       {profile.showLogo !== false && (
@@ -371,7 +377,18 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null })
         {profile.showDesignation !== false && profile.designation && <p className="designation">{profile.designation}</p>}
         {profile.showCompanyName !== false && companyName && <p className="company-name">{companyName}</p>}
         {profile.showTagline !== false && profile.tagline && <p className="tagline">{profile.tagline}</p>}
-        {profile.showLocation !== false && profile.location && <p className="card-location">{profile.location}</p>}
+        {profile.showLocation !== false && profile.location && (
+          <a
+            className="card-location card-location--directions"
+            href={`https://maps.google.com/?q=${encodeURIComponent(profile.location)}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <svg className="card-location-pin" viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/></svg>
+            <span>{profile.location}</span>
+            <span className="card-location-cta">Get Directions</span>
+          </a>
+        )}
       </header>
 
       {profile.showContactButtons !== false && hasAnyQuickAction && (

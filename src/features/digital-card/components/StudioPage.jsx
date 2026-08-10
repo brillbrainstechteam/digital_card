@@ -48,6 +48,7 @@ function profileFromCardData(card) {
     coverSettings: { ...defaultProfile.coverSettings, ...cd.coverSettings },
     theme: { ...defaultProfile.theme, ...cd.theme },
     typography: { ...defaultProfile.typography, ...cd.typography },
+    fontSizes: { ...defaultProfile.fontSizes, ...cd.fontSizes },
     branding: { ...defaultProfile.branding, ...cd.branding },
     socials: Array.isArray(cd.socials) ? cd.socials : defaultProfile.socials,
   }
@@ -522,7 +523,7 @@ export function StudioPage() {
         theme: pending.theme,
         logoBg: pending.logoBg,
       }))
-      setPaletteStatus({ type: 'error', text: 'Theme applied - Upload failed' })
+      setPaletteStatus({ type: 'error', text: 'Theme applied · Upload failed' })
       toast.error('Logo upload failed')
     }
   }

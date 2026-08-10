@@ -16,10 +16,15 @@ export function AppLayout() {
         </Link>
 
         <nav aria-label="Main navigation">
+          {isAuthenticated && (
+            <NavLink to="/dashboard" className={({ isActive }) => (isActive ? 'active topbar-nav-btn topbar-nav-btn--dashboard' : 'topbar-nav-btn topbar-nav-btn--dashboard')}>
+              Dashboard
+            </NavLink>
+          )}
           <NavLink to="/create" className={({ isActive }) => (isActive ? 'active topbar-nav-btn' : 'topbar-nav-btn')}>
             Digital Cards
           </NavLink>
-<NavLink to="/qr-studio" className={({ isActive }) => (isActive ? 'active topbar-nav-btn' : 'topbar-nav-btn')}>
+          <NavLink to="/qr-studio" className={({ isActive }) => (isActive ? 'active topbar-nav-btn' : 'topbar-nav-btn')}>
             QR Studio
           </NavLink>
         </nav>
