@@ -1,31 +1,49 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-const APP_ITEMS = [
-  { key: 'cards', label: 'Digital Cards', path: '/dashboard' },
-  { key: 'analytics', label: 'Analytics', path: '/analytics' },
-  { key: 'activity', label: 'Activity', path: '/activity' },
-  { key: 'settings', label: 'Settings', path: '/settings' },
-]
-
-const QR_APP_ITEMS = [
-  { key: 'qrstudio', label: 'QR Studio', path: '/qr-studio' },
-  { key: 'qrcodes', label: 'My QR Codes', path: '/qr-studio/codes' },
-  { key: 'qranalytics', label: 'QR Analytics', path: '/qr-studio/analytics' },
-  { key: 'settings', label: 'Settings', path: '/settings' },
+// ── App nav tree ─────────────────────────────────────────────
+const NAV_TREE = [
+  {
+    key: 'cards',
+    label: 'Digital Card',
+    icon: '🪪',
+    createPath: '/create',
+    activePaths: ['/create', '/dashboard', '/analytics', '/activity', '/studio'],
+    children: [
+      { key: 'analytics', label: 'Analytics', path: '/analytics' },
+      { key: 'activity',  label: 'Activity',  path: '/activity'  },
+    ],
+  },
+  {
+    key: 'qr',
+    label: 'QR Code',
+    icon: '◻',
+    createPath: '/qr-studio',
+    activePaths: ['/qr-studio'],
+    children: [
+      { key: 'qrcodes',    label: 'My QR Codes', path: '/qr-studio/codes'     },
+      { key: 'qranalytics',label: 'Analytics',   path: '/qr-studio/analytics' },
+    ],
+  },
+  {
+    key: 'settings',
+    label: 'Settings',
+    icon: '⚙',
+    path: '/settings',
+  },
 ]
 
 const EDITOR_ITEMS = [
-  { key: 'design', label: 'Design' },
-  { key: 'info', label: 'Info' },
-  { key: 'buttons', label: 'Button Settings' },
-  { key: 'leads', label: 'Leads' },
-  { key: 'social', label: 'Social Links' },
-  { key: 'settings', label: 'Logo Settings' },
-  { key: 'colors', label: 'Colors' },
-  { key: 'fonts', label: 'Fonts' },
-  { key: 'footer', label: 'Footer' },
+  { key: 'design',   label: 'Design'          },
+  { key: 'info',     label: 'Info'            },
+  { key: 'buttons',  label: 'Button Settings' },
+  { key: 'leads',    label: 'Leads'           },
+  { key: 'social',   label: 'Social Links'    },
+  { key: 'settings', label: 'Logo Settings'   },
+  { key: 'colors',   label: 'Colors'          },
+  { key: 'fonts',    label: 'Fonts'           },
+  { key: 'footer',   label: 'Footer'          },
 ]
 
 function UnsavedChangesModal({ onSave, onDiscard, onCancel, busy }) {
@@ -46,10 +64,20 @@ function UnsavedChangesModal({ onSave, onDiscard, onCancel, busy }) {
   )
 }
 
+function detectExpanded(pathname) {
+  if (pathname.startsWith('/qr-studio')) return 'qr'
+  if (
+    pathname.startsWith('/create') ||
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/analytics') ||
+    pathname.startsWith('/activity') ||
+    pathname.startsWith('/studio')
+  ) return 'cards'
+  return null
+}
+
 export function Sidebar({
   mode,
-  section = 'cards',
-  activeApp,
   activeEditor,
   onEditorNav,
   hasUnsavedChanges = false,
@@ -58,21 +86,37 @@ export function Sidebar({
   backTo = null,
 }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
   const [pendingPath, setPendingPath] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [expanded, setExpanded] = useState(() => detectExpanded(location.pathname))
 
-  const appItems = section === 'qr' ? QR_APP_ITEMS : APP_ITEMS
-  const appGroupLabel = section === 'qr' ? 'QR Studio' : 'Digital Card'
-  const backItem = { label: 'Digital Cards', path: '/dashboard' }
+  useEffect(() => {
+    setExpanded(detectExpanded(location.pathname))
+  }, [location.pathname])
 
-  function handleAppNav(item) {
-    if (item.key === activeApp && mode === 'app') return
+  function goTo(path) {
     if (mode === 'editor' && hasUnsavedChanges) {
-      setPendingPath(item.path)
+      setPendingPath(path)
+    } else {
+      navigate(path)
+    }
+  }
+
+  function handleParentClick(item) {
+    if (item.path) {
+      goTo(item.path)
       return
     }
-    navigate(item.path)
+    // Accordion: expand and navigate to create page
+    const next = expanded === item.key ? item.key : item.key
+    setExpanded(next)
+    goTo(item.createPath)
+  }
+
+  function isChildActive(childPath) {
+    return location.pathname === childPath || location.pathname.startsWith(childPath + '/')
   }
 
   async function handleSaveAndContinue() {
@@ -109,14 +153,15 @@ export function Sidebar({
       )}
       <aside className="editor-sidebar">
         <div className="editor-sidebar-nav">
+
           {mode === 'editor' ? (
             <>
               <span className="sidebar-group-label">Application</span>
-              <button type="button" onClick={() => handleAppNav(backItem)}>
-                &larr; {backItem.label}
+              <button type="button" onClick={() => goTo('/dashboard')}>
+                &larr; Digital Cards
               </button>
               {backTo && (
-                <button type="button" onClick={() => handleAppNav({ path: backTo })}>
+                <button type="button" onClick={() => goTo(backTo)}>
                   &larr; QR Studio
                 </button>
               )}
@@ -135,19 +180,47 @@ export function Sidebar({
             </>
           ) : (
             <>
-              <span className="sidebar-group-label">{appGroupLabel}</span>
-              {appItems.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={activeApp === item.key ? 'active' : ''}
-                  onClick={() => handleAppNav(item)}
-                >
-                  {item.label}
-                </button>
-              ))}
+              <span className="sidebar-group-label">Navigation</span>
+              {NAV_TREE.map((item) => {
+                const isExpanded = expanded === item.key
+                const isParentActive = isExpanded || (item.path && location.pathname === item.path)
+
+                return (
+                  <div key={item.key} className="sidebar-nav-group">
+                    <button
+                      type="button"
+                      className={`sidebar-nav-parent${isParentActive ? ' active' : ''}`}
+                      onClick={() => handleParentClick(item)}
+                    >
+                      <span className="sidebar-nav-icon">{item.icon}</span>
+                      <span className="sidebar-nav-label">{item.label}</span>
+                      {item.children && (
+                        <span className={`sidebar-nav-chevron${isExpanded ? ' sidebar-nav-chevron--open' : ''}`}>
+                          ›
+                        </span>
+                      )}
+                    </button>
+
+                    {item.children && isExpanded && (
+                      <div className="sidebar-nav-children">
+                        {item.children.map((child) => (
+                          <button
+                            key={child.key}
+                            type="button"
+                            className={`sidebar-nav-child${isChildActive(child.path) ? ' active' : ''}`}
+                            onClick={() => goTo(child.path)}
+                          >
+                            {child.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </>
           )}
+
           {user && (
             <div className="editor-sidebar-profile-wrap">
               <button

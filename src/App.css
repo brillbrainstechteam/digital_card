@@ -1512,6 +1512,97 @@
   margin: 6px 4px;
 }
 
+/* ── Accordion sidebar nav (app mode) ─────────────────── */
+.sidebar-nav-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-nav-parent {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  color: var(--cream);
+  cursor: pointer;
+  display: flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 10px;
+  padding: 11px 12px;
+  text-align: left;
+  transition: background 140ms, color 140ms;
+  width: 100%;
+}
+
+.sidebar-nav-parent:hover {
+  background: rgba(255,255,255,0.09);
+  color: var(--white);
+}
+
+.sidebar-nav-parent.active {
+  background: rgba(255,255,255,0.18);
+  color: var(--white);
+}
+
+.sidebar-nav-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+  opacity: 0.85;
+}
+
+.sidebar-nav-label {
+  flex: 1;
+}
+
+.sidebar-nav-chevron {
+  font-size: 18px;
+  opacity: 0.5;
+  transition: transform 200ms;
+  display: inline-block;
+}
+
+.sidebar-nav-chevron--open {
+  transform: rotate(90deg);
+  opacity: 0.9;
+}
+
+.sidebar-nav-children {
+  display: flex;
+  flex-direction: column;
+  margin-left: 28px;
+  margin-bottom: 4px;
+  border-left: 1.5px solid rgba(255,255,255,0.12);
+  padding-left: 4px;
+}
+
+.sidebar-nav-child {
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: rgba(244,239,226,0.65);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 10px;
+  text-align: left;
+  transition: background 120ms, color 120ms;
+  width: 100%;
+}
+
+.sidebar-nav-child:hover {
+  background: rgba(255,255,255,0.07);
+  color: var(--white);
+}
+
+.sidebar-nav-child.active {
+  background: rgba(255,255,255,0.13);
+  color: var(--white);
+  font-weight: 600;
+}
+
 .unsaved-changes-dialog p {
   margin-bottom: 6px;
 }
