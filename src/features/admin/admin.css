@@ -1,8 +1,10 @@
 .admin-shell {
   min-height: 100vh;
   background: var(--navy-deep);
-  color: var(--cream);
+  color: #F4EFE2;
   font-family: Manrope, Arial, sans-serif;
+  --cream: #F4EFE2;
+  --muted: #8898BB;
 }
 
 /* Login */
