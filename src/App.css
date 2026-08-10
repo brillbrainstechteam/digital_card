@@ -2687,6 +2687,7 @@
 
 .field input,
 .field textarea,
+.field select,
 .link-editor input,
 .font-picker {
   background: var(--surface);
@@ -2699,10 +2700,12 @@
   padding: 12px 13px;
   resize: vertical;
   text-transform: none;
+  appearance: auto;
 }
 
 .field input:focus,
 .field textarea:focus,
+.field select:focus,
 .link-editor input:focus {
   border-color: var(--navy);
   box-shadow: 0 0 0 3px rgba(14,26,53,0.10);
