@@ -5062,3 +5062,278 @@
   --cream: #F4EFE2;
   --muted: #8898BB;
 }
+
+/* ═══════════════════════════════════════════════
+   LINKTREE-STYLE VISUAL POLISH
+   ═══════════════════════════════════════════════ */
+
+/* Global background: lighter, airier shell */
+html { background: #f7f8fc; }
+:root { --shell: #f7f8fc; }
+
+/* ── Buttons ── */
+.primary-button {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-deep) 100%);
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 2px 12px rgba(14,26,53,0.18);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 13px 28px;
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+.primary-button:hover:not(:disabled) {
+  box-shadow: 0 6px 24px rgba(14,26,53,0.28);
+  transform: translateY(-2px);
+  opacity: 0.93;
+}
+.secondary-button {
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 20px;
+  transition: background 150ms ease, border-color 150ms ease, transform 120ms ease;
+}
+.secondary-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+/* ── Dashboard card-list: Linktree block style ── */
+.card-list {
+  gap: 10px;
+}
+.card-list-item {
+  background: #ffffff;
+  border: 1px solid rgba(14,26,53,0.08);
+  border-radius: 18px;
+  box-shadow: 0 2px 8px rgba(14,26,53,0.05);
+  gap: 14px;
+  padding: 18px 22px;
+  transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease;
+  cursor: default;
+}
+.card-list-item:hover {
+  border-color: rgba(14,26,53,0.15);
+  box-shadow: 0 6px 24px rgba(14,26,53,0.10);
+  transform: translateY(-1px);
+}
+.card-list-info h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.card-list-meta {
+  font-size: 12px;
+  gap: 10px;
+  margin-top: 4px;
+}
+.card-list-thumb {
+  border-radius: 12px;
+  width: 48px;
+  height: 48px;
+  box-shadow: 0 2px 8px rgba(14,26,53,0.12);
+}
+
+/* ── Status badges: cleaner pills ── */
+.status-badge {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  text-transform: uppercase;
+}
+.status-draft     { background: #fff7ed; color: #c2410c; }
+.status-published { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.status-archived  { background: #f1f5f9; color: #64748b; }
+.status-suspended { background: #fff1f2; color: #e11d48; }
+
+/* ── Dashboard summary cards: accent left border ── */
+.dashboard-summary-card {
+  border-left: 3px solid var(--navy);
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(14,26,53,0.06);
+  padding: 18px 20px;
+}
+.dashboard-summary-card:nth-child(2) { border-left-color: #16a34a; }
+.dashboard-summary-card:nth-child(3) { border-left-color: #c2410c; }
+.dashboard-summary-card:nth-child(4) { border-left-color: #e11d48; }
+.dashboard-summary-card:nth-child(5) { border-left-color: #64748b; }
+.dashboard-summary-card span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.dashboard-summary-card strong {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* ── Page header: more impactful ── */
+.page-header {
+  margin-bottom: 28px;
+}
+.page-header h1 {
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--navy);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  opacity: 0.7;
+}
+
+/* ── Search + filter row ── */
+.dashboard-search-input,
+.dashboard-sort-select {
+  border-radius: 12px;
+  border: 1.5px solid rgba(14,26,53,0.1);
+  background: #fff;
+  font-size: 14px;
+}
+.dashboard-search-input:focus {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(14,26,53,0.08);
+}
+.dashboard-filter-chips {
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.dashboard-filter-chip {
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border: 1.5px solid rgba(14,26,53,0.12);
+  background: #fff;
+  color: var(--muted);
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+  gap: 6px;
+}
+.dashboard-filter-chip--active {
+  background: var(--navy-deep);
+  border-color: var(--navy-deep);
+  color: #fff;
+}
+.chip-count {
+  background: rgba(255,255,255,0.18);
+  border-radius: 999px;
+  font-size: 11px;
+  padding: 1px 7px;
+}
+.dashboard-filter-chip--active .chip-count {
+  background: rgba(255,255,255,0.22);
+  color: #fff;
+}
+
+/* ── Editor sidebar: cleaner Linktree-style nav ── */
+.editor-sidebar { box-shadow: 2px 0 16px rgba(14,26,53,0.08); }
+.editor-sidebar-nav button {
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 140ms ease, color 140ms ease;
+}
+.editor-sidebar-nav button.active {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+.editor-sidebar-nav button:hover:not(.active) {
+  background: rgba(255,255,255,0.07);
+}
+.sidebar-nav-parent {
+  border-radius: 10px;
+  font-weight: 600;
+}
+.sidebar-nav-child {
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+/* ── Card actions ── */
+.card-list-actions { gap: 6px; align-items: center; }
+.card-list-actions .secondary-button { padding: 8px 16px; font-size: 12px; }
+.share-group { gap: 6px; }
+
+/* ── Editor panel: cleaner sections ── */
+.editor-section h2 {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin-bottom: 14px;
+}
+
+/* ── Preview toolbar ── */
+.preview-toolbar {
+  border-radius: 14px 14px 0 0;
+  background: #f7f8fc;
+  border-bottom: 1px solid rgba(14,26,53,0.08);
+}
+.preview-published-badge {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 12px;
+  letter-spacing: 0.04em;
+}
+
+/* ── Empty states ── */
+.dashboard-empty h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.dashboard-empty p {
+  font-size: 15px;
+  color: var(--muted);
+  max-width: 340px;
+  margin: 0 auto 20px;
+  line-height: 1.6;
+}
+.empty-icon {
+  font-size: 52px;
+  margin-bottom: 12px;
+  filter: grayscale(0.2);
+}
+
+/* ── Auth card: more Linktree-like ── */
+.auth-card {
+  border-radius: 24px;
+  border: none;
+  box-shadow: 0 8px 40px rgba(14,26,53,0.10);
+}
+
+/* ── Analytics overview ── */
+.analytics-overview-card {
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 2px 10px rgba(14,26,53,0.06);
+}
+
+/* ── Responsive: dashboard on mobile ── */
+@media (max-width: 600px) {
+  .card-list-item {
+    border-radius: 14px;
+    padding: 16px 16px;
+  }
+  .card-list-actions .secondary-button { font-size: 11px; padding: 7px 12px; }
+  .dashboard-search-row { flex-direction: column; }
+  .dashboard-sort-select { width: 100%; }
+}
