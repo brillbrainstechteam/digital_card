@@ -2371,10 +2371,25 @@
   border-radius: 8px;
   color: var(--ink);
   font-size: 13px;
-  padding: 8px 6px;
+  padding: 8px 4px;
   text-align: center;
-  width: 56px;
+  width: 64px;
   flex-shrink: 0;
+}
+
+/* The native number spinners overlay the right edge of the field, clipping
+   two-digit sizes like "32". They add nothing here — the value is typed or
+   driven by the slider — so remove them and reclaim the width. */
+.font-size-input::-webkit-outer-spin-button,
+.font-size-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+.font-size-input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 .font-size-input:focus {
   border-color: var(--navy);
@@ -4930,7 +4945,7 @@
   }
 
   .font-size-input {
-    width: 52px;
+    width: 60px;
   }
 
   /* Dashboard list: stack card items */
@@ -5793,5 +5808,47 @@ html { background: #f7f8fc; }
   .quick-actions span {
     font-size: 10px;
     letter-spacing: -0.01em;
+  }
+}
+
+/* ─── Touch targets on phones ─────────────────────────────────────────
+   Measured at 375px: sidebar nav rows were 34–37px and several form
+   controls sat just under 40px. Below the ~44px minimum, taps land
+   unreliably. Scoped to small screens so desktop density is unchanged. */
+@media (max-width: 640px) {
+  .sidebar-nav-parent,
+  .sidebar-nav-child,
+  .editor-sidebar-nav button {
+    min-height: 44px;
+  }
+
+  .field input,
+  .field select,
+  .field textarea,
+  .dashboard-search-input,
+  .dashboard-sort-select,
+  .analytics-lead-search,
+  .leads-filter-select,
+  .analytics-card-filter,
+  .admin-search,
+  .share-link-input {
+    min-height: 44px;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .danger-button,
+  .profile-action-button,
+  .admin-btn-sm,
+  .save-card-button {
+    min-height: 44px;
+  }
+
+  /* Checkboxes and radios render at ~13px natively, which is hard to hit
+     even inside a label. */
+  input[type='checkbox'],
+  input[type='radio'] {
+    height: 20px;
+    width: 20px;
   }
 }

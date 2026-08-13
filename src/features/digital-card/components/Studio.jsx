@@ -1179,11 +1179,15 @@ export function Studio({
               onBegin={beginLiveEdit}
               onCommit={commitNow}
             />
+            {/* Sizes the coloured band behind the logo — i.e. the card's top
+                background block — not the logo image itself (that is "Logo
+                size" above). Named for what it actually controls so it is
+                findable when someone wants a taller/shorter header. */}
             <RangeControl
-              label="Logo height"
+              label="Background height"
               value={logoSettings.bandHeight ?? 130}
-              min={70}
-              max={240}
+              min={60}
+              max={400}
               suffix="px"
               onChange={(value) => updateLogoSetting('bandHeight', value)}
               onBegin={beginLiveEdit}
@@ -1472,17 +1476,21 @@ export function Studio({
             />
 
             <div className="button-setting-row">
+              {/* The visible track is a sibling <span> of a visually hidden
+                  checkbox, so the switch only responds to clicks when it is a
+                  <label>. This row used a <span>, and its text label had no
+                  htmlFor, which made the toggle completely unclickable. */}
               <div className="button-setting-toggle-row">
-                <label className="button-setting-toggle-label">Enable Google Maps</label>
+                <span className="button-setting-toggle-label">Enable Google Maps</span>
                 <span className="button-setting-toggle-controls">
-                  <span className="switch">
+                  <label className="switch">
                     <input
                       type="checkbox"
                       checked={profile.showGoogleMaps === true}
                       onChange={(event) => updateVisibility('showGoogleMaps', event.target.checked)}
                     />
                     <span />
-                  </span>
+                  </label>
                 </span>
               </div>
               {profile.showGoogleMaps === true && (

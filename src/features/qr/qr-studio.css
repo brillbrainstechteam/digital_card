@@ -16,7 +16,11 @@
   gap: 6px;
 }
 
+/* `.qr-section > select` is included because the Error Correction dropdown is
+   a direct child of its section rather than wrapped in a .qr-field — without
+   it that control fell back to the native ~18px height. */
 .qr-field select,
+.qr-section > select,
 .qr-field input[type='text'],
 .qr-field input[type='email'],
 .qr-field input[type='tel'],
@@ -26,7 +30,9 @@
   border-radius: 10px;
   color: var(--navy);
   font-size: 13px;
+  min-height: 42px;
   padding: 10px 12px;
+  width: 100%;
 }
 
 .qr-field-label {
@@ -797,4 +803,53 @@
   color: #8a8578;
   font-size: 11px;
   width: 100%;
+}
+
+/* ─── Touch targets on phones ─────────────────────────────────────────
+   Several controls measured 34–38px tall at 375px, under the 44px
+   minimum that makes a tap land reliably. Only applied on small screens
+   so the desktop density is unchanged. */
+@media (max-width: 640px) {
+  .qr-field select,
+  .qr-section > select,
+  .qr-field input[type='text'],
+  .qr-field input[type='email'],
+  .qr-field input[type='tel'],
+  .qr-field input[type='password'],
+  .qr-repeatable-label,
+  .qr-repeatable-value {
+    min-height: 44px;
+  }
+
+  .qr-preset-btn,
+  .qr-gradient-type-btn,
+  .qr-upload-btn,
+  .qr-repeatable-remove {
+    min-height: 44px;
+  }
+
+  /* "Linear Gradient" was wrapping inside an 89px button */
+  .qr-gradient-type-row {
+    flex-wrap: wrap;
+  }
+
+  .qr-gradient-type-btn {
+    flex: 1 1 auto;
+    min-width: 96px;
+  }
+
+  /* One preset per row rather than two 142px columns */
+  .qr-preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .qr-field--inline input[type='color'] {
+    height: 40px;
+    width: 56px;
+  }
+
+  .qr-field--checkbox input[type='checkbox'] {
+    height: 20px;
+    width: 20px;
+  }
 }
