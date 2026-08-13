@@ -5852,3 +5852,127 @@ html { background: #f7f8fc; }
     width: 20px;
   }
 }
+
+/* ─── Studio editor on phones ─────────────────────────────────────────
+   Measured in the real editor at 375px. The label+colour-control rows are
+   nowrap flex with min-width:auto, so they could not shrink below their
+   ~335px content and pushed the page 6px sideways. Let them wrap, and
+   raise the controls that were too small to tap. */
+@media (max-width: 640px) {
+  .field-label-row,
+  .field-color-controls {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .control-with-apply,
+  .control-with-apply--typography {
+    min-width: 0;
+  }
+
+  /* Edit / Preview toggle was 32px tall */
+  .studio-mobile-tab {
+    min-height: 44px;
+  }
+
+  /* The 🖌 "apply to" button was a 26px square */
+  .apply-to-trigger {
+    height: 40px;
+    min-width: 40px;
+    width: 40px;
+  }
+
+  /* Native range thumbs are ~16px tall — hard to grab while scrolling */
+  input[type='range'] {
+    height: 28px;
+  }
+
+  .text-button {
+    min-height: 40px;
+  }
+
+  /* Colour swatches rendered 22px wide — too narrow to hit reliably */
+  input[type='color'] {
+    min-width: 44px;
+  }
+}
+
+/* ─── Dashboard card rows on phones ───────────────────────────────────
+   .card-list-actions is a nowrap flex with flex-shrink:0, so once the
+   buttons outgrew the row they overflowed LEFTWARDS — at 375px the "Edit"
+   button sat at right:-39px, completely off-screen and unclickable. That
+   produced no horizontal page scroll, which is why an overflow-only check
+   never caught it. Wrap the actions and let them start from the left. */
+@media (max-width: 640px) {
+  .card-list-item {
+    align-items: flex-start;
+  }
+
+  .card-list-actions {
+    flex-wrap: wrap;
+    flex-shrink: 1;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .card-list-info {
+    flex: 1 1 100%;
+  }
+
+  /* 25px close button */
+  .welcome-banner-dismiss {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}
+
+/* ─── Studio editor panels on phones ──────────────────────────────────
+   Measured in the real editor at 375px: Button Settings overflowed by
+   151px, Social Links by 215px and Leads by 63px. All of them are
+   nowrap inline-flex rows (label + colour dot + hex field + 🖌) that
+   cannot shrink below their content. Let every one of them wrap, and
+   size the controls inside for touch. */
+@media (max-width: 640px) {
+  .inline-color-control,
+  .link-head,
+  .reorder,
+  .button-setting-toggle-row,
+  .button-setting-toggle-controls,
+  .button-setting-expand,
+  .control-with-apply,
+  .social-row,
+  .social-add-grid {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  /* Colour dot was a 22px circle; the global min-width:44px above turned
+     it into a 44x22 oval, so set all three explicitly. */
+  .inline-color-control input[type='color'] {
+    height: 36px;
+    min-width: 36px;
+    width: 36px;
+  }
+
+  /* The HEX field rendered 68x15 */
+  .inline-color-control input:not([type='color']) {
+    flex: 1 1 90px;
+    min-height: 40px;
+    min-width: 0;
+  }
+
+  .social-add-pill {
+    min-height: 40px;
+  }
+
+  .reorder button,
+  .reorder select {
+    min-height: 40px;
+    min-width: 40px;
+  }
+
+  /* Catch-all so no colour swatch renders as a thin sliver */
+  input[type='color'] {
+    min-height: 36px;
+  }
+}
