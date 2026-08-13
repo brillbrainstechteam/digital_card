@@ -405,14 +405,22 @@
 .qr-slug-display {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 6px;
+  min-width: 0;
 }
 
+/* The full QR URL is one unbreakable token, so without an explicit break
+   opportunity it set the row's min-content width and pushed the whole page
+   sideways on phones (138px of overflow at 360px). */
 .qr-slug-link {
   color: #8a8578;
   font-family: monospace;
   font-size: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .qr-slug-editor {

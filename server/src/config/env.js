@@ -27,4 +27,23 @@ const env = {
   },
 }
 
+// Refuse to boot in production with the placeholder secrets that live in this
+// file. Previously a missing ADMIN_JWT_SECRET silently fell back to a value
+// published in the source, so anyone could forge `{ role: 'admin' }` tokens
+// and reach every admin endpoint.
+if (env.nodeEnv === 'production') {
+  const insecure = []
+  if (env.jwt.secret === 'change-this-secret-in-production') insecure.push('JWT_SECRET')
+  if (env.admin.secret === 'admin-secret-change-in-prod') insecure.push('ADMIN_JWT_SECRET')
+  if (env.admin.password === 'admin@123') insecure.push('ADMIN_PASSWORD')
+
+  if (insecure.length > 0) {
+    console.error(
+      `FATAL: refusing to start in production with default secrets for: ${insecure.join(', ')}.\n` +
+      'Set these in server/.env to strong random values.'
+    )
+    process.exit(1)
+  }
+}
+
 module.exports = env

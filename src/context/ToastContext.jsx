@@ -20,7 +20,8 @@ export function ToastProvider({ children }) {
   }, [addToast])
 
   // useCallback can't return a plain object — rebuild on every render but memoize addToast
-  const api = { success: (msg) => addToast(msg, 'success'), error: (msg) => addToast(msg, 'error'), info: (msg) => addToast(msg, 'info') }
+  // Errors stay up longer (5s) since they usually need reading/acting on; success is a quick glance (3s).
+  const api = { success: (msg) => addToast(msg, 'success', 3000), error: (msg) => addToast(msg, 'error', 5500), info: (msg) => addToast(msg, 'info', 3500) }
 
   return (
     <ToastContext.Provider value={api}>

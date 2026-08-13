@@ -44,7 +44,8 @@ async function getSubscribers(req, res, next) {
 
 async function getSummary(req, res, next) {
   try {
-    const summary = await analyticsService.getSummary(req.user.id, req.params.cardId)
+    const { dateRange = '', dateFrom = '', dateTo = '' } = req.query
+    const summary = await analyticsService.getSummary(req.user.id, req.params.cardId, { dateRange, dateFrom, dateTo })
     res.json({ success: true, data: summary })
   } catch (err) { next(err) }
 }

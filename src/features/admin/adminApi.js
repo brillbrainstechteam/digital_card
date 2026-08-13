@@ -59,4 +59,7 @@ export const deleteAdminCard = (cardId) =>
 export const deleteAdminUser = (userId) =>
   request(`/users/${userId}`, { method: 'DELETE' })
 
+export const resetUserPassword = (userId) =>
+  request(`/users/${userId}/reset-password`, { method: 'POST' })
+
 export const fetchSubscriptions = () => request('/subscriptions')

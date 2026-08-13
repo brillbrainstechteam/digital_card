@@ -71,8 +71,8 @@ export async function submitSubscriber(slug, email) {
   return data.data.subscriber
 }
 
-export async function fetchAnalytics(cardId) {
-  const { data } = await client.get(`/analytics/${cardId}`)
+export async function fetchAnalytics(cardId, { dateRange = '', dateFrom = '', dateTo = '' } = {}) {
+  const { data } = await client.get(`/analytics/${cardId}`, { params: { dateRange, dateFrom, dateTo } })
   return data.data
 }
 

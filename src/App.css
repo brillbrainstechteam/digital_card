@@ -287,10 +287,113 @@
   gap: 14px;
 }
 
+.cart-trigger {
+  color: #ffffff;
+}
+
 .topbar-greeting {
   color: var(--cream);
   font-size: 14px;
   font-weight: 700;
+}
+
+/* ── Mobile nav: hamburger + slide-down menu ── */
+.topbar-right {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.topbar-nav-desktop {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.topbar-action--desktop {
+  display: inline-flex;
+}
+
+.topbar-menu-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 10px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.topbar-menu-toggle span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: #ffffff;
+  border-radius: 2px;
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.topbar-menu-toggle.is-open span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+.topbar-menu-toggle.is-open span:nth-child(2) {
+  opacity: 0;
+}
+.topbar-menu-toggle.is-open span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.topbar-mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8,18,42,0.5);
+  z-index: 29;
+}
+
+.topbar-mobile-menu {
+  position: fixed;
+  top: 76px;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: var(--navy-deep);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  padding: 10px 16px 18px;
+  gap: 2px;
+  box-shadow: 0 16px 40px rgba(8,18,42,0.4);
+}
+
+.topbar-mobile-menu .topbar-nav-btn,
+.topbar-mobile-menu .topbar-nav-btn--dashboard,
+.topbar-mobile-menu .topbar-action {
+  width: 100%;
+  text-align: left;
+  padding: 13px 14px;
+  border-radius: 10px;
+}
+
+@media (max-width: 900px) {
+  .topbar nav.topbar-nav-desktop,
+  a.topbar-action--desktop {
+    display: none;
+  }
+  .topbar-menu-toggle {
+    display: flex;
+  }
+}
+
+@media (min-width: 901px) {
+  .topbar-mobile-menu,
+  .topbar-mobile-backdrop {
+    display: none;
+  }
 }
 
 .auth-view {
@@ -349,6 +452,20 @@
   font-size: 14px;
   margin-top: 22px;
   text-align: center;
+}
+
+.field-error {
+  color: #ef4444;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.auth-forgot-link {
+  align-self: flex-end;
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: -8px;
 }
 
 .auth-loading {
@@ -798,6 +915,7 @@
 
 .qr-showcase-grid {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
   justify-content: center;
 }
@@ -1203,6 +1321,16 @@
   word-break: break-word;
 }
 
+.card-written-address {
+  color: var(--brand-ink, #fff);
+  opacity: 0.7;
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+  margin-top: 4px;
+  padding: 0 8px;
+}
+
 .footer-cta-group {
   display: flex;
   flex-direction: column;
@@ -1316,63 +1444,63 @@
 }
 
 .socials .social-twitter {
-  color: var(--theme-twitter-button);
+  color: #000000;
 }
 
 .socials .social-youtube {
-  color: var(--theme-youtube-button);
+  color: #FF0000;
 }
 
 .socials .social-telegram {
-  color: var(--theme-telegram-button);
+  color: #26A5E4;
 }
 
 .socials .social-linkedin {
-  color: var(--theme-linkedin-button);
+  color: #0A66C2;
 }
 
 .socials .social-instagram {
-  color: var(--theme-instagram-button);
+  color: #E4405F;
 }
 
 .socials .social-facebook {
-  color: var(--theme-facebook-button);
+  color: #1877F2;
 }
 
 .socials .social-tiktok {
-  color: var(--theme-tiktok-button);
+  color: #000000;
 }
 
 .socials .social-threads {
-  color: var(--theme-threads-button);
+  color: #000000;
 }
 
 .socials .social-soundcloud {
-  color: var(--theme-soundcloud-button);
+  color: #FF5500;
 }
 
 .socials .social-pinterest {
-  color: var(--theme-pinterest-button);
+  color: #E60023;
 }
 
 .socials .social-patreon {
-  color: var(--theme-patreon-button);
+  color: #FF424D;
 }
 
 .socials .social-twitch {
-  color: var(--theme-twitch-button);
+  color: #9146FF;
 }
 
 .socials .social-applemusic {
-  color: var(--theme-applemusic-button);
+  color: #FA243C;
 }
 
 .socials .social-reddit {
-  color: var(--theme-reddit-button);
+  color: #FF4500;
 }
 
 .socials .social-github {
-  color: var(--theme-github-button);
+  color: #181717;
 }
 
 .socials a:hover {
@@ -3494,8 +3622,11 @@
     padding: 0 16px;
   }
 
-  .product-mark strong,
-  .topbar nav {
+  .topbar-mobile-menu {
+    top: 66px;
+  }
+
+  .product-mark strong {
     display: none;
   }
 
@@ -5339,4 +5470,328 @@ html { background: #f7f8fc; }
   .card-list-actions .secondary-button { font-size: 11px; padding: 7px 12px; }
   .dashboard-search-row { flex-direction: column; }
   .dashboard-sort-select { width: 100%; }
+}
+
+/* ═══════════════════════════════════════
+   UI/UX FIXES BATCH 2
+   ═══════════════════════════════════════ */
+
+/* ── #10 Welcome banner ── */
+.welcome-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(135deg, #eef2ff 0%, #f0fdf4 100%);
+  border: 1.5px solid rgba(99,102,241,0.18);
+  border-radius: 16px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+.welcome-banner-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.welcome-banner-icon { font-size: 28px; line-height: 1; flex-shrink: 0; }
+.welcome-banner-content strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.welcome-banner-content p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0;
+}
+.welcome-banner-dismiss {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: background 140ms ease;
+}
+.welcome-banner-dismiss:hover { background: rgba(14,26,53,0.08); }
+
+/* ── #11 Publish hint ── */
+.publish-btn-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.publish-hint {
+  font-size: 10px;
+  color: var(--muted);
+  max-width: 160px;
+  text-align: right;
+  line-height: 1.4;
+}
+
+/* ── #12 Panel completion dot ── */
+.sidebar-completion-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.editor-sidebar-nav button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── #13 Mobile studio polish ── */
+@media (max-width: 640px) {
+  .studio-mobile-tab-strip {
+    gap: 6px;
+    padding: 8px 12px;
+  }
+  .studio-mobile-tab { font-size: 12px; padding: 7px 6px; }
+  .editor-panel { padding: 12px; }
+  .page-header { margin-bottom: 16px; }
+  .page-header h1 { font-size: 18px; }
+  .page-header-actions { flex-wrap: wrap; gap: 6px; }
+  .save-card-button { font-size: 12px; padding: 8px 14px; }
+}
+
+/* ── #21 Password strength ── */
+.password-strength {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -6px;
+  margin-bottom: 2px;
+}
+.password-strength-bars {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+.password-strength-bar {
+  height: 4px;
+  flex: 1;
+  border-radius: 999px;
+  transition: background 200ms ease;
+}
+.password-strength-label {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 52px;
+  text-align: right;
+}
+
+/* ── #22 Cleaner auth error ── */
+.auth-error {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 10px;
+  color: #be123c;
+  font-size: 13px;
+  padding: 10px 14px;
+  text-align: center;
+}
+
+/* ── #24 Share modal social buttons ── */
+.share-modal-social {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 14px;
+}
+.share-social-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+.share-social-btns {
+  display: flex;
+  gap: 8px;
+}
+.share-social-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1.5px solid var(--line);
+  color: var(--ink);
+  background: var(--surface);
+  transition: background 140ms ease, border-color 140ms ease, transform 120ms ease;
+  flex: 1;
+  justify-content: center;
+}
+.share-social-btn:hover { transform: translateY(-1px); }
+.share-social-btn--whatsapp:hover { background: #dcfce7; border-color: #16a34a; color: #16a34a; }
+.share-social-btn--email:hover { background: #eff6ff; border-color: #3b82f6; color: #3b82f6; }
+.share-social-btn--linkedin:hover { background: #eff6ff; border-color: #0077b5; color: #0077b5; }
+
+/* ── #25 Last-edited date ── */
+.card-list-edited {
+  color: var(--muted);
+  font-size: 11px;
+  background: rgba(14,26,53,0.05);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* ── #18 QR badge on public card ── */
+.public-view-qr-badge {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(14,26,53,0.18);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+  border: 1px solid rgba(14,26,53,0.08);
+}
+.public-view-qr-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+@media (max-width: 480px) {
+  .public-view-qr-badge {
+    bottom: 12px;
+    right: 12px;
+    padding: 8px;
+  }
+}
+
+/* ═══════════════════════════════════════
+   RESPONSIVE FIXES
+   ═══════════════════════════════════════ */
+
+/* ── Studio layouts: 1041px–1247px dead zone ──
+   .studio-workspace's three tracks need 1248px to fit
+   (220 + 500 + 380 columns, + 88 gaps, + 60 padding), but the
+   stacking breakpoint is 1040px — so every width in between
+   overflowed (188px at 1041px). Here the sidebar becomes a
+   full-width horizontal bar on top and the editor/preview keep
+   their side-by-side split, which fits comfortably at 1041px.
+   Affects Dashboard, Card Studio, Analytics, Activity, Settings,
+   Cart, My QR Codes, QR Analytics and QR Studio. */
+@media (min-width: 1041px) and (max-width: 1247px) {
+  .studio-workspace {
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 460px);
+  }
+
+  .studio-workspace > .editor-sidebar {
+    grid-column: 1 / -1;
+    align-items: center;
+    flex-direction: row;
+    gap: 12px;
+    min-height: auto;
+    position: static;
+    width: 100%;
+  }
+
+  .studio-workspace > .editor-sidebar .editor-sidebar-nav {
+    flex: 1;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .studio-workspace > .editor-sidebar .editor-sidebar-nav button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .studio-workspace > .editor-sidebar .sidebar-group-label,
+  .studio-workspace > .editor-sidebar .sidebar-divider {
+    display: none;
+  }
+
+  .studio-workspace > .editor-sidebar .editor-sidebar-profile-wrap {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
+  /* Full-width panels span both remaining tracks so no dead column is left */
+  .editor-panel--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ── Analytics data tables: horizontal scroll on small screens ──
+   `.analytics-leads-table` (Leads, Recent Scans, Social Performance…)
+   has no scroll wrapper, so its un-shrinkable columns pushed the whole
+   page sideways (177px of overflow at 360px). Scroll the table itself
+   instead of the document. */
+@media (max-width: 700px) {
+  .analytics-leads-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ── Create Card wizard: card-type picker ──
+   Three fixed columns didn't fit under 375px. */
+@media (max-width: 420px) {
+  .preset-selector {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Public card: QR badge ──
+   Fixed-position badge covered ~49% of a 360px screen and sat on top of
+   the card. A floating QR is useless on a phone anyway (you can't scan
+   your own screen), so place it inline below the card instead. */
+@media (max-width: 640px) {
+  /* .public-view is a centred flex ROW, so a static badge would land beside
+     the card and squash it — stack the column first. */
+  .public-view {
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .public-view > .profile-card {
+    width: 100%;
+  }
+
+  .public-view-qr-badge {
+    bottom: auto;
+    flex: 0 0 auto;
+    margin: 18px auto 0;
+    position: static;
+    right: auto;
+    width: fit-content;
+  }
+}
+
+/* ── Public card: contact buttons ──
+   With five actions each cell is ~54px at 360px; shrink the labels so
+   "WhatsApp" and "Save Contact" still fit. */
+@media (max-width: 400px) {
+  .quick-actions span {
+    font-size: 10px;
+    letter-spacing: -0.01em;
+  }
 }

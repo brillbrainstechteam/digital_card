@@ -1053,6 +1053,17 @@ export function Studio({
         onSave={onSave}
         onDiscard={onDiscard}
         backTo={backTo}
+        completionMap={{
+          design:   Boolean(profile.logo || profile.coverImage),
+          info:     Boolean(profile.personName || profile.companyName),
+          buttons:  Boolean(profile.phone || profile.email || profile.website),
+          leads:    Boolean(profile.showLeadCapture),
+          social:   Boolean(profile.socials?.some((s) => s.url)),
+          settings: Boolean(profile.logo),
+          colors:   Boolean(profile.theme && Object.keys(profile.theme).length > 0),
+          fonts:    Boolean(profile.typography && Object.keys(profile.typography).length > 0),
+          footer:   false,
+        }}
       />
       <div className="studio-mobile-tab-strip">
         <button
@@ -1757,7 +1768,7 @@ export function Studio({
           <span>{hasUnsavedChanges ? 'Live preview · Unsaved' : 'Live preview'}</span>
           <div className="preview-toolbar-actions">
             {cardStatus === 'published' ? (
-              <span className="preview-published-badge">Published</span>
+              <span className="preview-published-badge">✓ Published</span>
             ) : (
               onPublish && (
                 <button className="primary-button preview-publish-btn" type="button" onClick={onPublish} disabled={publishing}>

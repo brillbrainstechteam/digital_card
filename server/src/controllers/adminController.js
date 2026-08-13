@@ -1,12 +1,25 @@
+const crypto = require('crypto')
 const jwt = require('jsonwebtoken')
 const env = require('../config/env')
 const AppError = require('../utils/AppError')
 const adminService = require('../services/adminService')
 
+// Length-safe constant-time compare, so admin credentials can't be recovered
+// character-by-character from response timing.
+function safeEqual(a, b) {
+  const bufA = Buffer.from(String(a ?? ''), 'utf8')
+  const bufB = Buffer.from(String(b ?? ''), 'utf8')
+  const hashA = crypto.createHash('sha256').update(bufA).digest()
+  const hashB = crypto.createHash('sha256').update(bufB).digest()
+  return crypto.timingSafeEqual(hashA, hashB)
+}
+
 async function login(req, res, next) {
   try {
     const { email, password } = req.body
-    if (email !== env.admin.email || password !== env.admin.password) {
+    const emailOk = safeEqual(String(email || '').trim().toLowerCase(), String(env.admin.email).toLowerCase())
+    const passwordOk = safeEqual(password, env.admin.password)
+    if (!emailOk || !passwordOk) {
       return next(new AppError('Invalid admin credentials', 401))
     }
     const token = jwt.sign({ role: 'admin', email }, env.admin.secret, { expiresIn: '12h' })
@@ -83,6 +96,15 @@ async function deleteUser(req, res, next) {
   }
 }
 
+async function resetUserPassword(req, res, next) {
+  try {
+    const result = await adminService.resetUserPassword(req.params.userId)
+    res.json({ email: result.email, tempPassword: result.tempPassword })
+  } catch (err) {
+    next(err)
+  }
+}
+
 async function getActivity(req, res, next) {
   try {
     const activity = await adminService.getRecentActivity()
@@ -112,4 +134,4 @@ async function getSubscriptions(req, res, next) {
   }
 }
 
-module.exports = { login, getStats, getUsers, getCards, getQrCodes, updateCardStatus, updateQrLifecycle, deleteCard, deleteUser, getActivity, getSubscriptions }
+module.exports = { login, getStats, getUsers, getCards, getQrCodes, updateCardStatus, updateQrLifecycle, deleteCard, deleteUser, getActivity, getSubscriptions, resetUserPassword }

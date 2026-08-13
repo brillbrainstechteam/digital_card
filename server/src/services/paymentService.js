@@ -27,7 +27,7 @@ async function createOrder(userId, cardIds, qrIds) {
   const order = await getRazorpay().orders.create({
     amount: totalPaise,
     currency: 'INR',
-    receipt: `dc_${userId}_${Date.now()}`,
+    receipt: `dc_${Date.now()}`,
     notes: {
       userId: String(userId),
       cardIds: cardIds.join(','),
@@ -74,7 +74,7 @@ async function fulfillOrder(userId, orderId, paymentId, cardIds, qrIds) {
          SET status = 'published',
              subscription_cancelled = FALSE,
              subscription_expires_at = NOW() + INTERVAL '30 days'
-         WHERE id = ANY($1::int[]) AND user_id = $2`,
+         WHERE id = ANY($1::uuid[]) AND user_id = $2`,
         [cardIds, userId]
       )
     }
@@ -87,7 +87,7 @@ async function fulfillOrder(userId, orderId, paymentId, cardIds, qrIds) {
                jsonb_set(settings, '{purchased}', 'true'),
                '{lifecycleStatus}', '"active"'
              )
-         WHERE id = ANY($1::int[]) AND user_id = $2`,
+         WHERE id = ANY($1::uuid[]) AND user_id = $2`,
         [qrIds, userId]
       )
     }
@@ -101,14 +101,26 @@ async function fulfillOrder(userId, orderId, paymentId, cardIds, qrIds) {
   }
 }
 
-// Razorpay webhook signature verification
+// Razorpay webhook signature verification.
+// Fails CLOSED: an unset secret previously returned `true`, which let anyone
+// POST a forged `payment.captured` event and publish cards / activate QR
+// codes for free. No secret now means no webhook is ever trusted.
 function verifyWebhookSignature(rawBody, signature) {
-  if (!env.razorpay.webhookSecret) return true // skip if not configured
+  if (!env.razorpay.webhookSecret) {
+    console.error('SECURITY: RAZORPAY_WEBHOOK_SECRET is not configured — rejecting webhook')
+    return false
+  }
+  if (!signature || typeof signature !== 'string') return false
+
   const expected = crypto
     .createHmac('sha256', env.razorpay.webhookSecret)
     .update(rawBody)
     .digest('hex')
-  return expected === signature
+
+  const expectedBuf = Buffer.from(expected, 'utf8')
+  const actualBuf = Buffer.from(signature, 'utf8')
+  if (expectedBuf.length !== actualBuf.length) return false
+  return crypto.timingSafeEqual(expectedBuf, actualBuf)
 }
 
 module.exports = { createOrder, verifySignature, fulfillOrder, verifyWebhookSignature }

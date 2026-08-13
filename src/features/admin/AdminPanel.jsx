@@ -3,7 +3,7 @@ import {
   adminLogin, adminLogout, isAdminLoggedIn,
   fetchStats, fetchUsers, fetchCards, fetchQrCodes, fetchActivity,
   updateCardStatus, updateQrLifecycle, deleteAdminCard, deleteAdminUser,
-  fetchSubscriptions,
+  fetchSubscriptions, resetUserPassword,
 } from './adminApi'
 import './admin.css'
 
@@ -64,6 +64,7 @@ function OverviewTab() {
   const [activity, setActivity] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     Promise.all([fetchStats(), fetchActivity()])
@@ -97,10 +98,13 @@ function OverviewTab() {
         ))}
       </div>
       <div className="admin-section">
-        <div className="admin-section-header"><h2>Recent Activity</h2></div>
+        <div className="admin-section-header">
+          <h2>Recent Activity</h2>
+          <input className="admin-search" placeholder="Filter by name or email…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
         <ul className="admin-activity-list">
           {activity.length === 0 && <li className="admin-empty">No activity yet</li>}
-          {activity.map((item, i) => (
+          {activity.filter((item) => !search || item.label?.toLowerCase().includes(search.toLowerCase()) || item.user_email?.toLowerCase().includes(search.toLowerCase())).map((item, i) => (
             <li className="admin-activity-item" key={i}>
               <span className={`admin-activity-dot ${item.type === 'user_signup' ? 'user' : 'card'}`} />
               <span className="admin-activity-label">
@@ -305,6 +309,8 @@ function UsersTab() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [deleting, setDeleting] = useState(null)
+  const [resetting, setResetting] = useState(null)
+  const [resetResult, setResetResult] = useState(null)
 
   useEffect(() => { fetchUsers().then(setUsers).finally(() => setLoading(false)) }, [])
 
@@ -314,6 +320,19 @@ function UsersTab() {
     try { await deleteAdminUser(user.id); setUsers((cur) => cur.filter((u) => u.id !== user.id)) }
     catch (err) { alert(err.message) }
     finally { setDeleting(null) }
+  }
+
+  async function handleResetPassword(user) {
+    if (!window.confirm(`Reset the password for ${user.email}? A new temporary password will be generated.`)) return
+    setResetting(user.id)
+    try {
+      const result = await resetUserPassword(user.id)
+      setResetResult(result)
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setResetting(null)
+    }
   }
 
   const filtered = users.filter((u) => !search || u.name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase()))
@@ -340,6 +359,9 @@ function UsersTab() {
                 <td className="muted">{fmtDate(u.created_at)}</td>
                 <td>
                   <div className="admin-action-row">
+                    <button className="admin-btn-sm" onClick={() => handleResetPassword(u)} disabled={resetting === u.id}>
+                      {resetting === u.id ? 'Resetting…' : 'Reset Password'}
+                    </button>
                     <button className="admin-btn-sm danger" onClick={() => handleDelete(u)} disabled={deleting === u.id}>
                       {deleting === u.id ? 'Deleting…' : 'Delete'}
                     </button>
@@ -350,6 +372,26 @@ function UsersTab() {
           </tbody>
         </table>
       </div>
+
+      {resetResult && (
+        <div className="confirm-overlay" onClick={() => setResetResult(null)}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <h2>Password Reset</h2>
+            <p>
+              New temporary password for <strong>{resetResult.email}</strong>:
+            </p>
+            <p style={{ fontFamily: 'monospace', fontSize: 18, background: 'var(--shell)', padding: '10px 14px', borderRadius: 8, textAlign: 'center' }}>
+              {resetResult.tempPassword}
+            </p>
+            <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+              Share this with the user securely. They should change it from Settings once logged in.
+            </p>
+            <div className="confirm-actions">
+              <button className="primary-button" type="button" onClick={() => setResetResult(null)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -541,8 +583,11 @@ function AdminDashboard({ onLogout }) {
     <div className="admin-layout">
       <aside className="admin-sidebar">
         <div className="admin-sidebar-logo">
-          <strong>Brill Brains</strong>
-          <span>Admin Panel</span>
+          <img src="/bb-logo.png" alt="BB" />
+          <div>
+            <strong>Brill Brains</strong>
+            <span>Admin Panel</span>
+          </div>
         </div>
         <nav className="admin-nav">
           {TABS.map((t) => (

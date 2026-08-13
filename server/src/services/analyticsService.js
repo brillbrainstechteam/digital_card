@@ -93,28 +93,28 @@ async function getOwnedCardIds(userId, cardId) {
   return result.rows.map((r) => r.id)
 }
 
-function applyDateFilter(conditions, params, dateRange, dateFrom, dateTo) {
+function applyDateFilter(conditions, params, dateRange, dateFrom, dateTo, column = 'created_at') {
   if (dateRange === 'today') {
-    conditions.push("created_at >= NOW()::date")
+    conditions.push(`${column} >= NOW()::date`)
   } else if (dateRange === 'last7') {
-    conditions.push("created_at >= NOW() - INTERVAL '7 days'")
+    conditions.push(`${column} >= NOW() - INTERVAL '7 days'`)
   } else if (dateRange === 'last30') {
-    conditions.push("created_at >= NOW() - INTERVAL '30 days'")
+    conditions.push(`${column} >= NOW() - INTERVAL '30 days'`)
   } else if (dateRange === 'thisMonth') {
-    conditions.push("date_trunc('month', created_at) = date_trunc('month', NOW())")
+    conditions.push(`date_trunc('month', ${column}) = date_trunc('month', NOW())`)
   } else if (dateRange === 'custom') {
     if (dateFrom) {
       params.push(dateFrom)
-      conditions.push(`created_at >= $${params.length}::date`)
+      conditions.push(`${column} >= $${params.length}::date`)
     }
     if (dateTo) {
       params.push(dateTo)
-      conditions.push(`created_at < ($${params.length}::date + INTERVAL '1 day')`)
+      conditions.push(`${column} < ($${params.length}::date + INTERVAL '1 day')`)
     }
   }
 }
 
-async function getSummary(userId, cardId) {
+async function getSummary(userId, cardId, { dateRange = '', dateFrom = '', dateTo = '' } = {}) {
   const cardIds = await getOwnedCardIds(userId, cardId)
   if (cardIds.length === 0) {
     return {
@@ -124,24 +124,38 @@ async function getSummary(userId, cardId) {
     }
   }
 
+  // Each query builds its own $1 (cardIds) + date-filter params since the
+  // date column name differs per table (all "created_at" here, but kept
+  // per-query so a future table with a different column stays easy to add).
+  function withDateFilter(baseSql, column = 'created_at') {
+    const params = [cardIds]
+    const conditions = []
+    applyDateFilter(conditions, params, dateRange, dateFrom, dateTo, column)
+    const whereExtra = conditions.length ? ` AND ${conditions.join(' AND ')}` : ''
+    return { sql: baseSql.replace('__EXTRA__', whereExtra), params }
+  }
+
+  const viewsQ = withDateFilter('SELECT COUNT(*)::int AS count FROM card_views WHERE card_id = ANY($1::uuid[])__EXTRA__')
+  const leadsQ = withDateFilter('SELECT COUNT(*)::int AS count FROM leads WHERE card_id = ANY($1::uuid[])__EXTRA__')
+  const clicksQ = withDateFilter('SELECT button_type, COUNT(*)::int AS count FROM button_clicks WHERE card_id = ANY($1::uuid[])__EXTRA__ GROUP BY button_type')
+  const subscribersQ = withDateFilter('SELECT COUNT(*)::int AS count FROM subscribers WHERE card_id = ANY($1::uuid[])__EXTRA__')
+  // QR scans feed the same funnel (scan → view → click → lead → subscriber)
+  // without double counting: a scan is its own event, distinct from the
+  // page view it leads to.
+  const qrScansQ = withDateFilter(
+    `SELECT COUNT(*)::int AS count FROM qr_scans s
+     JOIN qr_codes qr ON qr.id = s.qr_id
+     WHERE qr.card_id = ANY($1::uuid[])__EXTRA__`,
+    's.created_at'
+  )
+
   const [viewsRes, leadsRes, clicksRes, lastActivityRes, subscribersRes, qrScansRes] = await Promise.all([
-    pool.query('SELECT COUNT(*)::int AS count FROM card_views WHERE card_id = ANY($1::uuid[])', [cardIds]),
-    pool.query('SELECT COUNT(*)::int AS count FROM leads WHERE card_id = ANY($1::uuid[])', [cardIds]),
-    pool.query(
-      'SELECT button_type, COUNT(*)::int AS count FROM button_clicks WHERE card_id = ANY($1::uuid[]) GROUP BY button_type',
-      [cardIds]
-    ),
+    pool.query(viewsQ.sql, viewsQ.params),
+    pool.query(leadsQ.sql, leadsQ.params),
+    pool.query(clicksQ.sql, clicksQ.params),
     pool.query('SELECT MAX(created_at) AS last_activity FROM card_events WHERE card_id = ANY($1::uuid[])', [cardIds]),
-    pool.query('SELECT COUNT(*)::int AS count FROM subscribers WHERE card_id = ANY($1::uuid[])', [cardIds]),
-    // QR scans feed the same funnel (scan → view → click → lead → subscriber)
-    // without double counting: a scan is its own event, distinct from the
-    // page view it leads to.
-    pool.query(
-      `SELECT COUNT(*)::int AS count FROM qr_scans s
-       JOIN qr_codes qr ON qr.id = s.qr_id
-       WHERE qr.card_id = ANY($1::uuid[])`,
-      [cardIds]
-    ),
+    pool.query(subscribersQ.sql, subscribersQ.params),
+    pool.query(qrScansQ.sql, qrScansQ.params),
   ])
 
   const totalViews = viewsRes.rows[0].count

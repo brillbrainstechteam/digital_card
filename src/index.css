@@ -32,13 +32,13 @@
 }
 
 html {
-  min-width: 320px;
+  min-width: 280px;
   background: var(--shell);
 }
 
 body {
   margin: 0;
-  min-width: 320px;
+  min-width: 280px;
   min-height: 100vh;
 }
 

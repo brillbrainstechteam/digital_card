@@ -27,3 +27,12 @@ export async function deleteAccountRequest(feedback) {
   clearToken()
   sessionStorage.clear()
 }
+
+export async function updateProfileRequest(fields) {
+  const { data } = await client.patch('/auth/me', fields)
+  return data.data.user
+}
+
+export async function changePasswordRequest(currentPassword, newPassword) {
+  await client.post('/auth/change-password', { currentPassword, newPassword })
+}

@@ -15,6 +15,7 @@ router.get('/activity', ctrl.getActivity)
 router.patch('/cards/:cardId/status', ctrl.updateCardStatus)
 router.delete('/cards/:cardId', ctrl.deleteCard)
 router.delete('/users/:userId', ctrl.deleteUser)
+router.post('/users/:userId/reset-password', ctrl.resetUserPassword)
 router.patch('/qrcodes/:qrId/lifecycle', ctrl.updateQrLifecycle)
 router.get('/subscriptions', ctrl.getSubscriptions)
 

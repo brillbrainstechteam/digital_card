@@ -63,8 +63,8 @@ async function webhook(req, res, next) {
       const payment = payload?.payment?.entity
       if (payment?.notes) {
         const userId = parseInt(payment.notes.userId, 10)
-        const cardIds = payment.notes.cardIds ? payment.notes.cardIds.split(',').map(Number).filter(Boolean) : []
-        const qrIds   = payment.notes.qrIds   ? payment.notes.qrIds.split(',').map(Number).filter(Boolean)   : []
+        const cardIds = payment.notes.cardIds ? payment.notes.cardIds.split(',').filter(Boolean) : []
+        const qrIds   = payment.notes.qrIds   ? payment.notes.qrIds.split(',').filter(Boolean)   : []
         await paymentService.fulfillOrder(userId, payment.order_id, payment.id, cardIds, qrIds)
       }
     }

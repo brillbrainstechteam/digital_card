@@ -4,16 +4,14 @@ const paymentController = require('../controllers/paymentController')
 
 const router = Router()
 
-// Webhook needs raw body for signature verification — mount before json middleware
+// The raw body is supplied by the express.raw() mount in app.js. The previous
+// hand-rolled stream reader ran *after* express.json() had already consumed
+// the request, so 'end' never fired and every webhook call hung open forever
+// (an unauthenticated way to exhaust connections).
 router.post('/webhook', (req, res, next) => {
-  let data = ''
-  req.setEncoding('utf8')
-  req.on('data', (chunk) => { data += chunk })
-  req.on('end', () => {
-    req.rawBody = data
-    try { req.body = JSON.parse(data) } catch { req.body = {} }
-    next()
-  })
+  req.rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : ''
+  try { req.body = JSON.parse(req.rawBody) } catch { req.body = {} }
+  next()
 }, paymentController.webhook)
 
 router.post('/create-order', authenticate, paymentController.createOrder)

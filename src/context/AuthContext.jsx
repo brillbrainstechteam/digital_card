@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { getToken } from '../api/client'
-import { loginRequest, signupRequest, fetchMe, logoutRequest, deleteAccountRequest } from '../api/auth'
+import { loginRequest, signupRequest, fetchMe, logoutRequest, deleteAccountRequest, updateProfileRequest, changePasswordRequest } from '../api/auth'
 
 const AuthContext = createContext(null)
 
@@ -45,6 +45,16 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
+  const updateProfile = useCallback(async (fields) => {
+    const me = await updateProfileRequest(fields)
+    setUser(me)
+    return me
+  }, [])
+
+  const changePassword = useCallback(async (currentPassword, newPassword) => {
+    await changePasswordRequest(currentPassword, newPassword)
+  }, [])
+
   const value = {
     user,
     loading,
@@ -53,6 +63,8 @@ export function AuthProvider({ children }) {
     signup,
     logout,
     deleteAccount,
+    updateProfile,
+    changePassword,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

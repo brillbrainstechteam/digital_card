@@ -17,8 +17,29 @@ export function AuthPage({ mode: initialMode = 'login' }) {
   })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [showForgot, setShowForgot] = useState(false)
 
   const isLogin = mode === 'login'
+
+  function passwordStrength(pwd) {
+    if (!pwd) return { score: 0, label: '', color: '' }
+    let score = 0
+    if (pwd.length >= 8) score++
+    if (/[A-Z]/.test(pwd)) score++
+    if (/[0-9]/.test(pwd)) score++
+    if (/[^A-Za-z0-9]/.test(pwd)) score++
+    const levels = [
+      { label: 'Too short', color: '#ef4444' },
+      { label: 'Weak', color: '#f97316' },
+      { label: 'Fair', color: '#eab308' },
+      { label: 'Good', color: '#22c55e' },
+      { label: 'Strong', color: '#16a34a' },
+    ]
+    return { score, ...levels[score] }
+  }
+  const pwdStrength = isLogin ? null : passwordStrength(form.password)
+  const PHONE_PATTERN = /^\+?[\d\s-]{7,15}$/
+  const phoneValid = !form.phone || PHONE_PATTERN.test(form.phone.trim())
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }))
@@ -27,6 +48,10 @@ export function AuthPage({ mode: initialMode = 'login' }) {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    if (!isLogin && !phoneValid) {
+      setError('Enter a valid phone number')
+      return
+    }
     setSubmitting(true)
     try {
       if (isLogin) {
@@ -79,7 +104,12 @@ export function AuthPage({ mode: initialMode = 'login' }) {
               </label>
               <label className="field">
                 <span>Phone (optional)</span>
-                <input value={form.phone} onChange={(e) => update('phone', e.target.value)} />
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) => update('phone', e.target.value.replace(/[^\d+\s-]/g, ''))}
+                />
+                {form.phone && !phoneValid && <span className="field-error">Enter a valid phone number</span>}
               </label>
             </>
           )}
@@ -91,6 +121,21 @@ export function AuthPage({ mode: initialMode = 'login' }) {
             <span>Password</span>
             <input type="password" value={form.password} onChange={(e) => update('password', e.target.value)} minLength={6} required />
           </label>
+          {isLogin && (
+            <button type="button" className="text-button auth-forgot-link" onClick={() => setShowForgot(true)}>
+              Forgot password?
+            </button>
+          )}
+          {!isLogin && form.password && (
+            <div className="password-strength">
+              <div className="password-strength-bars">
+                {[1,2,3,4].map((n) => (
+                  <span key={n} className="password-strength-bar" style={{ background: pwdStrength.score >= n ? pwdStrength.color : 'var(--line)' }} />
+                ))}
+              </div>
+              <span className="password-strength-label" style={{ color: pwdStrength.color }}>{pwdStrength.label}</span>
+            </div>
+          )}
 
           {error && <p className="auth-error">{error}</p>}
 
@@ -110,6 +155,28 @@ export function AuthPage({ mode: initialMode = 'login' }) {
           </button>
         </p>
       </div>
+
+      {showForgot && (
+        <div className="confirm-overlay" onClick={() => setShowForgot(false)}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <h2>Reset your password</h2>
+            <p>
+              Self-service reset isn't available yet. Email us at{' '}
+              <strong>support@brillbrainsconsultants.com</strong> from your account's email address
+              and we'll reset it for you.
+            </p>
+            <div className="confirm-actions">
+              <button className="secondary-button" type="button" onClick={() => setShowForgot(false)}>Close</button>
+              <a
+                className="primary-button"
+                href={`mailto:support@brillbrainsconsultants.com?subject=${encodeURIComponent('Password reset request')}&body=${encodeURIComponent(`Hi,\n\nI'd like to reset my password for the account registered to: ${form.email || '[your email]'}\n\nThanks!`)}`}
+              >
+                Email Support
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

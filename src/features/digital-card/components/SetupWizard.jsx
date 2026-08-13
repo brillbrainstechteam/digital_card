@@ -168,6 +168,16 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
         }))
       } else {
         setForm((current) => ({ ...current, profilePhotoPreview: preview, profilePhoto: preview }))
+        const [palette, backdrop] = await Promise.all([
+          extractPaletteFromLogo(preview),
+          detectBackdrop(preview),
+        ])
+        setForm((current) => ({
+          ...current,
+          palette,
+          theme: { ...current.theme, ...themeFromPalette(palette) },
+          logoBg: backdrop ? rgbToHex(backdrop) : current.logoBg,
+        }))
       }
 
       const cloudUrl = await uploadImage(uploadSource, (progress) => {

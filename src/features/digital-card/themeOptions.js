@@ -20,6 +20,12 @@ export const THEME_FIELDS = [
   { key: 'accentColor', label: 'Accent Color' },
 ]
 
+// Same extraction algorithm for every card type — professional/business
+// derive the palette from the uploaded logo, personal derives it from the
+// uploaded profile photo. Whichever asset is used, this function is the one
+// place background/text/button colors are computed from it, so all types
+// stay consistent in *how* auto-color works even though the resulting color
+// naturally differs per uploaded image.
 export function themeFromPalette(palette) {
   return {
     pageBackground: palette.surface,

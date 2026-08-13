@@ -67,6 +67,29 @@ async function getUserById(id) {
   return result.rows[0]
 }
 
+async function changePassword(userId, { currentPassword, newPassword }) {
+  const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [userId])
+  if (result.rows.length === 0) throw new AppError('User not found', 404)
+
+  const isMatch = await bcrypt.compare(currentPassword, result.rows[0].password_hash)
+  if (!isMatch) throw new AppError('Current password is incorrect', 401)
+
+  const salt = await bcrypt.genSalt(12)
+  const password_hash = await bcrypt.hash(newPassword, salt)
+  await pool.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [password_hash, userId])
+}
+
+async function updateProfile(userId, { name, business_name, phone }) {
+  const result = await pool.query(
+    `UPDATE users SET name = $1, business_name = $2, phone = $3, updated_at = NOW()
+     WHERE id = $4
+     RETURNING id, name, business_name, email, phone, is_verified, created_at, updated_at`,
+    [name, business_name, phone || null, userId]
+  )
+  if (result.rows.length === 0) throw new AppError('User not found', 404)
+  return result.rows[0]
+}
+
 async function deleteAccount(userId, { reason, details }) {
   const client = await pool.connect()
   try {
@@ -98,4 +121,4 @@ async function deleteAccount(userId, { reason, details }) {
   }
 }
 
-module.exports = { signup, login, getUserById, deleteAccount }
+module.exports = { signup, login, getUserById, changePassword, updateProfile, deleteAccount }

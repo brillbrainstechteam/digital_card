@@ -287,7 +287,7 @@ export function AnalyticsPage() {
     if (!silent) setLoading(true)
     try {
       const [summaryData, leadsData, activityData, subscribersData, qrData] = await Promise.all([
-        fetchAnalytics(selectedCardId),
+        fetchAnalytics(selectedCardId, leadsParamsRef.current),
         fetchAnalyticsLeads(selectedCardId, leadsParamsRef.current),
         fetchAnalyticsActivity(selectedCardId, { limit: 5 }),
         fetchAnalyticsSubscribers(selectedCardId, { limit: 5 }),
@@ -326,6 +326,17 @@ export function AnalyticsPage() {
 
   // Silent leads refresh on filter change
   useEffect(() => { if (!showSample) fetchLeads() }, [fetchLeads, showSample])
+
+  // Refresh the summary stats (views/scans/clicks/etc.) whenever the date
+  // filter changes — the leads table and the summary cards should agree on
+  // the same time window.
+  useEffect(() => {
+    if (showSample) return
+    fetchAnalytics(selectedCardId, { dateRange, dateFrom, dateTo })
+      .then((data) => setSummary(leadCaptureEnabled ? data : { ...data, totalLeads: 0 }))
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCardId, dateRange, dateFrom, dateTo, showSample, leadCaptureEnabled])
 
   // Polling
   useEffect(() => {
@@ -375,9 +386,20 @@ export function AnalyticsPage() {
                 <option value="all">All Cards</option>
                 {cards.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
               </select>
+              <select className="analytics-card-filter" value={dateRange} disabled={showSample}
+                onChange={(e) => { setDateRange(e.target.value); setDateFrom(''); setDateTo(''); setPage(1) }}>
+                {DATE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
             </div>
           )}
         />
+
+        {dateRange === 'custom' && !showSample && (
+          <div className="leads-filters" style={{ marginBottom: 20 }}>
+            <input type="date" className="leads-filter-select" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1) }} />
+            <input type="date" className="leads-filter-select" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1) }} />
+          </div>
+        )}
 
         {loading || !summary ? (
           <p className="settings-placeholder">Loading analytics...</p>

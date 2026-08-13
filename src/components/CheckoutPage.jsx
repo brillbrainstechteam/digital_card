@@ -17,17 +17,36 @@ function loadRazorpayScript() {
   })
 }
 
+const PAID_FLAG_KEY = 'bb_last_checkout_success'
+
 export function CheckoutPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const { user } = useAuth()
   const { items, clear } = useCart()
   const [paying, setPaying] = useState(false)
-  const [paid, setPaid] = useState(false)
+  // Survives a refresh right after payment (cart is already cleared by then,
+  // so without this the success screen would flip back to an empty-cart view).
+  const [paid, setPaid] = useState(() => sessionStorage.getItem(PAID_FLAG_KEY) === '1')
   const total = cartTotal(items)
+
+  function markPaid() {
+    sessionStorage.setItem(PAID_FLAG_KEY, '1')
+    setPaid(true)
+  }
 
   // Pre-load Razorpay SDK as soon as the checkout page mounts
   useEffect(() => { loadRazorpayScript() }, [])
+
+  // If the cart has new items, this is a fresh checkout, not the one that
+  // just succeeded — drop the stale "paid" flag from a previous session.
+  useEffect(() => {
+    if (paid && items.length > 0) {
+      sessionStorage.removeItem(PAID_FLAG_KEY)
+      setPaid(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handlePayment() {
     if (items.length === 0 || paying) return
@@ -41,8 +60,8 @@ export function CheckoutPage() {
         return
       }
 
-      const cardIds = [...new Set(items.map((i) => i.publishCardId).filter(Boolean))].map(Number)
-      const qrIds   = [...new Set(items.map((i) => i.qrId).filter(Boolean))].map(Number)
+      const cardIds = [...new Set(items.map((i) => i.publishCardId).filter(Boolean))]
+      const qrIds   = [...new Set(items.map((i) => i.qrId).filter(Boolean))]
 
       const order = await createOrder(cardIds, qrIds)
 
@@ -73,7 +92,7 @@ export function CheckoutPage() {
               cardIds,
               qrIds,
             })
-            setPaid(true)
+            markPaid()
             clear()
             toast.success('Payment successful! Your products are now live.')
           } catch (err) {
@@ -109,7 +128,7 @@ export function CheckoutPage() {
             <span className="checkout-success-mark">✓</span>
             <h2>Your products are published</h2>
             <p>Payment confirmed. All your digital cards and QR codes are now live.</p>
-            <button className="primary-button" type="button" onClick={() => navigate('/dashboard')}>
+            <button className="primary-button" type="button" onClick={() => { sessionStorage.removeItem(PAID_FLAG_KEY); navigate('/dashboard') }}>
               View your cards
             </button>
           </section>

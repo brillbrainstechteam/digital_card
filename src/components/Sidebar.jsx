@@ -84,6 +84,7 @@ export function Sidebar({
   onSave,
   onDiscard,
   backTo = null,
+  completionMap = {},
 }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -175,6 +176,9 @@ export function Sidebar({
                   onClick={() => onEditorNav?.(item.key)}
                 >
                   {item.label}
+                  {completionMap[item.key] && (
+                    <span className="sidebar-completion-dot" title="Filled in" />
+                  )}
                 </button>
               ))}
             </>

@@ -250,6 +250,17 @@ export function QrCodesListPage() {
                     ) : (
                       <div className="qr-slug-display">
                         <span className="qr-slug-link">{getDynamicQrUrl(qr.slug)}</span>
+                        <button
+                          className="link-button"
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(getDynamicQrUrl(qr.slug))
+                              .then(() => toast.success('Link copied'))
+                              .catch(() => toast.error('Could not copy link'))
+                          }}
+                        >
+                          Copy
+                        </button>
                         <button className="link-button" type="button" onClick={() => startEditSlug(qr)}>Edit Link</button>
                       </div>
                     )}

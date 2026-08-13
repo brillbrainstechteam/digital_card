@@ -62,7 +62,12 @@ async function getCardById(cardId, userId) {
   return card
 }
 
-const ALLOWED_STATUSES = ['draft', 'published', 'suspended']
+// Statuses a card OWNER may set through the public API.
+// 'published' is deliberately excluded: it is the paid state, and is only
+// ever set by verified payment fulfilment (paymentService.fulfillOrder) or by
+// an admin. Allowing it here let any authenticated user publish for free with
+// a single PUT /api/cards/:id — and it even granted a 30-day billing period.
+const ALLOWED_STATUSES = ['draft', 'suspended']
 
 async function updateCard(cardId, userId, updates) {
   const card = await getCardById(cardId, userId)
@@ -100,7 +105,7 @@ async function updateCard(cardId, userId, updates) {
   }
   if (updates.status !== undefined) {
     if (!ALLOWED_STATUSES.includes(updates.status)) {
-      throw new AppError('Status must be "draft", "published", or "suspended"', 400)
+      throw new AppError('Status must be "draft" or "suspended". Publishing happens through checkout.', 400)
     }
     fields.push(`status = $${idx++}`)
     values.push(updates.status)

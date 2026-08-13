@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchCards, createCard, updateCard, deleteCard, unarchiveCard, cancelCardSubscription, resubscribeCard } from '../services/api'
 import { useToast } from '../../../context/ToastContext'
@@ -20,6 +20,21 @@ function ConfirmDialog({ title, message, actionLabel, onCancel, onConfirm }) {
           <button className="primary-button danger-button" type="button" onClick={onConfirm}>{actionLabel}</button>
         </div>
       </div>
+    </div>
+  )
+}
+
+function WelcomeBanner({ onDismiss }) {
+  return (
+    <div className="welcome-banner">
+      <div className="welcome-banner-content">
+        <div className="welcome-banner-icon">👋</div>
+        <div>
+          <strong>Welcome to Digital Card Studio!</strong>
+          <p>Create your first digital card in 3 easy steps: upload your logo → customize your card → publish and share.</p>
+        </div>
+      </div>
+      <button className="welcome-banner-dismiss" type="button" onClick={onDismiss} aria-label="Dismiss">✕</button>
     </div>
   )
 }
@@ -112,6 +127,36 @@ function ShareModal({ card, onClose, onSlugUpdated }) {
             </>
           )}
         </div>
+        {!editing && (
+          <div className="share-modal-social">
+            <p className="share-social-label">Share via</p>
+            <div className="share-social-btns">
+              <a
+                className="share-social-btn share-social-btn--whatsapp"
+                href={`https://wa.me/?text=${encodeURIComponent(`Check out my digital card: ${url}`)}`}
+                target="_blank" rel="noreferrer"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2.05 21.95l4.878-1.372A9.95 9.95 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2Zm4.406 13.155c-.242-.121-1.432-.707-1.654-.788-.222-.08-.383-.12-.544.121-.16.242-.623.788-.764.95-.14.16-.282.18-.524.06-.242-.12-1.02-.376-1.943-1.198-.718-.641-1.203-1.432-1.344-1.674-.14-.242-.015-.373.106-.493.108-.108.242-.282.363-.423.12-.14.16-.242.242-.403.08-.16.04-.302-.02-.423-.06-.12-.544-1.313-.746-1.797-.196-.472-.396-.408-.544-.415l-.463-.008a.888.888 0 0 0-.644.302c-.222.242-.845.826-.845 2.014s.865 2.335.985 2.496c.12.16 1.701 2.597 4.122 3.643.576.249 1.025.397 1.375.508.578.184 1.104.158 1.52.096.463-.069 1.432-.585 1.634-1.15.2-.564.2-1.047.14-1.148-.06-.1-.222-.16-.463-.282Z"/></svg>
+                WhatsApp
+              </a>
+              <a
+                className="share-social-btn share-social-btn--email"
+                href={`mailto:?subject=${encodeURIComponent(`${card.title || 'My Digital Card'}`)}&body=${encodeURIComponent(`Hi! Check out my digital card: ${url}`)}`}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M4 6.8C4 5.8 4.8 5 5.8 5h12.4c1 0 1.8.8 1.8 1.8v10.4c0 1-.8 1.8-1.8 1.8H5.8c-1 0-1.8-.8-1.8-1.8V6.8Zm1.8-.1L12 11.1l6.2-4.4H5.8Zm12.4 10.6V8.8l-5.7 4a.9.9 0 0 1-1 0l-5.7-4v8.5h12.4Z"/></svg>
+                Email
+              </a>
+              <a
+                className="share-social-btn share-social-btn--linkedin"
+                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`}
+                target="_blank" rel="noreferrer"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14Zm-1 15v-5.5c0-1.38-.56-2.5-2.25-2.5C14.5 10 14 10.86 14 11.5V18h-2.5v-8H14v1.1c.42-.64 1.17-1.1 2.25-1.1C18.2 10 20 11.49 20 14.14V18h-2ZM6.5 8.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM5.25 18H7.75V10H5.25V18Z"/></svg>
+                LinkedIn
+              </a>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -133,6 +178,7 @@ export function Dashboard() {
   const [activeFilter, setActiveFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('newest')
+  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem('bb_welcomed'))
 
   async function importGuestDraftIfNeeded() {
     if (guestDraftImportedRef.current) return false
@@ -307,6 +353,10 @@ export function Dashboard() {
           )}
         />
 
+        {showWelcome && (
+          <WelcomeBanner onDismiss={() => { setShowWelcome(false); localStorage.setItem('bb_welcomed', '1') }} />
+        )}
+
         {error && <p className="dashboard-error">{error}</p>}
 
         <div className="dashboard-summary-grid">
@@ -413,7 +463,10 @@ export function Dashboard() {
                         ) : (
                           <span className={`status-badge status-${card.status}`}>{card.status}</span>
                         )}
-                        <span>{formatDate(card.created_at)}</span>
+                        <span title="Created">Created {formatDate(card.created_at)}</span>
+                        {card.updated_at && card.updated_at !== card.created_at && (
+                          <span className="card-list-edited">Edited {formatDate(card.updated_at)}</span>
+                        )}
                         {isCancelling && expiryText && (
                           <span style={{ fontSize: 12, color: 'var(--muted)' }}>Active until {expiryText}</span>
                         )}

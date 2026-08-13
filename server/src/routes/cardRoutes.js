@@ -26,7 +26,7 @@ router.put(
   [
     body('title').optional().trim().notEmpty().withMessage('Title cannot be empty'),
     body('card_data').optional().isObject().withMessage('card_data must be a JSON object'),
-    body('status').optional().isIn(['draft', 'published', 'suspended']).withMessage('Invalid status'),
+    body('status').optional().isIn(['draft', 'suspended']).withMessage('Invalid status'),
     body('slug').optional().trim().isLength({ min: 3, max: 30 }).withMessage('Link must be 3-30 characters'),
   ],
   validate,

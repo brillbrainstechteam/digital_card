@@ -1,4 +1,22 @@
+const bcrypt = require('bcryptjs')
+const crypto = require('crypto')
 const { pool } = require('../config/database')
+
+function generateTempPassword() {
+  return crypto.randomBytes(6).toString('base64url')
+}
+
+async function resetUserPassword(userId) {
+  const tempPassword = generateTempPassword()
+  const salt = await bcrypt.genSalt(12)
+  const password_hash = await bcrypt.hash(tempPassword, salt)
+  const result = await pool.query(
+    'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING id, email',
+    [password_hash, userId]
+  )
+  if (!result.rows[0]) throw new Error('User not found')
+  return { email: result.rows[0].email, tempPassword }
+}
 
 async function getStats() {
   const [users, cards, qrcodes, published, suspended, archived] = await Promise.all([
@@ -47,12 +65,14 @@ async function getAllCards() {
 
 async function getAllQrCodes() {
   const result = await pool.query(`
-    SELECT q.id, q.slug, q.card_title, q.created_at, q.updated_at,
+    SELECT q.id, q.slug, q.created_at, q.updated_at,
+      c.title AS card_title,
       q.settings->>'lifecycleStatus' AS lifecycle_status,
       q.settings->>'purchased' AS purchased,
       u.name AS user_name, u.email AS user_email
     FROM qr_codes q
     LEFT JOIN users u ON u.id = q.user_id
+    LEFT JOIN cards c ON c.id = q.card_id
     ORDER BY q.created_at DESC
   `)
   return result.rows
@@ -132,4 +152,4 @@ async function getRecentActivity() {
   return result.rows
 }
 
-module.exports = { getStats, getAllUsers, getAllCards, getAllQrCodes, adminUpdateCardStatus, adminUpdateQrLifecycle, adminDeleteCard, adminDeleteUser, getRecentActivity, getSubscriptionStats, getAllSubscriptions }
+module.exports = { getStats, getAllUsers, getAllCards, getAllQrCodes, adminUpdateCardStatus, adminUpdateQrLifecycle, adminDeleteCard, adminDeleteUser, getRecentActivity, getSubscriptionStats, getAllSubscriptions, resetUserPassword }

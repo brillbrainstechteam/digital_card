@@ -33,6 +33,29 @@ router.post(
 
 router.get('/me', authenticate, authController.getMe)
 
+router.patch(
+  '/me',
+  authenticate,
+  [
+    body('name').trim().notEmpty().withMessage('Name is required'),
+    body('business_name').trim().notEmpty().withMessage('Business name is required'),
+    body('phone').optional({ values: 'falsy' }).trim(),
+  ],
+  validate,
+  authController.updateProfile
+)
+
+router.post(
+  '/change-password',
+  authenticate,
+  [
+    body('currentPassword').notEmpty().withMessage('Current password is required'),
+    body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
+  ],
+  validate,
+  authController.changePassword
+)
+
 router.delete(
   '/me',
   authenticate,

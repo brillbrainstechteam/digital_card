@@ -40,6 +40,26 @@ async function getMe(req, res, next) {
   }
 }
 
+async function changePassword(req, res, next) {
+  try {
+    const { currentPassword, newPassword } = req.body
+    await authService.changePassword(req.user.id, { currentPassword, newPassword })
+    res.json({ success: true, message: 'Password updated successfully' })
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function updateProfile(req, res, next) {
+  try {
+    const { name, business_name, phone } = req.body
+    const user = await authService.updateProfile(req.user.id, { name, business_name, phone })
+    res.json({ success: true, message: 'Profile updated', data: { user } })
+  } catch (err) {
+    next(err)
+  }
+}
+
 async function deleteAccount(req, res, next) {
   try {
     await authService.deleteAccount(req.user.id, {
@@ -52,4 +72,4 @@ async function deleteAccount(req, res, next) {
   }
 }
 
-module.exports = { signup, login, getMe, deleteAccount }
+module.exports = { signup, login, getMe, changePassword, updateProfile, deleteAccount }

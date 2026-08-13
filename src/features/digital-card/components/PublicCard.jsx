@@ -36,12 +36,16 @@ export function PublicCard() {
     setError('')
     fetchPublicCard(slug)
       .then((card) => {
-        setProfile(profileFromCard(card))
+        const profile = profileFromCard(card)
+        setProfile(profile)
         setQr(card.qr_settings ? { slug: card.qr_slug, settings: card.qr_settings } : null)
         trackCardView(slug)
+        const name = profile.brandName || profile.personName || profile.companyName
+        if (name) document.title = `${name} · Digital Card`
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
+    return () => { document.title = 'Brill Brains Digital Card Studio' }
   }, [slug])
 
   // vCard payloads are scanned directly with no network round-trip, so they
@@ -90,7 +94,8 @@ export function PublicCard() {
         <CardPreview profile={profile} immersive trackingSlug={slug} showCreateCta />
         {qrDisplaySettings && (
           <div className="public-view-qr-badge" aria-label="Scan QR code">
-            <QRCode settings={qrDisplaySettings} size={180} lockable />
+            <span className="public-view-qr-label">Scan to save contact</span>
+            <QRCode settings={qrDisplaySettings} size={160} lockable />
           </div>
         )}
       </main>
