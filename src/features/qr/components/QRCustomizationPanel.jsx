@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { resolveErrorCorrectionLevel } from '../utils/capacity'
 import { QR_PRESETS, BRAND_THEME_PRESET_KEY } from '../presets/presets'
 import { extractPaletteFromLogo } from '../../../features/digital-card/theme'
 
@@ -241,14 +242,19 @@ export function QRCustomizationPanel({ settings, onChange, brandTheme = null }) 
       <div className="qr-section">
         <h3 className="qr-section-title">Error Correction</h3>
         <select
-          value={settings.errorCorrectionLevel}
+          value={settings.errorCorrectionLevel || 'auto'}
           onChange={(e) => patch({ errorCorrectionLevel: e.target.value })}
         >
+          <option value="auto">Auto — {resolveErrorCorrectionLevel(settings)} (recommended)</option>
           <option value="L">Low</option>
           <option value="M">Medium</option>
           <option value="Q">Quartile</option>
           <option value="H">High (recommended with a logo)</option>
         </select>
+        <span className="qr-field-hint">
+          Auto picks High when a logo needs the redundancy, Medium otherwise — a
+          less dense code is easier for phone cameras to lock onto.
+        </span>
       </div>
     </div>
   )

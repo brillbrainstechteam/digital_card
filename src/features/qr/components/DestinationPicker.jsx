@@ -1,4 +1,4 @@
-import { DESTINATION_TYPES, defaultFieldsForType } from '../utils/destinations'
+import { DESTINATION_TYPES, defaultFieldsForType, destinationsForQrType } from '../utils/destinations'
 
 /**
  * Presentational, fully-controlled destination selector. This is a
@@ -6,7 +6,10 @@ import { DESTINATION_TYPES, defaultFieldsForType } from '../utils/destinations'
  * Card or Business Card editor, the destination is already known (the
  * card's own public URL) so this component is simply not rendered there.
  */
-export function DestinationPicker({ type, fields, onChange }) {
+export function DestinationPicker({ type, fields, onChange, qrType = 'static' }) {
+  const availableDestinations = destinationsForQrType(qrType)
+  const hiddenDestinations = DESTINATION_TYPES.filter((d) => !d.supports.includes(qrType))
+
   function handleTypeChange(nextType) {
     onChange(nextType, defaultFieldsForType(nextType))
   }
@@ -52,10 +55,17 @@ export function DestinationPicker({ type, fields, onChange }) {
       <label className="qr-field">
         <span className="qr-field-label">Destination</span>
         <select value={type} onChange={(e) => handleTypeChange(e.target.value)}>
-          {DESTINATION_TYPES.map((d) => (
+          {availableDestinations.map((d) => (
             <option key={d.key} value={d.key}>{d.label}</option>
           ))}
         </select>
+        {hiddenDestinations.length > 0 && (
+          <span className="qr-field-hint">
+            {hiddenDestinations.map((d) => d.label).join(' and ')}
+            {hiddenDestinations.length > 1 ? ' are' : ' is'} only available on{' '}
+            {qrType === 'static' ? 'dynamic' : 'static'} QR codes.
+          </span>
+        )}
       </label>
 
       {(type === 'website' || type === 'digitalCard') && (

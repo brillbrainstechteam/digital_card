@@ -7,7 +7,7 @@ import { QRWarnings } from '../components/QRWarnings'
 import { DestinationPicker } from '../components/DestinationPicker'
 import { createDefaultQrSettings } from '../services/qrEngine'
 import { publishStandaloneQr } from '../services/qrApi'
-import { buildDestinationValue, DESTINATION_TYPES } from '../utils/destinations'
+import { buildDestinationValue, DESTINATION_TYPES, QR_TYPES, coerceDestinationForQrType, defaultFieldsForType } from '../utils/destinations'
 import { useCart } from '../../../context/CartContext'
 import { useToast } from '../../../context/ToastContext'
 import { useAuth } from '../../../context/AuthContext'
@@ -46,6 +46,8 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
     [destinationType, destinationFields],
   )
 
+  const qrType = settings.qrType || 'static'
+
   const liveSettings = useMemo(
     () => ({ ...settings, data, destinationType, destinationFields }),
     [settings, data, destinationType, destinationFields],
@@ -54,6 +56,21 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
   function handleDestinationChange(type, fields) {
     setDestinationType(type)
     setDestinationFields(fields)
+  }
+
+  // Switching type can invalidate the destination (Wi-Fi is static-only,
+  // Digital Card is dynamic-only), so re-point it to something legal rather
+  // than leaving the picker on an option this type cannot encode.
+  function handleQrTypeChange(nextType) {
+    if (nextType === qrType) return
+    setSettings((current) => ({ ...current, qrType: nextType }))
+    const nextDestination = coerceDestinationForQrType(destinationType, nextType)
+    if (nextDestination !== destinationType) {
+      setDestinationType(nextDestination)
+      setDestinationFields(defaultFieldsForType(nextDestination))
+      const label = DESTINATION_TYPES.find((d) => d.key === destinationType)?.label
+      toast.info(`${label} isn't available for ${nextType} QR codes — switched to ${DESTINATION_TYPES.find((d) => d.key === nextDestination)?.label}.`)
+    }
   }
 
   // Designing here is always free — "Publish" is the paid step. It finalizes
@@ -116,8 +133,40 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
         />
 
         <section className="editor-section">
+          <h2>QR type</h2>
+          <div className="qr-type-selector">
+            {QR_TYPES.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                className={`qr-type-card${qrType === option.key ? ' qr-type-card--active' : ''}`}
+                aria-pressed={qrType === option.key}
+                onClick={() => handleQrTypeChange(option.key)}
+              >
+                <span className="qr-type-card-head">
+                  <strong>{option.label}</strong>
+                  {qrType === option.key && <span className="qr-type-card-check">✓</span>}
+                </span>
+                <span className="qr-type-card-tagline">{option.tagline}</span>
+                <ul className="qr-type-card-perks">
+                  {option.perks.map((perk) => <li key={perk}>{perk}</li>)}
+                </ul>
+                <ul className="qr-type-card-limits">
+                  {option.limits.map((limit) => <li key={limit}>{limit}</li>)}
+                </ul>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="editor-section">
           <h2>Destination</h2>
-          <DestinationPicker type={destinationType} fields={destinationFields} onChange={handleDestinationChange} />
+          <DestinationPicker
+            type={destinationType}
+            fields={destinationFields}
+            qrType={qrType}
+            onChange={handleDestinationChange}
+          />
         </section>
 
         <section className="editor-section">

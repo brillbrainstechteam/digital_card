@@ -1,6 +1,8 @@
 // Non-blocking QR "scannability" checks. Kept dependency-free (no React, no
 // qr-code-styling) so it can run anywhere the QR module is consumed.
 
+import { isStaticQr, qrPayloadUsage, resolveErrorCorrectionLevel } from './capacity'
+
 function hexToRgb(hex) {
   const normalized = (hex || '').replace('#', '')
   const full = normalized.length === 3
@@ -56,11 +58,29 @@ export function validateQrSettings(settings) {
     })
   }
 
-  if (settings.logo && settings.errorCorrectionLevel !== 'H') {
+  // Compare against the RESOLVED level: static QRs pick their level from the
+  // payload, so a raw `errorCorrectionLevel` of 'auto'/undefined is not a fault.
+  if (settings.logo && resolveErrorCorrectionLevel(settings) !== 'H') {
     warnings.push({
       code: 'logo-needs-high-ecc',
       message: 'Using a logo without "High" error correction can make the code unreliable to scan.',
     })
+  }
+
+  // Only static QRs carry the full payload; a dynamic one is always a short link.
+  if (isStaticQr(settings) && settings.data) {
+    const usage = qrPayloadUsage(settings, settings.data)
+    if (usage.overCapacity) {
+      warnings.push({
+        code: 'payload-over-capacity',
+        message: `This content is ${usage.bytes} bytes — past the ~${usage.capacity} byte limit for a reliable static QR. Shorten it, remove the logo, or switch to a dynamic QR.`,
+      })
+    } else if (usage.nearCapacity) {
+      warnings.push({
+        code: 'payload-near-capacity',
+        message: `This QR is ${Math.round(usage.ratio * 100)}% full. It will still scan, but printing it small may cause failures — a dynamic QR stays compact whatever the content.`,
+      })
+    }
   }
 
   if (!settings.data) {

@@ -59,9 +59,15 @@ export async function deleteQr(qrId) {
   await client.delete(`/qr/${qrId}`)
 }
 
+// Swaps the encoded payload for the trackable /q/:slug link — but ONLY for
+// dynamic QRs. A static QR's whole promise is that the payload lives in the
+// pattern itself (and Wi-Fi / vCard payloads cannot be redirected at all), so
+// it must always keep its literal data.
 export function withDynamicQrData(qr) {
-  if (!qr?.slug) return qr?.settings || qr
-  return { ...(qr.settings || {}), data: getDynamicQrUrl(qr.slug) }
+  const settings = qr?.settings || qr
+  if (!qr?.slug) return settings
+  if ((settings?.qrType || 'static') === 'static') return settings
+  return { ...(settings || {}), data: getDynamicQrUrl(qr.slug) }
 }
 
 export async function removeCardQr(cardId) {

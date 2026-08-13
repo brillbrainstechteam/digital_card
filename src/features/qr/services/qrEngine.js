@@ -1,18 +1,26 @@
 import QRCodeStyling from 'qr-code-styling'
 import { isQrUnlocked, PREVIEW_QR_URL } from './qrAccess'
+import { resolveErrorCorrectionLevel } from '../utils/capacity'
 
 // The single QR "settings" schema used across the whole platform. Every
 // consumer (QR Studio, Digital Card add-on, future Business Card add-on)
 // reads and writes this same shape — that's what makes the module reusable
 // without duplicating logic.
+export { isStaticQr, resolveErrorCorrectionLevel, qrCapacityFor, qrPayloadUsage } from '../utils/capacity'
+
 export function createDefaultQrSettings() {
   return {
+    // 'static' | 'dynamic' — see QR_TYPES in utils/destinations.js
+    qrType: 'static',
     destinationType: 'website',
     destinationFields: { url: '' },
     data: '',
     size: 320,
     margin: 12,
-    errorCorrectionLevel: 'H',
+    // 'auto' resolves from the payload — see resolveErrorCorrectionLevel.
+    // Hardcoding 'H' made every static QR maximally dense, which both wasted
+    // half the byte budget and made long vCards hard for cameras to read.
+    errorCorrectionLevel: 'auto',
     dotsType: 'square',
     foreground: '#000000',
     background: '#ffffff',
@@ -85,7 +93,7 @@ export function buildQrCodeOptions(settings, { lockable = false } = {}) {
     data, // qr-code-styling needs non-empty data to render a placeholder
     image: settings.logo || undefined,
     qrOptions: {
-      errorCorrectionLevel: settings.errorCorrectionLevel || 'H',
+      errorCorrectionLevel: resolveErrorCorrectionLevel(settings),
     },
     imageOptions: {
       imageSize: settings.logoSizeRatio ?? 0.22,

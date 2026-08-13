@@ -3,17 +3,62 @@
 // dependency — safe to reuse from any product (QR Studio, Digital Card,
 // Business Card) and easy to unit test in isolation.
 
-export const DESTINATION_TYPES = [
-  { key: 'website', label: 'Website URL' },
-  { key: 'digitalCard', label: 'Digital Card URL' },
-  { key: 'phone', label: 'Phone Number' },
-  { key: 'email', label: 'Email' },
-  { key: 'whatsapp', label: 'WhatsApp' },
-  { key: 'wifi', label: 'Wi-Fi Network' },
-  { key: 'maps', label: 'Google Maps' },
-  { key: 'saveContact', label: 'Save Contact (vCard)' },
-  { key: 'custom', label: 'Custom URL' },
+// A QR is either STATIC — the payload is encoded straight into the pattern, so
+// it works forever with no server, but can never be edited or tracked — or
+// DYNAMIC, where the pattern encodes a short /q/:slug link we redirect, so the
+// destination stays editable and every scan is counted.
+export const QR_TYPES = [
+  {
+    key: 'static',
+    label: 'Static QR',
+    tagline: 'Encoded directly. Works forever, offline.',
+    perks: ['Never expires', 'No internet needed to resolve', 'Wi-Fi & contact cards'],
+    limits: ['Cannot be edited once printed', 'No scan analytics'],
+  },
+  {
+    key: 'dynamic',
+    label: 'Dynamic QR',
+    tagline: 'Short link you can re-point any time.',
+    perks: ['Change the destination after printing', 'Scan analytics', 'Same code forever'],
+    limits: ['Needs an active subscription', 'Requires internet to resolve'],
+  },
 ]
+
+// Which destination types each QR type can encode.
+//   static  — anything that can live entirely inside the QR payload.
+//   dynamic — anything a short URL can redirect to. A redirect cannot join a
+//             Wi-Fi network or hand a .vcf back to the camera app, so those
+//             two are static-only. Digital Card is a hosted URL we own, so it
+//             is dynamic-only (a static copy could never be re-pointed).
+export const DESTINATION_TYPES = [
+  { key: 'website',      label: 'Website URL',           supports: ['static', 'dynamic'] },
+  { key: 'digitalCard',  label: 'Digital Card URL',      supports: ['dynamic'] },
+  { key: 'phone',        label: 'Phone Number',          supports: ['static', 'dynamic'] },
+  { key: 'email',        label: 'Email',                 supports: ['static', 'dynamic'] },
+  { key: 'whatsapp',     label: 'WhatsApp',              supports: ['static', 'dynamic'] },
+  { key: 'wifi',         label: 'Wi-Fi Network',         supports: ['static'] },
+  { key: 'maps',         label: 'Google Maps',           supports: ['static', 'dynamic'] },
+  { key: 'saveContact',  label: 'Save Contact (vCard)',  supports: ['static'] },
+  { key: 'custom',       label: 'Custom URL',            supports: ['static', 'dynamic'] },
+]
+
+export function destinationsForQrType(qrType) {
+  const type = qrType === 'dynamic' ? 'dynamic' : 'static'
+  return DESTINATION_TYPES.filter((d) => d.supports.includes(type))
+}
+
+export function destinationSupports(destinationType, qrType) {
+  const entry = DESTINATION_TYPES.find((d) => d.key === destinationType)
+  if (!entry) return false
+  return entry.supports.includes(qrType === 'dynamic' ? 'dynamic' : 'static')
+}
+
+// When switching QR type, keep the current destination if it is still legal,
+// otherwise fall back to the first one that type can encode.
+export function coerceDestinationForQrType(destinationType, qrType) {
+  if (destinationSupports(destinationType, qrType)) return destinationType
+  return destinationsForQrType(qrType)[0]?.key || 'website'
+}
 
 function ensureUrlScheme(value) {
   const trimmed = (value || '').trim()

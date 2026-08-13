@@ -212,6 +212,10 @@ export function QrCodesListPage() {
             {qrs.map((qr) => {
               const unlocked = Boolean(qr.settings?.purchased) && (!qr.card_id || qr.card_status === 'published')
               const archived = qr.settings?.lifecycleStatus === 'archived'
+              // A static QR encodes its payload directly, so it has no
+              // resolvable short link — editing the slug would change nothing
+              // about an already-printed code.
+              const isStatic = (qr.settings?.qrType || 'static') === 'static'
               return (
                 <div
                   id={`qr-${qr.id}`}
@@ -224,13 +228,32 @@ export function QrCodesListPage() {
                   <div className="card-list-info">
                     <h3>{qr.card_title || 'Untitled card'}</h3>
                     <div className="card-list-meta">
+                      <span className={`status-badge qr-type-badge qr-type-badge--${isStatic ? 'static' : 'dynamic'}`}>
+                        {isStatic ? 'Static' : 'Dynamic'}
+                      </span>
                       {unlocked && !archived && <span className="status-badge status-published">Published</span>}
                       {qr.card_status && qr.card_status !== 'published' && <span className={`status-badge status-${qr.card_status}`}>{qr.card_status}</span>}
                       {archived && <span className="status-badge status-archived">archived</span>}
                       <span>Updated {formatDate(qr.updated_at)}</span>
                       {!unlocked && !archived && <span className="status-badge status-draft">Payment pending</span>}
                     </div>
-                    {editingSlugId === qr.id ? (
+                    {isStatic ? (
+                      <div className="qr-slug-display">
+                        <span className="qr-slug-link">{qr.settings?.data || '—'}</span>
+                        <button
+                          className="link-button"
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(qr.settings?.data || '')
+                              .then(() => toast.success('Encoded content copied'))
+                              .catch(() => toast.error('Could not copy'))
+                          }}
+                        >
+                          Copy
+                        </button>
+                        <span className="qr-static-note">Encoded in the code — cannot be changed after printing</span>
+                      </div>
+                    ) : editingSlugId === qr.id ? (
                       <div className="qr-slug-editor">
                         <span className="share-link-prefix">{window.location.origin}/q/</span>
                         <input
