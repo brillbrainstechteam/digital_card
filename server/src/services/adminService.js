@@ -79,19 +79,32 @@ async function getAllQrCodes() {
 }
 
 async function adminUpdateCardStatus(cardId, status) {
+  // Card ids are UUIDs, not integers — parseInt() truncated them to a
+  // garbage number (e.g. '774527dd-b8cb-...' -> 774527), which Postgres
+  // then rejected outright when casting it to the uuid column ("invalid
+  // input syntax for type uuid"). Every status change from this panel was
+  // failing before this fix.
   const result = await pool.query(
     'UPDATE cards SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, title, status',
-    [status, parseInt(cardId, 10)]
+    [status, cardId]
   )
   if (!result.rows[0]) throw new Error('Card not found')
   return result.rows[0]
 }
 
 async function adminUpdateQrLifecycle(qrId, lifecycleStatus) {
+  // Same UUID/parseInt bug as adminUpdateCardStatus above, plus a
+  // RETURNING of `card_title`, a column that only exists on `cards` — it
+  // was never joined here, so this also threw "column card_title does not
+  // exist" (same class of bug fixed elsewhere in getAllQrCodes). Standalone
+  // QR codes (not attached to a card) have card_id = NULL, so the title is
+  // pulled via a scalar subquery rather than an inner join — a plain
+  // UPDATE ... FROM cards would silently fail to update those rows at all.
   const result = await pool.query(
     `UPDATE qr_codes SET settings = jsonb_set(settings, '{lifecycleStatus}', $1::jsonb), updated_at = NOW()
-     WHERE id = $2 RETURNING id, card_title, settings`,
-    [JSON.stringify(lifecycleStatus), parseInt(qrId, 10)]
+     WHERE id = $2
+     RETURNING id, (SELECT title FROM cards WHERE cards.id = qr_codes.card_id) AS card_title, settings`,
+    [JSON.stringify(lifecycleStatus), qrId]
   )
   if (!result.rows[0]) throw new Error('QR code not found')
   return result.rows[0]

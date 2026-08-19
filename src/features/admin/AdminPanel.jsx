@@ -255,7 +255,9 @@ function SubscriptionsTab() {
 
       <div className="admin-section">
         <div className="admin-section-header">
-          <h2>All Subscriptions ({list.length})</h2>
+          {/* Was list.length always, so it kept reading "(3)" while a filter
+              like Suspended showed zero rows and "No records" below it. */}
+          <h2>{filter === 'all' ? 'All' : filter.charAt(0).toUpperCase() + filter.slice(1)} Subscriptions ({filtered.length})</h2>
           <div style={{ display: 'flex', gap: 8 }}>
             {['all', 'active', 'cancelling', 'expired', 'suspended'].map((f) => (
               <button
@@ -411,7 +413,10 @@ function CardsTab() {
     setMsg('')
     try {
       const updated = await updateCardStatus(card.id, status)
-      setCards((cur) => cur.map((c) => (Number(c.id) === Number(updated.id) ? { ...c, status: updated.status } : c)))
+      // Card ids are UUIDs — Number(uuid) is NaN, and NaN === NaN is false,
+      // so this comparison never matched and the dropdown always reverted
+      // to the stale status even though the save had already succeeded.
+      setCards((cur) => cur.map((c) => (String(c.id) === String(updated.id) ? { ...c, status: updated.status } : c)))
       setMsg(`✓ "${updated.title}" → ${updated.status}`)
       setTimeout(() => setMsg(''), 3000)
     } catch (err) {
@@ -496,7 +501,8 @@ function QrTab() {
     setMsg('')
     try {
       const updated = await updateQrLifecycle(qr.id, lifecycleStatus)
-      setQrs((cur) => cur.map((q) => (Number(q.id) === Number(updated.id) ? { ...q, lifecycle_status: lifecycleStatus } : q)))
+      // Same UUID/Number() bug as handleStatusChange above.
+      setQrs((cur) => cur.map((q) => (String(q.id) === String(updated.id) ? { ...q, lifecycle_status: lifecycleStatus } : q)))
       setMsg(`✓ QR updated → ${lifecycleStatus}`)
       setTimeout(() => setMsg(''), 3000)
     } catch (err) {

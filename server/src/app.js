@@ -27,7 +27,10 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://checkout.razorpay.com", "https://cdn.razorpay.com", "https://*.razorpay.com"],
       scriptSrcElem: ["'self'", "'unsafe-inline'", "https://checkout.razorpay.com", "https://cdn.razorpay.com", "https://*.razorpay.com"],
       frameSrc: ["'self'", "https://api.razorpay.com", "https://*.razorpay.com"],
-      connectSrc: ["'self'", "https://*.razorpay.com"],
+      // Missing api.cloudinary.com silently broke every logo/cover-photo
+      // upload app-wide — the browser blocked the XHR before it ever left
+      // the page, and the only signal was a generic "Upload failed" toast.
+      connectSrc: ["'self'", "https://*.razorpay.com", "https://api.cloudinary.com"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],

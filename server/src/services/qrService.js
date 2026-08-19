@@ -292,13 +292,25 @@ const EDITABLE_QR_SETTINGS_KEYS = [
 // downloads/scans is affected.
 async function updateQrSettings(userId, qrId, settingsPatch) {
   const owned = await verifyQrOwnership(userId, qrId)
-  const destinationType = settingsPatch.destinationType ?? owned.settings?.destinationType
-  const destinationFields = settingsPatch.destinationFields ?? owned.settings?.destinationFields
+  // A static QR's payload is baked directly into the pattern — there is no
+  // redirect to re-point. Accepting a destination change here would update
+  // the stored settings while every already-printed/downloaded copy keeps
+  // showing the old content forever, silently and permanently out of sync.
+  // The frontend already hides this control for static QRs; this is the
+  // server-side backstop so a direct API call can't bypass it.
+  const isStatic = (owned.settings?.qrType || 'static') === 'static'
+  const destinationType = isStatic
+    ? owned.settings?.destinationType
+    : (settingsPatch.destinationType ?? owned.settings?.destinationType)
+  const destinationFields = isStatic
+    ? owned.settings?.destinationFields
+    : (settingsPatch.destinationFields ?? owned.settings?.destinationFields)
   if (!buildDestinationValue(destinationType, destinationFields)) {
     throw new AppError('Add a valid destination before saving', 400)
   }
   const allowedPatch = {}
   for (const key of EDITABLE_QR_SETTINGS_KEYS) {
+    if (isStatic && (key === 'destinationType' || key === 'destinationFields')) continue
     if (settingsPatch[key] !== undefined) allowedPatch[key] = settingsPatch[key]
   }
   const settings = {
@@ -317,6 +329,12 @@ async function updateQrDestination(userId, qrId, destinationType, destinationFie
   const allowedTypes = new Set(['website', 'digitalCard', 'phone', 'email', 'whatsapp', 'wifi', 'maps', 'saveContact', 'custom'])
   if (!allowedTypes.has(destinationType)) throw new AppError('Invalid QR destination type', 400)
   const owned = await verifyQrOwnership(userId, qrId)
+  // See updateQrSettings above — a static QR has no redirect to re-point,
+  // so changing its destination here would desync every already-printed
+  // copy from the stored settings.
+  if ((owned.settings?.qrType || 'static') === 'static') {
+    throw new AppError('This QR code is static — its destination cannot be changed after it was created', 400)
+  }
   if (!buildDestinationValue(destinationType, destinationFields)) {
     throw new AppError('Add a valid destination before saving', 400)
   }
