@@ -480,7 +480,10 @@
   display: grid;
   gap: clamp(42px, 7vw, 90px);
   grid-template-columns: minmax(390px, 1fr) minmax(360px, 470px);
-  height: 100vh;
+  /* min-height, not height: a hard 100vh clipped the hero on short
+     viewports, so at 1280x560 the card preview spilled 60px over the
+     stats ribbon below it. */
+  min-height: 100vh;
   margin: 0 auto;
   max-width: 1250px;
   padding: calc(76px + clamp(32px, 5vh, 60px)) clamp(24px, 5vw, 58px) clamp(32px, 5vh, 60px);

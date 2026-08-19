@@ -17,7 +17,9 @@ const DEMO_QRS = [
       ...createDefaultQrSettings(),
       data: DEMO_DATA,
       background: '#ffffff',
-      gradient: { type: 'linear', rotation: 45, colors: ['#7c3aed', '#c026d3'] },
+      // Was a purple->magenta gradient that belonged to no part of the
+      // brand; gilt-into-navy matches the identity the page is built on.
+      gradient: { type: 'linear', rotation: 45, colors: ['#D4AF37', '#0E1A35'] },
     },
   },
   {

@@ -1,0 +1,592 @@
+/* ══════════════════════════════════════════════════════════════════
+   Landing page — "Midnight & Gilt"
+   Editorial-luxury treatment built on the existing navy/gold identity.
+   Everything is scoped under .lp so none of it leaks into the app UI.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* The home shell is light everywhere else in the app; on the landing route it
+   has to match the dark canvas or overscroll flashes grey. */
+.app-shell--home {
+  background: #060B18;
+}
+
+.lp {
+  --ink: #F6F1E4;
+  --ink-soft: rgba(246, 241, 228, 0.58);
+  --ink-faint: rgba(246, 241, 228, 0.34);
+  --gold: #D4AF37;
+  --gold-bright: #F0D27A;
+  --gold-line: rgba(212, 175, 55, 0.22);
+  --bg: #060B18;
+  --bg-raise: #0B1428;
+  --surface: rgba(255, 255, 255, 0.035);
+  --surface-line: rgba(246, 241, 228, 0.09);
+
+  background: var(--bg);
+  color: var(--ink);
+  overflow-x: clip;
+  position: relative;
+}
+
+/* ── Atmosphere: gilt aurora + hairline grid + grain ─────────────── */
+
+.lp-canvas {
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+}
+
+.lp-aurora {
+  filter: blur(90px);
+  opacity: 0.55;
+  position: absolute;
+}
+
+.lp-aurora--gold {
+  animation: lp-drift 26s ease-in-out infinite alternate;
+  background: radial-gradient(closest-side, rgba(212, 175, 55, 0.5), transparent);
+  height: 62vmax;
+  right: -14vmax;
+  top: -18vmax;
+  width: 62vmax;
+}
+
+.lp-aurora--blue {
+  animation: lp-drift 34s ease-in-out infinite alternate-reverse;
+  background: radial-gradient(closest-side, rgba(58, 106, 190, 0.42), transparent);
+  height: 54vmax;
+  left: -16vmax;
+  top: 24vmax;
+  width: 54vmax;
+}
+
+@keyframes lp-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(-4vmax, 5vmax, 0) scale(1.14); }
+}
+
+/* Fine gilt rule grid — structure without weight */
+.lp-grid {
+  background-image:
+    linear-gradient(to right, var(--gold-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--gold-line) 1px, transparent 1px);
+  background-size: 88px 88px;
+  inset: 0;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 78%);
+  opacity: 0.5;
+  position: absolute;
+}
+
+/* Grain keeps the large flat areas from banding */
+.lp-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  inset: 0;
+  mix-blend-mode: overlay;
+  opacity: 0.16;
+  position: absolute;
+}
+
+.lp > *:not(.lp-canvas) {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Shared editorial primitives ─────────────────────────────────── */
+
+.lp .eyebrow {
+  align-items: center;
+  color: var(--gold);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 12px;
+  letter-spacing: 0.26em;
+  margin-bottom: 26px;
+  text-transform: uppercase;
+}
+
+.lp .eyebrow::before {
+  background: linear-gradient(90deg, transparent, var(--gold));
+  content: '';
+  display: block;
+  height: 1px;
+  width: 34px;
+}
+
+.lp-section {
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: clamp(88px, 12vh, 150px) clamp(24px, 5vw, 58px);
+  position: relative;
+}
+
+.lp-section-title {
+  color: var(--ink);
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(34px, 4.4vw, 56px);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+  margin: 0 0 18px;
+}
+
+.lp-gilt {
+  background: linear-gradient(100deg, var(--gold-bright), var(--gold) 45%, #9C7C1E);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-style: italic;
+}
+
+/* ── Hero ────────────────────────────────────────────────────────── */
+
+.lp .landing {
+  align-items: center;
+  gap: clamp(40px, 6vw, 84px);
+  grid-template-columns: minmax(0, 1.05fr) minmax(340px, 460px);
+  max-width: 1250px;
+  min-height: 100vh;
+}
+
+.lp .hero-copy h1 {
+  color: var(--ink);
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(46px, 6.2vw, 88px);
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  line-height: 0.96;
+  margin-bottom: 26px;
+}
+
+.lp .hero-description {
+  color: var(--ink-soft);
+  font-size: clamp(15px, 1.15vw, 17.5px);
+  line-height: 1.68;
+  margin-bottom: 34px;
+  max-width: 470px;
+}
+
+.lp .feature-row {
+  border-top: 1px solid var(--surface-line);
+  color: var(--ink-faint);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: clamp(16px, 3vw, 34px);
+  letter-spacing: 0.08em;
+  margin-top: 40px;
+  padding-top: 20px;
+  text-transform: uppercase;
+}
+
+.lp .feature-row span {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.lp .feature-row span::before {
+  background: var(--gold);
+  border-radius: 50%;
+  content: '';
+  height: 4px;
+  width: 4px;
+}
+
+/* Primary CTA — gilt fill with a travelling sheen */
+.lp .primary-button {
+  background: linear-gradient(100deg, var(--gold-bright), var(--gold) 52%, #B8912A);
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 14px 40px -12px rgba(212, 175, 55, 0.6);
+  color: #1A1305;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  padding: 17px 34px;
+  position: relative;
+  transition: transform 260ms cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 260ms ease;
+}
+
+.lp .primary-button::after {
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.55), transparent 80%);
+  content: '';
+  inset: 0;
+  position: absolute;
+  transform: translateX(-120%);
+  transition: transform 720ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.lp .primary-button:hover {
+  box-shadow: 0 20px 54px -12px rgba(212, 175, 55, 0.75);
+  transform: translateY(-2px);
+}
+
+.lp .primary-button:hover::after {
+  transform: translateX(120%);
+}
+
+/* Card preview gets a plinth so it reads as an object, not a screenshot */
+.lp .hero-preview {
+  position: relative;
+}
+
+.lp .hero-preview::before {
+  background: radial-gradient(ellipse at 50% 55%, rgba(212, 175, 55, 0.24), transparent 68%);
+  content: '';
+  filter: blur(38px);
+  inset: -12% -18%;
+  position: absolute;
+}
+
+/* ── Stats ribbon ────────────────────────────────────────────────── */
+
+.lp .stats-ribbon {
+  background: linear-gradient(180deg, rgba(212, 175, 55, 0.07), transparent);
+  border-block: 1px solid var(--gold-line);
+}
+
+.lp .stats-ribbon-inner {
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: clamp(34px, 5vh, 54px) clamp(24px, 5vw, 58px);
+}
+
+.lp .stat-item {
+  border-left: 1px solid var(--surface-line);
+  padding: 4px clamp(10px, 2vw, 26px);
+  text-align: center;
+}
+
+.lp .stat-item:first-child {
+  border-left: 0;
+}
+
+.lp .stat-item strong {
+  color: var(--gold);
+  display: block;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(30px, 3.6vw, 46px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.lp .stat-item span {
+  color: var(--ink-faint);
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  margin-top: 12px;
+  text-transform: uppercase;
+}
+
+/* ── QR showcase ─────────────────────────────────────────────────── */
+
+.lp .qr-showcase {
+  align-items: center;
+  display: grid;
+  gap: clamp(40px, 6vw, 84px);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 520px);
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: clamp(88px, 12vh, 150px) clamp(24px, 5vw, 58px);
+}
+
+.lp .qr-showcase h2 {
+  color: var(--ink);
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(32px, 4.2vw, 54px);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  margin-bottom: 18px;
+}
+
+.lp .qr-showcase-description {
+  color: var(--ink-soft);
+  font-size: 16px;
+  line-height: 1.68;
+  margin-bottom: 30px;
+  max-width: 460px;
+}
+
+.lp .qr-showcase-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+}
+
+.lp .qr-showcase-card {
+  align-items: center;
+  backdrop-filter: blur(8px);
+  background: var(--surface);
+  border: 1px solid var(--surface-line);
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  transition: transform 320ms cubic-bezier(0.2, 0.9, 0.3, 1), border-color 320ms ease, box-shadow 320ms ease;
+}
+
+.lp .qr-showcase-card:hover {
+  border-color: var(--gold-line);
+  box-shadow: 0 26px 60px -28px rgba(0, 0, 0, 0.9);
+  transform: translateY(-6px);
+}
+
+.lp .qr-showcase-card > span {
+  color: var(--ink-faint);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* ── How it works ────────────────────────────────────────────────── */
+
+.lp .how-it-works {
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: clamp(88px, 12vh, 150px) clamp(24px, 5vw, 58px);
+  text-align: center;
+}
+
+.lp .hiw-title {
+  color: var(--ink);
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(32px, 4.2vw, 54px);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 1.06;
+  margin: 0 auto 64px;
+  max-width: 16ch;
+}
+
+.lp .hiw-steps {
+  counter-reset: step;
+  display: grid;
+  gap: clamp(24px, 4vw, 48px);
+  grid-template-columns: repeat(3, 1fr);
+  text-align: left;
+}
+
+.lp .hiw-step {
+  border-top: 1px solid var(--gold-line);
+  padding-top: 26px;
+  position: relative;
+}
+
+.lp .hiw-step-num {
+  color: var(--gold);
+  display: block;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 15px;
+  font-style: italic;
+  letter-spacing: 0.06em;
+  margin-bottom: 16px;
+}
+
+.lp .hiw-step h3 {
+  color: var(--ink);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 10px;
+}
+
+.lp .hiw-step p {
+  color: var(--ink-soft);
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+
+/* A gilt rule that draws itself in as the step reveals */
+.lp .hiw-step::after {
+  background: linear-gradient(90deg, var(--gold), transparent);
+  content: '';
+  height: 1px;
+  left: 0;
+  position: absolute;
+  top: -1px;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 900ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  width: 100%;
+}
+
+.lp .reveal.is-visible .hiw-step::after,
+.lp .hiw-step.is-visible::after {
+  transform: scaleX(1);
+}
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+
+.lp .site-footer {
+  background: transparent;
+  border-top: 1px solid var(--surface-line);
+}
+
+.lp .site-footer-inner {
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: clamp(56px, 8vh, 84px) clamp(24px, 5vw, 58px) 40px;
+}
+
+.lp .site-footer-brand p {
+  color: var(--ink-soft);
+}
+
+.lp .site-footer h4 {
+  color: var(--gold);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.lp .site-footer li {
+  color: var(--ink-soft);
+  transition: color 200ms ease;
+}
+
+.lp .site-footer li:hover {
+  color: var(--ink);
+}
+
+.lp .site-footer-bottom {
+  border-top: 1px solid var(--surface-line);
+  color: var(--ink-faint);
+  font-size: 12.5px;
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: 22px clamp(24px, 5vw, 58px) 40px;
+}
+
+/* ── Motion: orchestrated entrance + scroll reveals ──────────────── */
+
+.lp-enter > * {
+  animation: lp-rise 900ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.lp-enter > *:nth-child(1) { animation-delay: 80ms; }
+.lp-enter > *:nth-child(2) { animation-delay: 180ms; }
+.lp-enter > *:nth-child(3) { animation-delay: 280ms; }
+.lp-enter > *:nth-child(4) { animation-delay: 380ms; }
+.lp-enter > *:nth-child(5) { animation-delay: 480ms; }
+
+@keyframes lp-rise {
+  from { opacity: 0; transform: translate3d(0, 22px, 0); filter: blur(6px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+
+.lp .hero-preview {
+  animation: lp-rise-slow 1200ms cubic-bezier(0.2, 0.9, 0.3, 1) 260ms both;
+}
+
+@keyframes lp-rise-slow {
+  from { opacity: 0; transform: translate3d(0, 34px, 0) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.lp .reveal {
+  opacity: 0;
+  transform: translate3d(0, 26px, 0);
+  transition: opacity 850ms cubic-bezier(0.2, 0.9, 0.3, 1),
+              transform 850ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.lp .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.lp .reveal-stagger.is-visible > * {
+  animation: lp-rise 780ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.lp .reveal-stagger.is-visible > *:nth-child(1) { animation-delay: 60ms; }
+.lp .reveal-stagger.is-visible > *:nth-child(2) { animation-delay: 170ms; }
+.lp .reveal-stagger.is-visible > *:nth-child(3) { animation-delay: 280ms; }
+.lp .reveal-stagger.is-visible > *:nth-child(4) { animation-delay: 390ms; }
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+
+@media (max-width: 1040px) {
+  .lp .landing,
+  .lp .qr-showcase {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .lp .landing { min-height: auto; padding-bottom: clamp(56px, 9vh, 90px); }
+  .lp .eyebrow { justify-content: center; }
+  .lp .hero-description,
+  .lp .qr-showcase-description { margin-inline: auto; }
+  .lp .feature-row { justify-content: center; }
+  .lp .hiw-steps { grid-template-columns: 1fr; max-width: 460px; margin-inline: auto; }
+}
+
+/* 2x2 rather than a 4-high stack — four short stats read better paired
+   than as a long scroll. Holds all the way down to the 280px floor. */
+@media (max-width: 720px) {
+  .lp .stats-ribbon-inner { grid-template-columns: repeat(2, 1fr); gap: 28px 0; }
+  .lp .stat-item:nth-child(3) { border-left: 0; }
+}
+
+@media (max-width: 460px) {
+  .lp .hero-copy h1 { font-size: clamp(38px, 12vw, 52px); }
+  .lp .stat-item { padding-inline: 8px; }
+  .lp .stat-item span { font-size: 10px; letter-spacing: 0.1em; }
+}
+
+/* Escape hatch used by the reveal failsafe (see Landing.jsx): show
+   everything with no transition, for contexts that never paint frames. */
+.lp.lp-motion-off .reveal,
+.lp.lp-motion-off .reveal-stagger {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+.lp.lp-motion-off .reveal-stagger.is-visible > *,
+.lp.lp-motion-off .lp-enter > *,
+.lp.lp-motion-off .hero-preview {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+
+.lp.lp-motion-off .hiw-step::after {
+  transform: scaleX(1);
+  transition: none;
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-aurora,
+  .lp-enter > *,
+  .lp .hero-preview,
+  .lp .reveal-stagger.is-visible > * {
+    animation: none !important;
+  }
+
+  .lp .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .lp .hiw-step::after { transform: scaleX(1); }
+  .lp .primary-button::after { display: none; }
+}
