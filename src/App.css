@@ -4685,9 +4685,14 @@
   gap: 10px;
 }
 
+/* Same mark, same treatment as .product-mark-icon in the topbar. Without
+   object-fit the non-square source was stretched to fill the box, so the
+   footer logo read as a different logo entirely. */
 .site-footer-logo {
+  border: 1px solid rgba(212, 175, 55, 0.3);
   border-radius: 50%;
   height: 42px;
+  object-fit: cover;
   width: 42px;
 }
 
