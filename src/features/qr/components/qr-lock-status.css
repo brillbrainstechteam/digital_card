@@ -28,3 +28,38 @@
 .qr-preview-notice strong {
   color: #5c4400;
 }
+
+/* Standalone variant: same message, used as the page's primary content
+   (QrScanRedirect) rather than a small inline note under a QR preview —
+   drop the boxed background/border since it's already inside a card. */
+.qr-preview-notice--standalone {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: center;
+}
+
+.qr-preview-notice--standalone .qr-preview-notice-icon {
+  color: #a3760a;
+  justify-content: center;
+  margin-bottom: 10px;
+  padding-top: 0;
+  width: 100%;
+}
+
+.qr-preview-notice--standalone .qr-preview-notice-icon svg {
+  height: 32px;
+  width: 32px;
+}
+
+.qr-preview-notice--standalone p {
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.qr-preview-notice--standalone strong {
+  color: #1a1a1a;
+  display: block;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}

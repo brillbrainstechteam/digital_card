@@ -1,6 +1,6 @@
 import './qr-lock-status.css'
 
-function LockIcon() {
+export function LockIcon() {
   return (
     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="4" y="11" width="16" height="10" rx="2" />
@@ -9,18 +9,10 @@ function LockIcon() {
   )
 }
 
-export function QrPreviewNotice({ settings }) {
-  if (settings?.purchased) return null
-
-  return (
-    <div className="qr-preview-notice">
-      <span className="qr-preview-notice-icon"><LockIcon /></span>
-      <p>
-        <strong>Preview QR</strong>
-        <br />
-        This is a dummy QR code for preview purposes and currently points to example.com.
-        Your personalized QR will be generated and activated only after purchasing the QR add-on.
-      </p>
-    </div>
-  )
+// The "this is a preview, not your real QR" explanation used to show in the
+// editor at all times before purchase. That messaging now only appears where
+// it's actually needed — to someone who scans an unpurchased QR in the wild
+// (see QrScanRedirect) — not to the owner while they're still designing it.
+export function QrPreviewNotice() {
+  return null
 }

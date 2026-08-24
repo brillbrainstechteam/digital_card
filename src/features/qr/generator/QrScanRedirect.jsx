@@ -1,18 +1,25 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { resolveQrScan } from '../services/qrApi'
+import { LockIcon } from '../components/QrLockStatus'
 import '../qr-studio.css'
+import '../components/qr-lock-status.css'
 
 export function QrScanRedirect() {
   const { slug } = useParams()
   const [message, setMessage] = useState('Redirecting...')
   const [wifi, setWifi] = useState(null)
+  const [notPurchased, setNotPurchased] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     resolveQrScan(slug)
-      .then(({ cardSlug, destinationType, destinationFields, destination }) => {
+      .then(({ cardSlug, destinationType, destinationFields, destination, notPurchased: unpaid }) => {
         if (cancelled) return
+        if (unpaid) {
+          setNotPurchased(true)
+          return
+        }
         const finalDestination = destination || (cardSlug ? `/card/${cardSlug}` : '')
         if (!finalDestination) {
           setMessage('This QR code has no destination configured yet.')
@@ -39,7 +46,20 @@ export function QrScanRedirect() {
 
   return (
     <main className="qr-scan-redirect">
-      {wifi ? (
+      {notPurchased ? (
+        <div className="qr-scan-card">
+          <div className="qr-preview-notice qr-preview-notice--standalone">
+            <span className="qr-preview-notice-icon"><LockIcon /></span>
+            <p>
+              <strong>This QR code isn&apos;t active yet</strong>
+              <br />
+              Its owner hasn&apos;t completed payment, so it doesn&apos;t point anywhere yet.
+              If this is your QR code, activate it from your dashboard to make it live.
+            </p>
+          </div>
+          <Link className="qr-scan-btn" to="/">Go to Brill Brains</Link>
+        </div>
+      ) : wifi ? (
         <div className="qr-scan-card">
           <h1>Connect to Wi-Fi</h1>
           <p><strong>Network:</strong> {wifi.ssid}</p>

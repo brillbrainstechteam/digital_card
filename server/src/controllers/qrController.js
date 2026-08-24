@@ -131,6 +131,20 @@ async function resolveScan(req, res, next) {
     const qr = await qrService.getQrBySlugPublic(req.params.slug)
     // Fire-and-forget: scan recording must never block the redirect response.
     qrService.recordScan(qr, req).catch((err) => console.error('[QR recordScan]', err.message))
+
+    // An unpurchased QR still has a slug (it was already printed/downloaded
+    // as a preview), but must not resolve to its real destination — this is
+    // the one place that "not activated yet" message belongs: someone who
+    // scans the physical code before checkout, not the owner in the editor.
+    if (!qr.settings?.purchased) {
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
+      })
+      return res.json({ success: true, data: { notPurchased: true } })
+    }
+
     const destinationType = qr.settings?.destinationType || (qr.card_id ? 'digitalCard' : 'website')
     const savedDestinationFields = qr.settings?.destinationFields || {}
     // Older card QR records stored a temporary browser preview URL. Keep

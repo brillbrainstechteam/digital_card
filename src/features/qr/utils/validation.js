@@ -83,12 +83,5 @@ export function validateQrSettings(settings) {
     }
   }
 
-  if (!settings.data) {
-    warnings.push({
-      code: 'empty-destination',
-      message: 'No destination has been entered yet — the QR code is a placeholder until you add one.',
-    })
-  }
-
   return warnings
 }
