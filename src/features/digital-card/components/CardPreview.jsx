@@ -10,7 +10,9 @@ function capitalize(value) {
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : value
 }
 
-function ActionIcon({ type }) {
+// Exported so the marketing hero's phone mockup renders the identical icon
+// set rather than an approximation that drifts as these change.
+export function ActionIcon({ type }) {
   const paths = {
     call: <path d="M6.6 3.4c.5-.5 1.3-.4 1.7.2l2 3c.3.5.3 1.1-.1 1.5L8.8 9.5a11.2 11.2 0 0 0 5.7 5.7l1.4-1.4c.4-.4 1-.4 1.5-.1l3 2c.6.4.7 1.2.2 1.7l-1.7 1.8c-.7.7-1.8 1-2.8.7C9.9 18.3 5.7 14.1 4.1 7.9c-.3-1 .1-2.1.8-2.8l1.7-1.7Z" />,
     email: <path d="M4 6.8C4 5.8 4.8 5 5.8 5h12.4c1 0 1.8.8 1.8 1.8v10.4c0 1-.8 1.8-1.8 1.8H5.8c-1 0-1.8-.8-1.8-1.8V6.8Zm1.8-.1L12 11.1l6.2-4.4H5.8Zm12.4 10.6V8.8l-5.7 4a.9.9 0 0 1-1 0l-5.7-4v8.5h12.4Z" />,
@@ -25,7 +27,7 @@ function ActionIcon({ type }) {
   )
 }
 
-function SocialIcon({ platform }) {
+export function SocialIcon({ platform }) {
   const paths = {
     instagram: (
       <path d="M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9A5.5 5.5 0 0 1 16.5 22h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2Zm0 2A3.5 3.5 0 0 0 4 7.5v9A3.5 3.5 0 0 0 7.5 20h9a3.5 3.5 0 0 0 3.5-3.5v-9A3.5 3.5 0 0 0 16.5 4h-9Zm4.5 3a5 5 0 1 1 0 10A5 5 0 0 1 12 7Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm5.25-2.25a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0Z" />

@@ -4,6 +4,23 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 
+/* The hero reuses the real card's ActionIcon/SocialIcon components so the
+   mockup shows the identical glyphs. Those carry .action-icon (16px) and
+   .social-icon (44px) from App.css, sized for a full-width card — six 44px
+   social icons overflow the 248px phone. Tailwind's size utilities can't win
+   here: they live in @layer utilities and App.css is unlayered, and unlayered
+   rules beat layered ones in the cascade whatever their specificity. So scope
+   the override here, unlayered, at higher specificity. */
+.hero-phone-scale-outer .social-icon {
+  height: 15px;
+  width: 15px;
+}
+
+.hero-phone-scale-outer .action-icon {
+  height: 14px;
+  width: 14px;
+}
+
 /* Phone mock is a fixed 248x512px box (see HeroAnimation.jsx). Scale the
    plain wrapper around it down on narrow viewports so the hero section's
    height on mobile isn't dominated by an oversized animation. The outer
