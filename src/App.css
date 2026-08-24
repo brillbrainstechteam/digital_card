@@ -973,9 +973,15 @@
   border-radius: 34px 34px 0 0;
   display: flex;
   justify-content: center;
-  margin: -1px -28px -42px;
+  /* The old -42px bottom margin + 42px padding-bottom pulled the ENTIRE
+     .card-header block (name, company, tagline — not just a decorative
+     avatar) up into this dark band by a fixed amount, independent of
+     bandHeight. At any height the name text rendered partly or fully on
+     top of the band's dark background and was unreadable. Full-bleed the
+     sides only; let the header sit in normal flow right after the band so
+     the name is never behind it, at any adjustable height. */
+  margin: -1px -28px 0;
   overflow: hidden;
-  padding-bottom: 42px;
   position: relative;
   z-index: 1;
 }
@@ -1125,7 +1131,7 @@
   color: var(--brand-primary-text);
   display: inline-flex;
   font-family: var(--font-button-labels);
-  font-size: 12px;
+  font-size: var(--fz-button-labels, 12px);
   font-weight: 700;
   justify-content: center;
   gap: 6px;
@@ -2240,6 +2246,15 @@
   grid-template-columns: repeat(2, 1fr);
 }
 
+/* Typography rows pack a font select + size input + "apply to" circle into
+   one line — three controls, not one. In a 2-up grid at typical sidebar
+   widths there isn't room, and the apply-to circle overflows the column
+   boundary. These rows need the full row width, so keep this panel single
+   column regardless of viewport. */
+.typography-panel .field-grid--two {
+  grid-template-columns: 1fr;
+}
+
 .field {
   color: var(--muted);
   display: flex;
@@ -2904,7 +2919,18 @@
 .link-head {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: space-between;
+}
+
+/* The reorder cluster (Position select + up/down arrows + remove ×) is the
+   widest, least-compressible piece of this row. Without a fixed no-shrink
+   width it got squeezed by its siblings at typical sidebar widths, so
+   controls overlapped instead of the whole row wrapping onto two lines. */
+.link-head .reorder {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .switch input {
@@ -2942,7 +2968,9 @@
 }
 
 .reorder {
+  align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
 }
 
@@ -2951,6 +2979,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--muted);
+  flex-shrink: 0;
   height: 29px;
   width: 31px;
 }
@@ -3105,8 +3134,10 @@
   color: var(--muted);
   display: flex;
   flex: none;
+  flex-wrap: wrap;
   font-size: 13px;
   font-weight: 700;
+  gap: 8px 12px;
   justify-content: space-between;
   margin-bottom: 14px;
 }
@@ -3114,7 +3145,18 @@
 .preview-toolbar-actions {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+/* "Publish Card" and "Open public view" sit side by side with no fixed
+   width, so flex would shrink "Publish Card" below its two-word content
+   width and wrap it onto a second line while its sibling stayed single-line
+   — same row, visibly mismatched heights. Neither may wrap on its own; if
+   there truly isn't room, the whole toolbar wraps instead (flex-wrap above). */
+.preview-toolbar-actions > * {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .preview-published-badge {
@@ -3957,6 +3999,7 @@
 
 .card-list-item {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   background: var(--surface);
@@ -4000,8 +4043,10 @@
 
 .card-list-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   flex-shrink: 0;
+  justify-content: flex-end;
 }
 
 .text-button {

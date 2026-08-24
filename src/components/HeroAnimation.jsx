@@ -71,16 +71,28 @@ const HeroAnimation = () => {
   }, []);
 
   return (
-    <motion.div
-      animate={{
-        rotateY: scene >= 11 ? 180 : [-4, 4, -4],
-        rotateX: [2, -2, 2],
-        y: [0, -15, 0]
-      }}
-      transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-      style={{ perspective: 1200, transformStyle: "preserve-3d" }}
-      className="relative w-[248px] h-[512px] transition-transform duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)]"
-    >
+    // The phone mock below is a fixed 248x512px box with no responsive
+    // variant (Tailwind arbitrary values like w-[248px] can't respond to
+    // viewport size on their own), so on mobile it stayed full-size and
+    // inflated the hero section's height well past the fold. framer-motion
+    // drives the inner element's own `transform` inline for the 3D rotation,
+    // so a competing CSS `transform: scale()` on that same element would be
+    // overwritten. Instead scale a plain, non-animated wrapper around it —
+    // the two transforms compose normally since they're on different
+    // elements — and shrink the wrapper's own box (see hero-animation.css)
+    // so the layout actually reclaims the space, not just visually shrinks.
+    <div className="hero-phone-scale-outer">
+      <div className="hero-phone-scale-inner">
+        <motion.div
+          animate={{
+            rotateY: scene >= 11 ? 180 : [-4, 4, -4],
+            rotateX: [2, -2, 2],
+            y: [0, -15, 0]
+          }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          style={{ perspective: 1200, transformStyle: "preserve-3d" }}
+          className="relative w-[248px] h-[512px] transition-transform duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)]"
+        >
       {/* Phone Frame */}
       <div className="absolute inset-0 bg-[#0a0a0a] rounded-[3rem] border-[8px] border-[#1a1a1a] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] overflow-hidden">
 
@@ -102,7 +114,9 @@ const HeroAnimation = () => {
         {/* Camera Notch */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-[#1a1a1a] rounded-b-2xl z-50" />
       </div>
-    </motion.div>
+        </motion.div>
+      </div>
+    </div>
   );
 };
 

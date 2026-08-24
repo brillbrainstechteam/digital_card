@@ -3,3 +3,40 @@
    used by the rest of the (plain-CSS) app. */
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
+
+/* Phone mock is a fixed 248x512px box (see HeroAnimation.jsx). Scale the
+   plain wrapper around it down on narrow viewports so the hero section's
+   height on mobile isn't dominated by an oversized animation. The outer
+   box's own width/height shrink to match so the layout reclaims the space
+   instead of just visually shrinking the content inside a full-size box. */
+.hero-phone-scale-outer {
+  width: 248px;
+  height: 512px;
+  margin: 0 auto;
+}
+
+.hero-phone-scale-inner {
+  transform-origin: top center;
+}
+
+@media (max-width: 480px) {
+  .hero-phone-scale-outer {
+    width: 190px;
+    height: 392px;
+  }
+
+  .hero-phone-scale-inner {
+    transform: scale(0.766);
+  }
+}
+
+@media (max-width: 360px) {
+  .hero-phone-scale-outer {
+    width: 160px;
+    height: 330px;
+  }
+
+  .hero-phone-scale-inner {
+    transform: scale(0.645);
+  }
+}

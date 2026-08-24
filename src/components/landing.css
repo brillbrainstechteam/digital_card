@@ -610,6 +610,11 @@
   .lp .qr-showcase-description { margin-inline: auto; }
   .lp .feature-row { justify-content: center; }
   .lp .hiw-steps { grid-template-columns: 1fr; max-width: 460px; margin-inline: auto; }
+
+  /* This is the last section before the footer, and its top padding used
+     the same desktop-tuned clamp(88px, 12vh, 150px) as a mid-page section
+     — on mobile that reads as an oversized empty gap right above it. */
+  .lp .how-it-works { padding-top: clamp(48px, 8vh, 88px); }
 }
 
 /* 2x2 rather than a 4-high stack — four short stats read better paired

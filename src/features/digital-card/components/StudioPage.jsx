@@ -206,14 +206,20 @@ export function StudioPage() {
 
     if (isGuest) {
       // Guests have no card record to save to yet — the autosave effect
-      // above already persisted this to localStorage. Just reflect it.
+      // above already persisted this to localStorage only. That message
+      // used to just say "Saved", which reads as a permanent account save;
+      // it isn't — it lives only in this browser and is lost on another
+      // device, in incognito, or if the user clears site data. Say so, and
+      // nudge toward publishing (which creates the real, account-backed
+      // card) so guests don't lose work believing it's already safe.
       saveDraft(editorProfile)
       savedSnapshotRef.current = JSON.stringify(editorProfile)
       liveEditSnapshotRef.current = null
       history.clear()
       setHasUnsavedChanges(false)
-      setSaveStatus({ type: 'saved', text: 'Saved' })
-      setTimeout(() => setSaveStatus((s) => s.type === 'saved' ? { type: 'idle', text: '' } : s), 2000)
+      setSaveStatus({ type: 'saved', text: 'Saved on this device' })
+      toast.info('Saved on this device only — publish to save it permanently to your account.')
+      setTimeout(() => setSaveStatus((s) => s.type === 'saved' ? { type: 'idle', text: '' } : s), 2500)
       return
     }
 

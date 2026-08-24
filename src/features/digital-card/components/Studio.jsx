@@ -1106,7 +1106,7 @@ export function Studio({
                   </button>
                 )}
                 <button
-                  className="secondary-button"
+                  className="secondary-button save-card-button"
                   type="button"
                   onClick={() => setShareOpen(true)}
                   disabled={cardStatus !== 'published'}
@@ -1761,7 +1761,7 @@ export function Studio({
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Tagline" value={profile.typography?.tagline || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('tagline', value)} sizeValue={profile.fontSizes?.tagline ?? 14} onSizeChange={(v) => updateFontSize('tagline', v)} />
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Location" value={profile.typography?.location || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('location', value)} sizeValue={profile.fontSizes?.location ?? 13} onSizeChange={(v) => updateFontSize('location', v)} />
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="About" value={profile.typography?.about || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('about', value)} sizeValue={profile.fontSizes?.about ?? 14} onSizeChange={(v) => updateFontSize('about', v)} />
-            <FontSelect {...liveControlProps} label="Button Labels" value={profile.typography?.buttonLabels || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('buttonLabels', value)} />
+            <TypographyField {...liveControlProps} {...applyTypographyProps} label="Button Labels" value={profile.typography?.buttonLabels || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('buttonLabels', value)} sizeValue={profile.fontSizes?.buttonLabels ?? 12} onSizeChange={(v) => updateFontSize('buttonLabels', v)} />
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Footer Text" value={profile.typography?.footerText || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('footerText', value)} />
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Website" value={profile.typography?.website || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('website', value)} />
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Google Maps Button" value={profile.typography?.googleMaps || profile.typography?.buttonLabels || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('googleMaps', value)} />

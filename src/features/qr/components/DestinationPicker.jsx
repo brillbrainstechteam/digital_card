@@ -68,12 +68,12 @@ export function DestinationPicker({ type, fields, onChange, qrType = 'static' })
         )}
       </label>
 
-      {(type === 'website' || type === 'digitalCard') && (
+      {(type === 'website' || type === 'digitalCard' || type === 'catalogue') && (
         <label className="qr-field">
-          <span className="qr-field-label">{type === 'digitalCard' ? 'Digital Card URL' : 'Website URL'}</span>
+          <span className="qr-field-label">{type === 'digitalCard' ? 'Digital Card URL' : type === 'catalogue' ? 'Catalogue / Brochure URL' : 'Website URL'}</span>
           <input
             type="text"
-            placeholder="example.com"
+            placeholder={type === 'catalogue' ? 'Link to your PDF catalogue or brochure' : 'example.com'}
             value={fields.url || ''}
             onChange={(e) => handleFieldChange('url', e.target.value)}
           />

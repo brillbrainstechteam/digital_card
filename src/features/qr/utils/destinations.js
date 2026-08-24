@@ -32,6 +32,7 @@ export const QR_TYPES = [
 //             is dynamic-only (a static copy could never be re-pointed).
 export const DESTINATION_TYPES = [
   { key: 'website',      label: 'Website URL',           supports: ['static', 'dynamic'] },
+  { key: 'catalogue',    label: 'Catalogue / Brochure',  supports: ['static', 'dynamic'] },
   { key: 'digitalCard',  label: 'Digital Card URL',      supports: ['dynamic'] },
   { key: 'phone',        label: 'Phone Number',          supports: ['static', 'dynamic'] },
   { key: 'email',        label: 'Email',                 supports: ['static', 'dynamic'] },
@@ -215,6 +216,7 @@ function buildVCard(fields = {}) {
 export function buildDestinationValue(type, fields = {}) {
   switch (type) {
     case 'website':
+    case 'catalogue':
     case 'digitalCard':
       return ensureUrlScheme(fields.url)
     case 'phone': {
@@ -256,6 +258,7 @@ export function buildDestinationValue(type, fields = {}) {
 export function defaultFieldsForType(type) {
   switch (type) {
     case 'website': return { url: '' }
+    case 'catalogue': return { url: '' }
     case 'digitalCard': return { url: '' }
     case 'phone': return { number: '' }
     case 'email': return { address: '', subject: '', body: '' }

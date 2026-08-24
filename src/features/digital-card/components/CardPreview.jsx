@@ -355,6 +355,7 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null, s
         '--fz-tagline': `${profile.fontSizes?.tagline || 14}px`,
         '--fz-location': `${profile.fontSizes?.location || 13}px`,
         '--fz-about': `${profile.fontSizes?.about || 14}px`,
+        '--fz-button-labels': `${profile.fontSizes?.buttonLabels || 12}px`,
       }}
     >
       {profile.showLogo !== false && (
