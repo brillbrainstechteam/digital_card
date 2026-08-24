@@ -38,6 +38,22 @@ async function getStats(req, res, next) {
   }
 }
 
+async function getInsights(req, res, next) {
+  try {
+    res.json(await adminService.getInsights())
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function getUserDetail(req, res, next) {
+  try {
+    res.json(await adminService.getUserDetail(req.params.userId))
+  } catch (err) {
+    next(err)
+  }
+}
+
 async function getUsers(req, res, next) {
   try {
     const users = await adminService.getAllUsers()
@@ -134,4 +150,4 @@ async function getSubscriptions(req, res, next) {
   }
 }
 
-module.exports = { login, getStats, getUsers, getCards, getQrCodes, updateCardStatus, updateQrLifecycle, deleteCard, deleteUser, getActivity, getSubscriptions, resetUserPassword }
+module.exports = { login, getStats, getInsights, getUserDetail, getUsers, getCards, getQrCodes, updateCardStatus, updateQrLifecycle, deleteCard, deleteUser, getActivity, getSubscriptions, resetUserPassword }

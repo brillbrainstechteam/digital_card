@@ -42,6 +42,8 @@ export function isAdminLoggedIn() {
 }
 
 export const fetchStats = () => request('/stats')
+export const fetchInsights = () => request('/insights')
+export const fetchUserDetail = (userId) => request(`/users/${userId}`)
 export const fetchUsers = () => request('/users')
 export const fetchCards = () => request('/cards')
 export const fetchQrCodes = () => request('/qrcodes')
