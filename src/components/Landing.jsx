@@ -140,23 +140,23 @@ export function Landing() {
           <div className="hero-copy lp-enter">
             <p className="eyebrow">Brill Brains Digital Cards</p>
             <h1>
-              Your brand.
+              Your complete business,
               <br />
-              One <span className="lp-gilt">living</span> card.
+              one <span className="lp-gilt">scan</span> away.
             </h1>
             <p className="hero-description">
-              Build a beautiful business profile with contact actions, social links and a
-              colour theme matched automatically from your own logo.
+              Put your phone number, WhatsApp, location, business details and every
+              important link on one digital card — share it with a single link or QR code.
             </p>
             <div className="hero-buttons">
               <button className="primary-button" type="button" onClick={handleCreate}>
-                Create your personalized card
+                Create Your Digital Card
               </button>
             </div>
             <div className="feature-row">
-              <span>Auto brand palette</span>
-              <span>Mobile first</span>
-              <span>Contact ready</span>
+              <span>One link, every channel</span>
+              <span>Save Contact in one tap</span>
+              <span>No designer required</span>
             </div>
           </div>
 
@@ -165,6 +165,29 @@ export function Landing() {
           </div>
         </section>
       </main>
+
+      {/* Pain-point section straight from the marketing plan's "Main problem
+          being solved": info scattered across five different places, and
+          customers losing track of it. Nothing on the page named this
+          problem before — it only showed the solution. */}
+      <section className="problem reveal">
+        <div className="problem-inner">
+          <p className="eyebrow" style={{ justifyContent: 'center' }}>The Problem</p>
+          <h2 className="problem-title">Your business, scattered across five apps.</h2>
+          <ul className="problem-list">
+            <li>Phone number on a visiting card</li>
+            <li>Catalogue shared on WhatsApp</li>
+            <li>Location pinned on Google Maps</li>
+            <li>Products posted on Instagram</li>
+            <li>Website linked in another message</li>
+          </ul>
+          <p className="problem-resolve">
+            Customers lose the card. Forget the message. Or never find it again.
+            <br />
+            <strong>One digital card. One QR. Everything included.</strong>
+          </p>
+        </div>
+      </section>
 
       <section className="stats-ribbon reveal">
         <div className="stats-ribbon-inner">
@@ -188,17 +211,17 @@ export function Landing() {
           <div className="hiw-step">
             <span className="hiw-step-num">Step 01</span>
             <h3>Upload your logo</h3>
-            <p>We extract your brand colours automatically and build your palette.</p>
+            <p>We extract your brand colours automatically and build a matching theme.</p>
           </div>
           <div className="hiw-step">
             <span className="hiw-step-num">Step 02</span>
-            <h3>Customize everything</h3>
-            <p>Fine-tune your digital card and QR code to perfection.</p>
+            <h3>Add every link</h3>
+            <p>WhatsApp, phone, location, website, socials and Save Contact — arrange them your way.</p>
           </div>
           <div className="hiw-step">
             <span className="hiw-step-num">Step 03</span>
             <h3>Publish &amp; share</h3>
-            <p>Get a live link, print-ready cards, and branded QR codes instantly.</p>
+            <p>Get a live link and a branded QR — print it, message it, or place it anywhere.</p>
           </div>
         </div>
       </section>

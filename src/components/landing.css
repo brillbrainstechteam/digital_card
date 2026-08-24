@@ -351,6 +351,82 @@
   text-transform: uppercase;
 }
 
+/* ── The problem ─────────────────────────────────────────────────── */
+
+.lp .problem {
+  margin: 0 auto;
+  max-width: 900px;
+  padding: clamp(70px, 10vh, 120px) clamp(24px, 5vw, 58px) clamp(40px, 6vh, 70px);
+  text-align: center;
+}
+
+.lp .problem-title {
+  color: var(--ink);
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(28px, 3.6vw, 44px);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin: 0 auto 40px;
+  max-width: 18ch;
+}
+
+/* Five scattered pills with a slight independent tilt each, so the list
+   itself reads as "scattered" before the resolving line below it. */
+.lp .problem-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  list-style: none;
+  margin: 0 auto 44px;
+  max-width: 640px;
+  padding: 0;
+}
+
+.lp .problem-list li {
+  background: var(--surface);
+  border: 1px solid var(--surface-line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  padding: 10px 20px;
+  transition: border-color 260ms ease, transform 260ms ease;
+}
+
+.lp .problem-list li:nth-child(1) { transform: rotate(-2deg); }
+.lp .problem-list li:nth-child(2) { transform: rotate(1.5deg); }
+.lp .problem-list li:nth-child(3) { transform: rotate(-1deg); }
+.lp .problem-list li:nth-child(4) { transform: rotate(2deg); }
+.lp .problem-list li:nth-child(5) { transform: rotate(-1.5deg); }
+
+.lp .problem.is-visible .problem-list li {
+  border-color: var(--gold-line);
+}
+
+.lp .problem-resolve {
+  color: var(--ink-soft);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.lp .problem-resolve strong {
+  color: var(--gold-bright);
+  display: inline-block;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 20px;
+  font-style: italic;
+  font-weight: 500;
+  margin-top: 10px;
+}
+
+@media (max-width: 640px) {
+  .lp .problem-list li {
+    font-size: 12.5px;
+    padding: 9px 16px;
+  }
+}
+
 /* ── How it works ────────────────────────────────────────────────── */
 
 .lp .how-it-works {

@@ -54,8 +54,8 @@ export function QRStudioShowcase() {
           made in seconds.
         </h2>
         <p className="qr-showcase-description">
-          Generate fully customizable QR codes with your own colors, gradients and center logo —
-          with a live preview and instant PNG, SVG or PDF downloads.
+          One QR for your digital card, or its own for WhatsApp, your location, Wi-Fi
+          or a Save Contact card — styled with your own colors, gradients and logo.
         </p>
         <div className="hero-buttons">
           <button className="primary-button" type="button" onClick={handleTryQrStudio}>
@@ -63,8 +63,8 @@ export function QRStudioShowcase() {
           </button>
         </div>
         <div className="feature-row">
-          <span>Custom colors &amp; gradients</span>
-          <span>Center logo</span>
+          <span>WhatsApp, Maps &amp; Wi-Fi</span>
+          <span>Custom colors &amp; logo</span>
           <span>PNG · SVG · PDF</span>
         </div>
       </div>
