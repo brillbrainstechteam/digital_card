@@ -1,43 +1,11 @@
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { QRCode, createDefaultQrSettings } from '../features/qr'
+import { QrStudioAnimation } from './QrStudioAnimation'
 
-const DEMO_DATA = 'https://brillbrainsconsultants.com'
-
-const DEMO_QRS = [
-  {
-    key: 'classic',
-    label: 'Classic',
-    settings: { ...createDefaultQrSettings(), data: DEMO_DATA },
-  },
-  {
-    key: 'gradient',
-    label: 'Gradient',
-    settings: {
-      ...createDefaultQrSettings(),
-      data: DEMO_DATA,
-      background: '#ffffff',
-      // Was a purple->magenta gradient that belonged to no part of the
-      // brand; gilt-into-navy matches the identity the page is built on.
-      gradient: { type: 'linear', rotation: 45, colors: ['#D4AF37', '#0E1A35'] },
-    },
-  },
-  {
-    key: 'branded',
-    label: 'With Logo',
-    settings: {
-      ...createDefaultQrSettings(),
-      data: DEMO_DATA,
-      foreground: '#155e75',
-      background: '#f7f1e9',
-      logo: '/bb-logo.png',
-      logoSizeRatio: 0.24,
-    },
-  },
-]
+// The three static demo codes that used to sit here (Classic / Gradient /
+// With Logo) are now beats inside QrStudioAnimation, which walks through the
+// same styling steps on a live code instead of showing three finished ones.
 
 export function QRStudioShowcase() {
-  const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
 
   function handleTryQrStudio() {
@@ -69,12 +37,7 @@ export function QRStudioShowcase() {
         </div>
       </div>
       <div className="qr-showcase-grid">
-        {DEMO_QRS.map((demo) => (
-          <div key={demo.key} className="qr-showcase-card">
-            <QRCode settings={demo.settings} size={148} />
-            <span>{demo.label}</span>
-          </div>
-        ))}
+        <QrStudioAnimation />
       </div>
     </section>
   )

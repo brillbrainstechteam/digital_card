@@ -1,0 +1,277 @@
+/* ══════════════════════════════════════════════════════
+   QR Studio showcase animation
+   Scoped under .qrs so it can't leak into the studio's
+   real UI, which uses .qr-* class names of its own.
+   ══════════════════════════════════════════════════════ */
+
+.qrs {
+  --qrs-line: rgba(14, 26, 53, 0.1);
+  --qrs-ink: #0e1a35;
+  --qrs-muted: #6b7688;
+  --qrs-gold: #d4af37;
+
+  background: #fff;
+  border: 1px solid var(--qrs-line);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(14, 26, 53, 0.13);
+  display: flex;
+  flex-direction: column;
+  font-family: Manrope, system-ui, Arial, sans-serif;
+  max-width: 420px;
+  overflow: hidden;
+  width: 100%;
+}
+
+/* ── Window chrome ── */
+
+.qrs-head {
+  align-items: center;
+  background: var(--qrs-ink);
+  display: flex;
+  gap: 10px;
+  padding: 11px 14px;
+}
+
+.qrs-dots { display: flex; gap: 5px; }
+.qrs-dots i {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  height: 8px;
+  width: 8px;
+}
+
+.qrs-title {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.qrs-badge {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-left: auto;
+  padding: 3px 9px;
+  text-transform: uppercase;
+  transition: background 260ms ease, color 260ms ease;
+}
+
+.qrs-badge.is-dynamic {
+  background: var(--qrs-gold);
+  color: var(--qrs-ink);
+}
+
+/* ── Destination tabs ── */
+
+.qrs-tabs {
+  border-bottom: 1px solid var(--qrs-line);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.qrs-tab {
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  color: var(--qrs-muted);
+  display: flex;
+  flex-direction: column;
+  font-size: 9.5px;
+  font-weight: 700;
+  gap: 4px;
+  justify-content: center;
+  padding: 10px 4px 8px;
+  transition: color 240ms ease, border-color 240ms ease, background 240ms ease;
+}
+
+.qrs-tab svg { height: 15px; opacity: 0.5; transition: opacity 240ms ease; width: 15px; }
+
+.qrs-tab.active {
+  background: rgba(14, 26, 53, 0.03);
+  border-bottom-color: var(--qrs-gold);
+  color: var(--qrs-ink);
+}
+
+.qrs-tab.active svg { opacity: 1; }
+
+/* ── Body ── */
+
+.qrs-body {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 150px minmax(0, 1fr);
+  padding: 16px;
+}
+
+.qrs-stage {
+  align-items: center;
+  aspect-ratio: 1;
+  background: #fbfbfc;
+  border: 1px solid var(--qrs-line);
+  border-radius: 14px;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  width: 150px;
+}
+
+.qrs-code { line-height: 0; }
+.qrs-code canvas, .qrs-code svg, .qrs-code img { display: block; height: auto; max-width: 100%; }
+
+.qrs-placeholder {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+}
+
+.qrs-placeholder-grid {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(3, 14px);
+}
+.qrs-placeholder-grid i {
+  background: rgba(14, 26, 53, 0.08);
+  border-radius: 3px;
+  height: 14px;
+  width: 14px;
+}
+.qrs-placeholder-grid i:nth-child(1),
+.qrs-placeholder-grid i:nth-child(3),
+.qrs-placeholder-grid i:nth-child(7) { background: rgba(14, 26, 53, 0.16); }
+
+.qrs-placeholder-text {
+  color: var(--qrs-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* ── Right column ── */
+
+.qrs-side { display: flex; flex-direction: column; min-width: 0; }
+
+.qrs-caption {
+  color: var(--qrs-ink);
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.qrs-value {
+  background: rgba(14, 26, 53, 0.04);
+  border-radius: 7px;
+  color: var(--qrs-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+  margin: 0 0 12px;
+  min-height: 26px;
+  overflow-wrap: anywhere;
+  padding: 6px 8px;
+}
+
+.qrs-caret {
+  background: var(--qrs-ink);
+  display: inline-block;
+  height: 10px;
+  margin-left: 1px;
+  vertical-align: -1px;
+  width: 1.5px;
+  animation: qrs-blink 900ms steps(1) infinite;
+}
+
+@keyframes qrs-blink { 50% { opacity: 0; } }
+
+.qrs-steps { display: flex; flex-direction: column; gap: 7px; }
+
+.qrs-step {
+  align-items: center;
+  color: rgba(107, 118, 136, 0.5);
+  display: flex;
+  font-size: 10.5px;
+  font-weight: 600;
+  gap: 8px;
+  transition: color 300ms ease;
+}
+.qrs-step.on { color: var(--qrs-ink); }
+
+.qrs-step-dot {
+  background: rgba(14, 26, 53, 0.1);
+  border-radius: 50%;
+  flex-shrink: 0;
+  height: 13px;
+  overflow: hidden;
+  position: relative;
+  transform: scale(0.7);
+  transition: transform 300ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity 300ms ease;
+  opacity: 0.35;
+  width: 13px;
+}
+.qrs-step.on .qrs-step-dot { opacity: 1; transform: scale(1); }
+
+.qrs-step-dot img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+/* The BB mark is white-stroked, so it needs a dark plate behind it to read. */
+.qrs-step-dot.is-logo { background: var(--qrs-ink); }
+
+.qrs-note {
+  color: var(--qrs-muted);
+  font-size: 9.5px;
+  line-height: 1.5;
+  margin: 10px 0 0;
+}
+
+/* ── Footer ── */
+
+.qrs-foot {
+  align-items: center;
+  border-top: 1px solid var(--qrs-line);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 11px 16px;
+}
+
+.qrs-exports { display: flex; gap: 6px; }
+
+.qrs-chip {
+  background: rgba(14, 26, 53, 0.05);
+  border-radius: 6px;
+  color: rgba(107, 118, 136, 0.55);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 4px 9px;
+  transition: background 280ms ease, color 280ms ease;
+}
+.qrs-chip.on { background: var(--qrs-ink); color: #fff; }
+
+.qrs-scans {
+  color: var(--qrs-muted);
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 320ms ease;
+}
+.qrs-scans.on { opacity: 1; }
+
+/* ── Responsive ── */
+
+@media (max-width: 560px) {
+  .qrs-body { grid-template-columns: 1fr; justify-items: center; }
+  .qrs-side { text-align: center; width: 100%; }
+  .qrs-steps { align-items: center; }
+  .qrs-note { text-align: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qrs-caret { animation: none; }
+}
