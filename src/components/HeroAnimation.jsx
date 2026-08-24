@@ -35,23 +35,13 @@ function AvatarMark({ colors, className }) {
   );
 }
 
-function LogoMark({ variant, className, style }) {
-  return (
-    <svg viewBox="0 0 64 64" className={className} style={style} role="img" aria-label="Company mark">
-      {variant === 'wellness' ? (
-        <>
-          <circle cx="32" cy="32" r="27" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeDasharray="128 42" />
-          <path d="M32 17c11 6 15 14 12 22-3 8-11 10-18 6-7-4-9-13-6-21 2-4 6-6 12-7Z" fill="currentColor" />
-        </>
-      ) : (
-        <>
-          <path d="M32 6 58 21v8L32 14 6 29v-8Z" fill="currentColor" />
-          <path d="M32 26 58 41v8L32 34 6 49v-8Z" fill="currentColor" fillOpacity="0.6" />
-          <circle cx="32" cy="53" r="5" fill="currentColor" />
-        </>
-      )}
-    </svg>
-  );
+// The real Brill Brains mark, served from /public. The geometric marks that
+// used to sit here were invented per-persona, and the architectural one read
+// as a large upward arrow rather than a logo. bb-logo.png is white-stroked,
+// which is why the card below is a single dark surface — the mark is
+// invisible on white.
+function BrandLogo({ className }) {
+  return <img src="/bb-logo.png" alt="Brill Brains" className={className} />;
 }
 
 // A believable QR: three finder patterns plus a deterministic module field,
@@ -86,27 +76,6 @@ function QrPattern({ className, style }) {
       {modules.map(([x, y]) => <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" fill="currentColor" />)}
       {finder(0, 0)}{finder(14, 0)}{finder(0, 14)}
     </svg>
-  );
-}
-
-function MapsCard({ colors, name }) {
-  return (
-    <div className="w-full rounded-xl overflow-hidden border border-gray-100 shadow-sm bg-white">
-      <div className="relative h-14" style={{ backgroundColor: `${colors[2]}33` }}>
-        <div className="absolute inset-0 grid grid-cols-5 grid-rows-3">
-          {Array.from({ length: 15 }).map((_, i) => (
-            <span key={i} className="border-[0.5px]" style={{ borderColor: `${colors[1]}22` }} />
-          ))}
-        </div>
-        <svg viewBox="0 0 24 24" className="absolute left-1/2 top-1/2 w-5 h-5 -translate-x-1/2 -translate-y-1/2" fill={colors[0]}>
-          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
-        </svg>
-      </div>
-      <div className="flex items-center justify-between px-3 py-2">
-        <span className="text-[9px] font-bold text-gray-700 truncate">{name}</span>
-        <span className="text-[9px] font-bold shrink-0" style={{ color: colors[1] }}>Get Directions →</span>
-      </div>
-    </div>
   );
 }
 
@@ -145,7 +114,6 @@ const PRODUCT_DATA = [
     location: 'Koregaon Park, Pune',
     colors: ['#0C4A6E', '#0284C7', '#7DD3FC'], // Ocean
     hasLogo: true,
-    logoVariant: 'architecture',
     hasAvatar: true,
   },
   {
@@ -159,7 +127,6 @@ const PRODUCT_DATA = [
     location: 'Indiranagar, Bengaluru',
     colors: ['#134E4A', '#0D9488', '#5EEAD4'], // Teal
     hasLogo: true,
-    logoVariant: 'wellness',
     hasAvatar: false,
   },
 ];
@@ -173,8 +140,8 @@ const SCENE_COUNT = SCENE_MS.length;
 const RESTING_SCENE = 10; // fully built card, before the publish overlay
 
 // The finished card is taller than the phone screen, exactly as a real card
-// is. Later scenes pan down it so the footer features (maps, address,
-// subscribe, branding) are actually seen rather than clipped. How far to pan
+// is. Later scenes pan down it so the footer features (address, subscribe,
+// branding) are actually seen rather than clipped. How far to pan
 // is measured at runtime rather than hardcoded — the overflow depends on the
 // persona (only two of three have an avatar, and the About text wraps to
 // different heights), so a fixed pixel value over-scrolls some cards and
@@ -346,7 +313,13 @@ const CardScreen = ({ scene, active }) => {
         {scene === 3 && (
           <motion.div key="s3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col items-center justify-center">
             <div className="text-[10px] font-bold text-gray-400 tracking-widest mb-8">AI COLOR EXTRACTION</div>
-            {active.hasLogo && <LogoMark variant={active.logoVariant} className="w-14 h-14 mb-8 text-gray-300" />}
+            {/* Shown on a dark tile: the mark is white-stroked and would be
+                invisible against this builder screen's white background. */}
+            {active.hasLogo && (
+              <div className="w-14 h-14 mb-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: c[0] }}>
+                <BrandLogo className="h-8 w-auto object-contain" />
+              </div>
+            )}
             <div className="flex gap-3">
               {c.map((col, i) => (
                 <motion.div key={col} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: i * 0.1 }}
@@ -358,38 +331,39 @@ const CardScreen = ({ scene, active }) => {
         )}
 
         {building && (
-          <motion.div key="card" ref={viewportRef} className="h-full w-full">
+          <motion.div key="card" ref={viewportRef} className="h-full w-full" style={{ backgroundColor: c[0] }}>
             <motion.div
               ref={contentRef}
               animate={{ y: -scrollY }}
               transition={{ duration: 0.6, ease: 'easeInOut' }}
               className="flex flex-col items-center text-center"
+              style={{ backgroundColor: c[0] }}
             >
-              {/* Logo band */}
-              <div className="w-full h-[74px] flex items-center justify-center shrink-0" style={{ backgroundColor: c[0] }}>
+              {/* One continuous surface — the card used to be a dark band over
+                  a white body, i.e. two backgrounds stacked. */}
+              <div className="w-full pt-5 pb-1 flex items-center justify-center shrink-0">
                 {active.hasLogo && scene >= 5 && (
                   <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                    <LogoMark variant={active.logoVariant} className="w-11 h-11" style={{ color: '#fff' }} />
+                    <BrandLogo className="h-9 w-auto object-contain" />
                   </motion.div>
                 )}
               </div>
 
               <div className="w-full px-4 pb-4 flex flex-col items-center">
-                {/* Profile photo, overlapping the band as the real card does */}
                 {active.hasAvatar && scene >= 4 && (
-                  <motion.div initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="-mt-9 mb-2">
-                    <AvatarMark colors={c} className="w-[68px] h-[68px] rounded-full border-4 border-white shadow-lg" />
+                  <motion.div initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mb-2 mt-1">
+                    <AvatarMark colors={c} className="w-[62px] h-[62px] rounded-full shadow-lg" />
                   </motion.div>
                 )}
-                {!active.hasAvatar && <div className="h-3" />}
+                {!active.hasAvatar && <div className="h-2" />}
 
                 {/* Name / designation / company / tagline */}
                 {scene >= 5 && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-1">
-                    <h2 className="text-[19px] font-bold text-gray-900 leading-tight">{active.name}</h2>
-                    <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-gray-400 mt-0.5">{active.title}</p>
-                    <p className="text-[11px] font-semibold text-gray-600 mt-0.5">{active.company}</p>
-                    <p className="text-[9px] text-gray-400 mt-1.5 px-2 leading-relaxed italic">"{active.tagline}"</p>
+                    <h2 className="text-[19px] font-bold text-white leading-tight">{active.name}</h2>
+                    <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-white/55 mt-0.5">{active.title}</p>
+                    <p className="text-[11px] font-semibold text-white/85 mt-0.5">{active.company}</p>
+                    <p className="text-[9px] text-white/50 mt-1.5 px-2 leading-relaxed italic">"{active.tagline}"</p>
                   </motion.div>
                 )}
 
@@ -406,10 +380,11 @@ const CardScreen = ({ scene, active }) => {
                   </div>
                 )}
 
-                {/* Save Contact */}
+                {/* Save Contact — the primary action, so it inverts against
+                    the dark surface instead of blending into it. */}
                 {scene >= 6 && (
                   <motion.div initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.24 }}
-                    className="w-full mt-1.5 py-2.5 rounded-lg flex items-center justify-center gap-1.5 text-[10px] font-bold shadow-sm text-white" style={{ backgroundColor: c[0] }}>
+                    className="w-full mt-1.5 py-2.5 rounded-lg flex items-center justify-center gap-1.5 text-[10px] font-bold shadow-sm bg-white" style={{ color: c[0] }}>
                     <ActionIcon type="save" /> Save Contact
                   </motion.div>
                 )}
@@ -417,7 +392,7 @@ const CardScreen = ({ scene, active }) => {
                 {/* Website */}
                 {scene >= 7 && (
                   <motion.div initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-                    className="w-full mt-1.5 py-2.5 rounded-lg text-[10px] font-bold shadow-sm text-white" style={{ backgroundColor: c[1] }}>
+                    className="w-full mt-1.5 py-2.5 rounded-lg text-[10px] font-bold border border-white/25 text-white/90">
                     Website
                   </motion.div>
                 )}
@@ -425,7 +400,7 @@ const CardScreen = ({ scene, active }) => {
                 {/* About */}
                 {scene >= 7 && (
                   <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
-                    className="text-[8.5px] text-gray-500 leading-relaxed mt-3 px-1">
+                    className="text-[8.5px] text-white/55 leading-relaxed mt-3 px-1">
                     {active.about}
                   </motion.p>
                 )}
@@ -435,24 +410,17 @@ const CardScreen = ({ scene, active }) => {
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center gap-3 mt-3 flex-wrap">
                     {SOCIALS.map((p, i) => (
                       <motion.span key={p} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: i * 0.05 }}
-                        className="inline-flex" style={{ color: c[0] }}>
+                        className="inline-flex text-white/85">
                         <SocialIcon platform={p} />
                       </motion.span>
                     ))}
                   </motion.div>
                 )}
 
-                {/* Google Maps */}
-                {scene >= 9 && (
-                  <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="w-full mt-3">
-                    <MapsCard colors={c} name={active.company} />
-                  </motion.div>
-                )}
-
                 {/* Address */}
                 {scene >= 9 && (
-                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
-                    className="text-[8.5px] text-gray-400 mt-2">
+                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="text-[8.5px] text-white/45 mt-3">
                     {active.location}
                   </motion.p>
                 )}
@@ -460,8 +428,8 @@ const CardScreen = ({ scene, active }) => {
                 {/* Subscribe + branding */}
                 {scene >= 10 && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full mt-2.5 flex flex-col items-center gap-2">
-                    <span className="text-[9px] font-bold" style={{ color: c[1] }}>Subscribe</span>
-                    <span className="text-[7px] text-gray-300 tracking-wide">Powered by Brill Brains Consultants</span>
+                    <span className="text-[9px] font-bold" style={{ color: c[2] }}>Subscribe</span>
+                    <span className="text-[7px] text-white/30 tracking-wide">Powered by Brill Brains Consultants</span>
                   </motion.div>
                 )}
               </div>
