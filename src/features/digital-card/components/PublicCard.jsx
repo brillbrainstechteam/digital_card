@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { fetchPublicCard, trackCardView } from '../services/api'
 import { CardPreview } from './CardPreview'
 import { defaultProfile, getVisibilityFlags } from '../data'
 import { pageBackgroundVariables } from '../theme'
-import { QRCode, withDynamicQrData } from '../../qr'
 
 function profileFromCard(card) {
   const cd = card.card_data || {}
@@ -27,7 +26,6 @@ function profileFromCard(card) {
 export function PublicCard() {
   const { slug } = useParams()
   const [profile, setProfile] = useState(null)
-  const [qr, setQr] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -38,7 +36,6 @@ export function PublicCard() {
       .then((card) => {
         const profile = profileFromCard(card)
         setProfile(profile)
-        setQr(card.qr_settings ? { slug: card.qr_slug, settings: card.qr_settings } : null)
         trackCardView(slug)
         const name = profile.brandName || profile.personName || profile.companyName
         if (name) document.title = `${name} · Digital Card`
@@ -47,15 +44,6 @@ export function PublicCard() {
       .finally(() => setLoading(false))
     return () => { document.title = 'Brill Brains Digital Card Studio' }
   }, [slug])
-
-  // vCard payloads are scanned directly with no network round-trip, so they
-  // always encode the raw contact data. Every other destination type routes
-  // through the tracking redirect once a slug exists, so scans show up in
-  // QR analytics before continuing on to the card / phone / maps / etc.
-  const qrDisplaySettings = useMemo(() => {
-    if (!qr?.settings) return null
-    return withDynamicQrData(qr)
-  }, [qr])
 
   if (loading) {
     return (
@@ -92,12 +80,6 @@ export function PublicCard() {
     <div style={pageBackgroundVariables(profile.palette, profile.theme)}>
       <main className="public-view">
         <CardPreview profile={profile} immersive trackingSlug={slug} showCreateCta />
-        {qrDisplaySettings && (
-          <div className="public-view-qr-badge" aria-label="Scan QR code">
-            <span className="public-view-qr-label">Scan to save contact</span>
-            <QRCode settings={qrDisplaySettings} size={160} lockable />
-          </div>
-        )}
       </main>
     </div>
   )
