@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 export function Footer() {
   return (
     <footer className="site-footer">
@@ -19,17 +21,16 @@ export function Footer() {
           <div>
             <h4>Company</h4>
             <ul>
-              <li>About</li>
-              <li>Contact</li>
-              <li>Careers</li>
+              <li><a href="https://brillbrainsconsultants.com" target="_blank" rel="noreferrer">About</a></li>
+              <li><a href="mailto:support@brillbrainsconsultants.com">Contact</a></li>
             </ul>
           </div>
           <div>
-            <h4>Support</h4>
+            <h4>Legal</h4>
             <ul>
-              <li>Help Center</li>
-              <li>Privacy Policy</li>
-              <li>Terms of Service</li>
+              <li><a href="mailto:support@brillbrainsconsultants.com">Help Center</a></li>
+              <li><Link to="/privacy-policy">Privacy Policy</Link></li>
+              <li><Link to="/refund-policy">Refund &amp; Cancellation</Link></li>
             </ul>
           </div>
         </div>

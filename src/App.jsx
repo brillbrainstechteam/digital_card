@@ -25,6 +25,8 @@ import { QrCodesListPage } from './features/qr/generator/QrCodesListPage'
 import { QrAnalyticsPage } from './features/qr/generator/QrAnalyticsPage'
 import { QrScanRedirect } from './features/qr'
 import { AdminPanel } from './features/admin/AdminPanel'
+import { PrivacyPolicyPage } from './components/PrivacyPolicyPage'
+import { RefundPolicyPage } from './components/RefundPolicyPage'
 
 function GuestRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
@@ -54,6 +56,8 @@ function App() {
               <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
               <Route path="/studio/:cardId" element={<ProtectedRoute><StudioPage /></ProtectedRoute>} />
               <Route path="/create" element={<CreateCardPage />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+              <Route path="/refund-policy" element={<RefundPolicyPage />} />
             </Route>
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/admin/*" element={<AdminPanel />} />
