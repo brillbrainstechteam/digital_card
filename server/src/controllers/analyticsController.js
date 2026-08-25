@@ -1,5 +1,13 @@
 const analyticsService = require('../services/analyticsService')
 
+// `parseInt` alone let ?limit=100000 dump an entire table in one request and
+// ?limit=abc reach SQL as NaN, which threw a 500.
+function clampInt(value, fallback, min, max) {
+  const n = parseInt(value, 10)
+  if (Number.isNaN(n)) return fallback
+  return Math.min(Math.max(n, min), max)
+}
+
 async function trackView(req, res, next) {
   try {
     const result = await analyticsService.trackView(req.params.slug)
@@ -35,8 +43,8 @@ async function getSubscribers(req, res, next) {
     const { search = '', page = 1, limit = 10 } = req.query
     const result = await analyticsService.getSubscribers(req.user.id, req.params.cardId, {
       search,
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
+      page: clampInt(page, 1, 1, 10000),
+      limit: clampInt(limit, 10, 1, 100),
     })
     res.json({ success: true, data: result })
   } catch (err) { next(err) }
@@ -55,8 +63,8 @@ async function getLeads(req, res, next) {
     const { search = '', page = 1, limit = 10, dateRange = '', dateFrom = '', dateTo = '', sortBy = 'newest' } = req.query
     const result = await analyticsService.getLeads(req.user.id, req.params.cardId, {
       search,
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
+      page: clampInt(page, 1, 1, 10000),
+      limit: clampInt(limit, 10, 1, 100),
       dateRange,
       dateFrom,
       dateTo,
@@ -71,8 +79,8 @@ async function getActivity(req, res, next) {
     const { search = '', page = 1, limit = 20, dateRange = '', dateFrom = '', dateTo = '', eventType = '' } = req.query
     const result = await analyticsService.getActivity(req.user.id, req.params.cardId, {
       search,
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
+      page: clampInt(page, 1, 1, 10000),
+      limit: clampInt(limit, 10, 1, 100),
       dateRange,
       dateFrom,
       dateTo,

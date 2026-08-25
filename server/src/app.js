@@ -16,6 +16,7 @@ const qrRoutes = require('./routes/qrRoutes')
 const qrPublicRoutes = require('./routes/qrPublicRoutes')
 const adminRoutes = require('./routes/adminRoutes')
 const paymentRoutes = require('./routes/paymentRoutes')
+const uploadRoutes = require('./routes/uploadRoutes')
 const publicCardService = require('./services/publicCardService')
 
 const app = express()
@@ -24,7 +25,12 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://checkout.razorpay.com", "https://cdn.razorpay.com", "https://*.razorpay.com"],
+      // 'unsafe-eval' removed: the production bundle contains no eval() or
+      // new Function(), and leaving it on turned any injected string into
+      // executable code. 'unsafe-inline' stays only because Razorpay's
+      // checkout injects inline script; scriptSrcElem below is the narrower
+      // policy modern browsers actually enforce for <script> elements.
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://checkout.razorpay.com", "https://cdn.razorpay.com", "https://*.razorpay.com"],
       scriptSrcElem: ["'self'", "'unsafe-inline'", "https://checkout.razorpay.com", "https://cdn.razorpay.com", "https://*.razorpay.com"],
       frameSrc: ["'self'", "https://api.razorpay.com", "https://*.razorpay.com"],
       // Missing api.cloudinary.com silently broke every logo/cover-photo
@@ -111,6 +117,30 @@ app.use('/api/admin/login', makeAuthLimiter())
 app.use('/api/public/cards/:slug/leads', publicWriteLimiter)
 app.use('/api/public/cards/:slug/subscribe', publicWriteLimiter)
 
+// View/click tracking is also an unauthenticated write. It was covered only by
+// the very generous global limiter, so anyone could inflate a card's analytics
+// (or a competitor's) more or less at will. Higher ceiling than leads because
+// one genuine visitor legitimately fires several of these per page.
+const trackingLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests. Please try again later.' },
+})
+// Minting upload signatures is cheap for us but expensive downstream, so cap it.
+const uploadSignLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many upload requests. Please try again later.' },
+})
+app.use('/api/upload/sign', uploadSignLimiter)
+
+app.use('/api/public/cards/:slug/view', trackingLimiter)
+app.use('/api/public/cards/:slug/click', trackingLimiter)
+
 if (env.nodeEnv === 'development') {
   app.use(morgan('dev'))
 }
@@ -125,6 +155,7 @@ app.use('/api/public/qr', qrPublicRoutes)
 app.use('/api/webhooks', webhookRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/payment', paymentRoutes)
+app.use('/api/upload', uploadRoutes)
 
 const BOT_USER_AGENT = /facebookexternalhit|WhatsApp|Twitterbot|LinkedInBot|Slackbot|TelegramBot|Discordbot|Pinterest|redditbot|Googlebot|bingbot/i
 const RESERVED_SLUGS = new Set(['admin', 'login', 'signup', 'dashboard', 'create', 'qr-studio', 'analytics', 'activity', 'studio', 'settings', 'cart', 'checkout', 'preview', 'q', 'api'])

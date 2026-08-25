@@ -109,16 +109,10 @@ async function updateCard(cardId, userId, updates) {
     }
     fields.push(`status = $${idx++}`)
     values.push(updates.status)
-    // When re-publishing, clear subscription cancellation state
-    if (updates.status === 'published') {
-      fields.push(`subscription_cancelled = $${idx++}`)
-      values.push(false)
-      fields.push(`subscription_expires_at = $${idx++}`)
-      // New billing period: 30 days from now
-      const expires = new Date()
-      expires.setDate(expires.getDate() + 30)
-      values.push(expires.toISOString())
-    }
+    // NOTE: there was a `status === 'published'` branch here granting a fresh
+    // 30-day billing period. It was unreachable (ALLOWED_STATUSES rejects
+    // 'published' above) but would have become a free-publish path the moment
+    // anyone widened that list. Publishing belongs to paymentService only.
   }
 
   if (fields.length === 0) {
@@ -157,21 +151,39 @@ async function cancelSubscription(cardId, userId) {
   return result.rows[0]
 }
 
+/**
+ * Undo a cancellation *within the period already paid for*.
+ *
+ * This used to set status='published' and grant a fresh 30 days to any card
+ * that was published OR suspended, with no payment involved. That made it a
+ * free-renewal endpoint, and it also let a user overturn an admin suspension
+ * by republishing themselves. Now it only clears the cancellation flag, never
+ * extends the expiry, and refuses anything that would need a new payment.
+ */
 async function resubscribe(cardId, userId) {
   const card = await getCardById(cardId, userId)
 
-  if (card.status !== 'published' && card.status !== 'suspended') {
-    throw new AppError('Card must be published or suspended to re-subscribe', 400)
+  // Admin moderation is not the user's to undo.
+  if (card.status === 'suspended') {
+    throw new AppError('This card has been suspended. Please contact support.', 403)
+  }
+  if (card.status !== 'published') {
+    throw new AppError('Only a published card can be resumed. Please checkout to publish.', 400)
+  }
+  if (!card.subscription_cancelled) {
+    return card // already active — nothing to do
   }
 
-  const expires = new Date()
-  expires.setDate(expires.getDate() + 30)
+  const expiry = card.subscription_expires_at ? new Date(card.subscription_expires_at) : null
+  if (!expiry || expiry <= new Date()) {
+    throw new AppError('This billing period has ended. Please checkout to renew.', 402)
+  }
 
+  // Keep the existing expiry — resuming is not a renewal.
   const result = await pool.query(
-    `UPDATE cards SET status = 'published', subscription_cancelled = FALSE,
-     subscription_expires_at = $1, updated_at = NOW()
-     WHERE id = $2 RETURNING *`,
-    [expires.toISOString(), cardId]
+    `UPDATE cards SET subscription_cancelled = FALSE, updated_at = NOW()
+     WHERE id = $1 AND user_id = $2 RETURNING *`,
+    [cardId, userId]
   )
   return result.rows[0]
 }

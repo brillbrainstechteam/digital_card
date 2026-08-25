@@ -86,10 +86,11 @@ function ChangePasswordModal({ onCancel, onSave, busy, error }) {
 function DeleteAccountModal({ onCancel, onConfirm, busy, error }) {
   const [reason, setReason] = useState('')
   const [details, setDetails] = useState('')
+  const [password, setPassword] = useState('')
 
   return (
     <div className="confirm-overlay">
-      <form className="confirm-dialog account-delete-dialog" onSubmit={(event) => { event.preventDefault(); onConfirm({ reason, details }) }}>
+      <form className="confirm-dialog account-delete-dialog" onSubmit={(event) => { event.preventDefault(); onConfirm({ reason, details, password }) }}>
         <h2>Delete Account?</h2>
         <p>
           This action is permanent.
@@ -112,10 +113,24 @@ function DeleteAccountModal({ onCancel, onConfirm, busy, error }) {
           <span>Anything else we should know? <small>Optional</small></span>
           <textarea value={details} onChange={(event) => setDetails(event.target.value)} maxLength={1000} rows={3} placeholder="Your feedback will help us improve." />
         </label>
+        {/* Re-authentication. Deletion is irreversible and wipes every card,
+            QR code and captured lead, so a stolen session token must not be
+            enough on its own to trigger it. */}
+        <label className="field deletion-feedback-field">
+          <span>Confirm your password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
+            placeholder="Your account password"
+            required
+          />
+        </label>
         {error && <p className="modal-error">{error}</p>}
         <div className="confirm-actions">
           <button className="secondary-button" type="button" onClick={onCancel} disabled={busy}>Cancel</button>
-          <button className="danger-button" type="submit" disabled={busy || !reason}>
+          <button className="danger-button" type="submit" disabled={busy || !reason || !password}>
             {busy ? 'Deleting...' : 'Delete Account'}
           </button>
         </div>

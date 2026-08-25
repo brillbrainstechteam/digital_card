@@ -65,6 +65,7 @@ async function deleteAccount(req, res, next) {
     await authService.deleteAccount(req.user.id, {
       reason: req.body.reason,
       details: req.body.details || '',
+      password: req.body.password,
     })
     res.json({ success: true, message: 'Account deleted successfully' })
   } catch (err) {

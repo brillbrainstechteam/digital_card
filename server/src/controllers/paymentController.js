@@ -28,8 +28,12 @@ async function createOrder(req, res, next) {
 
 async function verifyPayment(req, res, next) {
   try {
-    const userId = req.user.id
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, cardIds = [], qrIds = [] } = req.body
+    // cardIds/qrIds are deliberately NOT read from the body. The Razorpay
+    // signature covers only `order_id|payment_id`, so anything else the client
+    // sends is unauthenticated — previously a ₹1 order could be redeemed
+    // against every card and QR the user owned. fulfillOrder reads the item
+    // list from the payment_orders row written when the order was created.
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({ success: false, message: 'Missing payment fields' })
@@ -40,9 +44,14 @@ async function verifyPayment(req, res, next) {
       return res.status(400).json({ success: false, message: 'Payment verification failed' })
     }
 
-    await paymentService.fulfillOrder(userId, razorpay_order_id, razorpay_payment_id, cardIds, qrIds)
+    const result = await paymentService.fulfillOrder(razorpay_order_id, razorpay_payment_id)
 
-    res.json({ success: true, message: 'Payment verified and products activated' })
+    res.json({
+      success: true,
+      message: result.alreadyFulfilled
+        ? 'This payment was already processed'
+        : 'Payment verified and products activated',
+    })
   } catch (err) {
     next(err)
   }
@@ -58,14 +67,17 @@ async function webhook(req, res, next) {
       return res.status(400).json({ success: false, message: 'Invalid webhook signature' })
     }
 
-    const { event, payload } = req.body
+    // paymentRoutes' raw-body shim has already parsed req.body from req.rawBody.
+    const { event, payload } = req.body || {}
+
     if (event === 'payment.captured') {
       const payment = payload?.payment?.entity
-      if (payment?.notes) {
-        const userId = parseInt(payment.notes.userId, 10)
-        const cardIds = payment.notes.cardIds ? payment.notes.cardIds.split(',').filter(Boolean) : []
-        const qrIds   = payment.notes.qrIds   ? payment.notes.qrIds.split(',').filter(Boolean)   : []
-        await paymentService.fulfillOrder(userId, payment.order_id, payment.id, cardIds, qrIds)
+      // Fulfilment is keyed on the order id alone. The old code did
+      // parseInt() on notes.userId — a UUID — which yielded a truncated
+      // integer and made every webhook fulfilment fail, and it trusted the
+      // notes for the item list rather than our own order record.
+      if (payment?.order_id) {
+        await paymentService.fulfillOrder(payment.order_id, payment.id)
       }
     }
 

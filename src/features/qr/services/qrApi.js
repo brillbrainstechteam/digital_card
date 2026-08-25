@@ -30,11 +30,6 @@ export async function publishStandaloneQr(settings) {
   return data.data.qr
 }
 
-export async function activateQrPurchase(qrId) {
-  const { data } = await client.patch(`/qr/${qrId}/activate`)
-  return data.data.qr
-}
-
 export async function updateQrSlug(qrId, slug) {
   const { data } = await client.patch(`/qr/${qrId}/slug`, { slug })
   return data.data.qr

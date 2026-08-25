@@ -28,13 +28,6 @@ async function createStandaloneQr(req, res, next) {
   } catch (err) { next(err) }
 }
 
-async function activatePurchase(req, res, next) {
-  try {
-    const qr = await qrService.activateQrPurchase(req.user.id, req.params.qrId)
-    res.json({ success: true, message: 'QR code activated', data: { qr } })
-  } catch (err) { next(err) }
-}
-
 async function updateSlug(req, res, next) {
   try {
     const qr = await qrService.updateQrSlug(req.user.id, req.params.qrId, req.body.slug)
@@ -110,6 +103,11 @@ async function serveVcard(req, res, next) {
     if (destinationType !== 'saveContact') {
       return res.status(400).json({ success: false, message: 'Not a contact QR code' })
     }
+    // resolveScan gates on `purchased`; this endpoint did not, so an unpaid
+    // contact QR still handed out its vCard to anyone who hit the URL.
+    if (!qr.settings?.purchased) {
+      return res.status(402).json({ success: false, message: 'This QR code is not active yet' })
+    }
     const fields = qr.settings?.destinationFields || {}
     const vcfContent = qrService.buildDestinationValue('saveContact', fields)
     const name = fields.fullName || fields.companyName || 'contact'
@@ -180,4 +178,4 @@ async function resolveScan(req, res, next) {
   } catch (err) { next(err) }
 }
 
-module.exports = { getCardQr, listQrs, upsertCardQr, createStandaloneQr, activatePurchase, updateSlug, updateSettings, updateDestination, updateLifecycle, deleteQr, deleteCardQr, getAnalytics, getCardAnalytics, getOverallAnalytics, resolveScan, serveVcard }
+module.exports = { getCardQr, listQrs, upsertCardQr, createStandaloneQr, updateSlug, updateSettings, updateDestination, updateLifecycle, deleteQr, deleteCardQr, getAnalytics, getCardAnalytics, getOverallAnalytics, resolveScan, serveVcard }

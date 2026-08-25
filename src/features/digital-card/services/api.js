@@ -97,13 +97,42 @@ export async function fetchAnalyticsSubscribers(cardId, { search = '', page = 1,
   return data.data
 }
 
+const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'image/gif']
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024 // 5 MB
+
 export async function uploadImage(file, onProgress) {
+  // Client-side gate. Not a security boundary on its own — anyone can call
+  // Cloudinary directly — but it stops honest mistakes cheaply and keeps the
+  // signed request below well-formed.
+  if (!file) throw new Error('No file selected')
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    throw new Error('Please choose a PNG, JPG, WEBP, GIF or SVG image')
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    throw new Error('Image must be smaller than 5 MB')
+  }
+
   const form = new FormData()
   form.append('file', file)
-  form.append('upload_preset', import.meta.env.VITE_CLOUDINARY_PRESET || 'digital_card_logos')
-  form.append('folder', 'digital-cards')
 
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD || 'demo'
+  // Prefer a server-issued signature: uploads then require a logged-in
+  // session, and the preset in the bundle stops being a blank cheque against
+  // our Cloudinary account. Falls back to the unsigned preset when the server
+  // has no Cloudinary credentials configured, so uploads keep working.
+  let cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD || 'demo'
+  try {
+    const { data } = await client.post('/upload/sign')
+    const sig = data.data
+    form.append('api_key', sig.apiKey)
+    form.append('timestamp', sig.timestamp)
+    form.append('signature', sig.signature)
+    form.append('folder', sig.folder)
+    if (sig.cloudName) cloudName = sig.cloudName
+  } catch {
+    form.append('upload_preset', import.meta.env.VITE_CLOUDINARY_PRESET || 'digital_card_logos')
+    form.append('folder', 'digital-cards')
+  }
+
   const url = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`
 
   if (onProgress) {

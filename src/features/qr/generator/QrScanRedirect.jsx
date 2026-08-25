@@ -5,6 +5,20 @@ import { LockIcon } from '../components/QrLockStatus'
 import '../qr-studio.css'
 import '../components/qr-lock-status.css'
 
+const SAFE_REDIRECT_SCHEMES = ['http:', 'https:', 'mailto:', 'tel:', 'sms:', 'geo:', 'upi:']
+
+function isSafeRedirect(target) {
+  const value = String(target || '')
+  if (!value) return false
+  // Same-origin relative path (e.g. /card/acme-1a2b) — never a scheme.
+  if (value.startsWith('/') && !value.startsWith('//')) return true
+  try {
+    return SAFE_REDIRECT_SCHEMES.includes(new URL(value, window.location.origin).protocol.toLowerCase())
+  } catch {
+    return false
+  }
+}
+
 export function QrScanRedirect() {
   const { slug } = useParams()
   const [message, setMessage] = useState('Redirecting...')
@@ -34,6 +48,14 @@ export function QrScanRedirect() {
         }
         if (destinationType === 'wifi') {
           setWifi(destinationFields)
+          return
+        }
+        // The server sanitises destinations, but this is the sink that would
+        // actually execute a "javascript:" payload, so re-check here rather
+        // than trusting the response. Relative paths (our own card URLs) are
+        // allowed through unchanged.
+        if (!isSafeRedirect(finalDestination)) {
+          setMessage('This QR code points somewhere we can’t open safely.')
           return
         }
         window.location.replace(finalDestination)

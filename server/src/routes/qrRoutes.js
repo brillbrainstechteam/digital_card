@@ -6,7 +6,6 @@ const router = Router()
 
 router.get('/', authenticate, qrController.listQrs)
 router.post('/', authenticate, qrController.createStandaloneQr)
-router.patch('/:qrId/activate', authenticate, qrController.activatePurchase)
 router.patch('/:qrId/slug', authenticate, qrController.updateSlug)
 router.patch('/:qrId/settings', authenticate, qrController.updateSettings)
 router.patch('/:qrId/destination', authenticate, qrController.updateDestination)

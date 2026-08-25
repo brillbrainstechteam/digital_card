@@ -11,7 +11,10 @@ async function resetUserPassword(userId) {
   const salt = await bcrypt.genSalt(12)
   const password_hash = await bcrypt.hash(tempPassword, salt)
   const result = await pool.query(
-    'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING id, email',
+    // credentials_changed_at revokes every JWT already issued for this user.
+    // Without it, resetting the password of a compromised account left the
+    // attacker's existing token working for the rest of its 7-day life.
+    'UPDATE users SET password_hash = $1, credentials_changed_at = NOW(), updated_at = NOW() WHERE id = $2 RETURNING id, email',
     [password_hash, userId]
   )
   if (!result.rows[0]) throw new Error('User not found')
@@ -40,6 +43,31 @@ function readWindow(row) {
     prev7: parseInt(row.prev7, 10),
     last30: parseInt(row.last30, 10),
   }
+}
+
+
+// Admin is a single shared credential, so at minimum every destructive action
+// it takes must be attributable and reviewable after the fact. Failures here
+// are logged but never block the action itself.
+async function recordAdminAction({ actor, action, targetType, targetId, detail, ip }) {
+  try {
+    await pool.query(
+      `INSERT INTO admin_audit_log (actor, action, target_type, target_id, detail, ip)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [actor || 'unknown', action, targetType || null, targetId ? String(targetId) : null,
+       detail ? JSON.stringify(detail) : null, ip || null]
+    )
+  } catch (err) {
+    console.error('[admin audit]', err.message)
+  }
+}
+
+async function getAdminAuditLog(limit = 200) {
+  const result = await pool.query(
+    'SELECT actor, action, target_type, target_id, detail, ip, created_at FROM admin_audit_log ORDER BY created_at DESC LIMIT $1',
+    [Math.min(Math.max(parseInt(limit, 10) || 200, 1), 500)]
+  )
+  return result.rows
 }
 
 async function getStats() {
@@ -319,4 +347,4 @@ async function getRecentActivity() {
   return result.rows
 }
 
-module.exports = { getStats, getInsights, getUserDetail, getAllUsers, getAllCards, getAllQrCodes, adminUpdateCardStatus, adminUpdateQrLifecycle, adminDeleteCard, adminDeleteUser, getRecentActivity, getSubscriptionStats, getAllSubscriptions, resetUserPassword }
+module.exports = { recordAdminAction, getAdminAuditLog, getStats, getInsights, getUserDetail, getAllUsers, getAllCards, getAllQrCodes, adminUpdateCardStatus, adminUpdateQrLifecycle, adminDeleteCard, adminDeleteUser, getRecentActivity, getSubscriptionStats, getAllSubscriptions, resetUserPassword }

@@ -20,6 +20,11 @@ const env = {
     password: process.env.ADMIN_PASSWORD || 'admin@123',
     secret: process.env.ADMIN_JWT_SECRET || 'admin-secret-change-in-prod',
   },
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || process.env.VITE_CLOUDINARY_CLOUD || '',
+    apiKey: process.env.CLOUDINARY_API_KEY || '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+  },
   razorpay: {
     keyId: process.env.RAZORPAY_KEY_ID || '',
     keySecret: process.env.RAZORPAY_KEY_SECRET || '',

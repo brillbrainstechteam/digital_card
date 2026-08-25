@@ -8,10 +8,13 @@ function generateSlug() {
   return crypto.randomBytes(5).toString('hex')
 }
 
+// Only ever produces an http(s) URL. This previously returned ANY value that
+// already carried a scheme, so a "website" destination of "javascript:alert(1)"
+// survived intact all the way to the scan page's window.location.replace().
 function ensureUrlScheme(value) {
-  const trimmed = String(value || '').trim()
-  if (!trimmed) return ''
-  return /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`
+  const sanitized = sanitizeCustomValue(value)
+  if (!sanitized) return ''
+  return /^https?:/i.test(sanitized) ? sanitized : ''
 }
 
 function onlyDigits(value) {
@@ -62,9 +65,35 @@ function nameParts(fullName) {
   return { display, first: parts.slice(0, -2).join(' '), middle: parts[parts.length - 2], last: parts[parts.length - 1] }
 }
 
+// Mirrors sanitizeCustomValue in src/features/qr/utils/destinations.js. The
+// server is what answers /api/public/qr/:slug, so the allowlist has to exist
+// here too -- fixing only the client would leave the redirect wide open to a
+// direct API call.
+const ALLOWED_CUSTOM_SCHEMES = ['http:', 'https:', 'mailto:', 'tel:', 'sms:', 'geo:', 'upi:']
+
+function sanitizeCustomValue(raw) {
+  const value = String(raw || '').trim()
+  if (!value) return ''
+  const cleaned = Array.from(value)
+    .filter((ch) => {
+      const code = ch.charCodeAt(0)
+      return code > 31 && code !== 127
+    })
+    .join('')
+  const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(cleaned)
+  try {
+    const url = new URL(hasScheme ? cleaned : `https://${cleaned}`)
+    if (!ALLOWED_CUSTOM_SCHEMES.includes(url.protocol.toLowerCase())) return ''
+    return url.toString()
+  } catch {
+    return ''
+  }
+}
+
 function buildDestinationValue(type, fields = {}, cardSlug = null) {
   switch (type) {
     case 'website':
+    case 'catalogue':
       return ensureUrlScheme(fields.url)
     case 'digitalCard':
       return ensureUrlScheme(fields.url) || (cardSlug ? `/card/${cardSlug}` : '')
@@ -147,7 +176,7 @@ function buildDestinationValue(type, fields = {}, cardSlug = null) {
       lines.push('END:VCARD')
       return lines.join('\r\n')
     }
-    case 'custom': return String(fields.value || '').trim()
+    case 'custom': return sanitizeCustomValue(fields.value)
     default: return ''
   }
 }
@@ -232,23 +261,6 @@ async function createStandaloneQr(userId, settings) {
   return result.rows[0]
 }
 
-async function activateQrPurchase(userId, qrId) {
-  const owned = await pool.query(
-    'SELECT settings FROM qr_codes WHERE id = $1 AND user_id = $2',
-    [qrId, userId]
-  )
-  if (owned.rows.length === 0) throw new AppError('QR code not found', 404)
-  const settings = { ...(owned.rows[0].settings || {}), purchased: true }
-  const result = await pool.query(
-    `UPDATE qr_codes
-     SET settings = $1, updated_at = NOW()
-     WHERE id = $2 AND user_id = $3
-     RETURNING *`,
-    [JSON.stringify(settings), qrId, userId]
-  )
-  return result.rows[0]
-}
-
 function getQrLifecycleStatus(qr) {
   return qr?.settings?.lifecycleStatus === 'archived' ? 'archived' : 'active'
 }
@@ -326,7 +338,7 @@ async function updateQrSettings(userId, qrId, settingsPatch) {
 }
 
 async function updateQrDestination(userId, qrId, destinationType, destinationFields) {
-  const allowedTypes = new Set(['website', 'digitalCard', 'phone', 'email', 'whatsapp', 'wifi', 'maps', 'saveContact', 'custom'])
+  const allowedTypes = new Set(['website', 'catalogue', 'digitalCard', 'phone', 'email', 'whatsapp', 'wifi', 'maps', 'saveContact', 'custom'])
   if (!allowedTypes.has(destinationType)) throw new AppError('Invalid QR destination type', 400)
   const owned = await verifyQrOwnership(userId, qrId)
   // See updateQrSettings above — a static QR has no redirect to re-point,
@@ -563,7 +575,6 @@ module.exports = {
   listUserQrs,
   upsertCardQr,
   createStandaloneQr,
-  activateQrPurchase,
   updateQrSlug,
   updateQrSettings,
   updateQrDestination,

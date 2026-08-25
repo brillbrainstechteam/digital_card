@@ -31,20 +31,21 @@ async function signup({ name, business_name, email, phone, password }) {
   return { user, token }
 }
 
+// A bcrypt hash of a value nobody can supply. Compared against when the
+// email does not exist so that both branches do the same ~100ms of work —
+// otherwise the response time alone reveals which emails are registered.
+const DUMMY_HASH = '$2a$12$C6UzMDM.H6dfI/f/IKcEe.7Ku2Vd0/6ijHqM1nQvJPvL0mFO5r0Iu'
+
 async function login({ email, password }) {
   const result = await pool.query(
     'SELECT id, name, business_name, email, phone, password_hash, is_verified, created_at FROM users WHERE email = $1',
     [email]
   )
 
-  if (result.rows.length === 0) {
-    throw new AppError('Invalid email or password', 401)
-  }
+  const user = result.rows[0] || null
+  const isMatch = await bcrypt.compare(password, user ? user.password_hash : DUMMY_HASH)
 
-  const user = result.rows[0]
-  const isMatch = await bcrypt.compare(password, user.password_hash)
-
-  if (!isMatch) {
+  if (!user || !isMatch) {
     throw new AppError('Invalid email or password', 401)
   }
 
@@ -76,7 +77,11 @@ async function changePassword(userId, { currentPassword, newPassword }) {
 
   const salt = await bcrypt.genSalt(12)
   const password_hash = await bcrypt.hash(newPassword, salt)
-  await pool.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [password_hash, userId])
+  // Bumping credentials_changed_at invalidates every JWT issued before now.
+  await pool.query(
+    'UPDATE users SET password_hash = $1, credentials_changed_at = NOW(), updated_at = NOW() WHERE id = $2',
+    [password_hash, userId]
+  )
 }
 
 async function updateProfile(userId, { name, business_name, phone }) {
@@ -90,20 +95,20 @@ async function updateProfile(userId, { name, business_name, phone }) {
   return result.rows[0]
 }
 
-async function deleteAccount(userId, { reason, details }) {
+async function deleteAccount(userId, { reason, details, password }) {
+  // Deletion is irreversible and destroys every card, QR code and lead on the
+  // account. A stolen token alone must not be enough to trigger it.
+  const cred = await pool.query('SELECT password_hash FROM users WHERE id = $1', [userId])
+  if (cred.rows.length === 0) throw new AppError('User not found', 404)
+  const passwordOk = await bcrypt.compare(password || '', cred.rows[0].password_hash)
+  if (!passwordOk) throw new AppError('Password is incorrect', 401)
+
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
-    await client.query(
-      `CREATE TABLE IF NOT EXISTS account_deletion_feedback (
-        id UUID PRIMARY KEY,
-        user_id UUID NOT NULL,
-        email TEXT,
-        reason TEXT NOT NULL,
-        details TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )`
-    )
+    // The account_deletion_feedback table is created by migration 001, not
+    // here — running DDL inside a request forced the app's DB role to hold
+    // schema-create rights it should never need.
     const userResult = await client.query('SELECT email FROM users WHERE id = $1', [userId])
     if (userResult.rows.length === 0) throw new AppError('User not found', 404)
     await client.query(

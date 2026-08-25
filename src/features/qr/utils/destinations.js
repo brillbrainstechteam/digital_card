@@ -61,10 +61,13 @@ export function coerceDestinationForQrType(destinationType, qrType) {
   return destinationsForQrType(qrType)[0]?.key || 'website'
 }
 
+// Only ever produces an http(s) URL. This previously returned ANY value that
+// already carried a scheme, so a "website" destination of "javascript:alert(1)"
+// passed through untouched and was handed to window.location.replace().
 function ensureUrlScheme(value) {
-  const trimmed = (value || '').trim()
-  if (!trimmed) return ''
-  return /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`
+  const sanitized = sanitizeCustomValue(value)
+  if (!sanitized) return ''
+  return /^https?:/i.test(sanitized) ? sanitized : ''
 }
 
 function onlyDigits(value) {
@@ -213,6 +216,39 @@ function buildVCard(fields = {}) {
  *   custom:       { value } (used verbatim, no scheme injected)
  * @returns {string} the exact string that should be encoded into the QR
  */
+
+// Schemes a QR may encode. `custom` used to be returned verbatim, so a
+// signed-up user could point a code on our own domain at a "javascript:" URL
+// -- which the scan page feeds straight to window.location.replace() -- or at
+// an arbitrary phishing target wearing our branding. Anything off this list is
+// rejected; a bare host is upgraded to https rather than silently trusted.
+const ALLOWED_CUSTOM_SCHEMES = ['http:', 'https:', 'mailto:', 'tel:', 'sms:', 'geo:', 'upi:']
+
+export function sanitizeCustomValue(raw) {
+  const value = String(raw || '').trim()
+  if (!value) return ''
+
+  // Drop control characters before parsing. Browsers ignore them inside a
+  // scheme, so a value like "java<newline>script:alert(1)" would slip past a
+  // naive prefix check while still executing.
+  const cleaned = Array.from(value)
+    .filter((ch) => {
+      const code = ch.charCodeAt(0)
+      return code > 31 && code !== 127
+    })
+    .join('')
+
+  const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(cleaned)
+
+  try {
+    const url = new URL(hasScheme ? cleaned : `https://${cleaned}`)
+    if (!ALLOWED_CUSTOM_SCHEMES.includes(url.protocol.toLowerCase())) return ''
+    return url.toString()
+  } catch {
+    return ''
+  }
+}
+
 export function buildDestinationValue(type, fields = {}) {
   switch (type) {
     case 'website':
@@ -249,7 +285,7 @@ export function buildDestinationValue(type, fields = {}) {
     case 'saveContact':
       return buildVCard(fields)
     case 'custom':
-      return (fields.value || '').trim()
+      return sanitizeCustomValue(fields.value)
     default:
       return ''
   }

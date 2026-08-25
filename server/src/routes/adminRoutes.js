@@ -9,6 +9,7 @@ router.post('/login', ctrl.login)
 router.use(authenticateAdmin)
 router.get('/stats', ctrl.getStats)
 router.get('/insights', ctrl.getInsights)
+router.get('/audit-log', ctrl.getAuditLog)
 router.get('/users', ctrl.getUsers)
 // Must precede any other '/users/:userId/...' route only in the sense that
 // Express matches in order; kept adjacent to /users for readability.

@@ -7,8 +7,14 @@ async function start() {
     await testConnection()
     await ensureSchema()
 
-    app.listen(env.port, () => {
-      console.log(`Server running in ${env.nodeEnv} mode on port ${env.port}`)
+    // Bind to loopback only. nginx is the sole intended entry point and
+    // proxies to 127.0.0.1:7000; listening on 0.0.0.0 meant the plaintext API
+    // was one firewall rule away from being reachable directly, skipping TLS,
+    // HSTS and every header nginx adds. Overridable for containerised setups
+    // where the process must accept traffic on the pod IP.
+    const host = process.env.BIND_HOST || '127.0.0.1'
+    app.listen(env.port, host, () => {
+      console.log(`Server running in ${env.nodeEnv} mode on ${host}:${env.port}`)
     })
   } catch (err) {
     console.error('Failed to start server:', err.message)

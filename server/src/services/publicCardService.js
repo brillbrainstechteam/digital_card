@@ -24,12 +24,20 @@ async function getPublishedCardBySlug(slug) {
     throw new AppError('This card subscription has expired', 402)
   }
 
+  // The full qr_settings blob used to be returned to anonymous visitors. It
+  // carries destinationFields, which for a Wi-Fi QR contains the network
+  // password, and server-managed flags like `purchased`. Only the slug is
+  // needed publicly; nothing on the page consumes the rest.
   const qrResult = await pool.query(
-    'SELECT slug, settings FROM qr_codes WHERE card_id = $1',
+    'SELECT slug FROM qr_codes WHERE card_id = $1',
     [card.id]
   )
-  card.qr_settings = qrResult.rows[0]?.settings || null
   card.qr_slug = qrResult.rows[0]?.slug || null
+
+  // Billing state is internal: it decided access above and should not be
+  // published alongside the card.
+  delete card.subscription_cancelled
+  delete card.subscription_expires_at
 
   return card
 }
