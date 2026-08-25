@@ -97,7 +97,6 @@ const PRODUCT_DATA = [
     title: 'Visual Designer',
     company: 'Vance Studio',
     tagline: 'Capturing moments through a digital lens.',
-    about: 'Editorial and brand photography for people who care how their story looks.',
     location: 'Bandra West, Mumbai',
     colors: ['#1E1B4B', '#4F46E5', '#A5B4FC'], // Indigo
     hasLogo: false,
@@ -110,7 +109,6 @@ const PRODUCT_DATA = [
     title: 'Senior Architect',
     company: 'Stellar Studios',
     tagline: 'Modern spaces for modern living.',
-    about: 'Residential and workspace architecture with a focus on daylight and material honesty.',
     location: 'Koregaon Park, Pune',
     colors: ['#0C4A6E', '#0284C7', '#7DD3FC'], // Ocean
     hasLogo: true,
@@ -123,7 +121,6 @@ const PRODUCT_DATA = [
     title: 'Corporate Health',
     company: 'Aura Wellness Pvt Ltd',
     tagline: 'Elevating workspace productivity through health.',
-    about: 'On-site wellness programmes, health screenings and ergonomics for growing teams.',
     location: 'Indiranagar, Bengaluru',
     colors: ['#134E4A', '#0D9488', '#5EEAD4'], // Teal
     hasLogo: true,
@@ -143,9 +140,8 @@ const RESTING_SCENE = 10; // fully built card, before the publish overlay
 // is. Later scenes pan down it so the footer features (address, subscribe,
 // branding) are actually seen rather than clipped. How far to pan
 // is measured at runtime rather than hardcoded — the overflow depends on the
-// persona (only two of three have an avatar, and the About text wraps to
-// different heights), so a fixed pixel value over-scrolls some cards and
-// leaves a band of blank white below the content.
+// persona (only two of three have an avatar), so a fixed pixel value
+// over-scrolls some cards and leaves a band of blank white below the content.
 const SCROLL_FRACTION_BY_SCENE = { 9: 0.55, 10: 1, 11: 1, 12: 1 };
 
 function usePrefersReducedMotion() {
@@ -258,8 +254,7 @@ const HeroAnimation = () => {
    Scenes 4-12 assemble the same element order the real
    CardPreview renders: logo band, photo, name, designation,
    company, tagline, quick actions, Save Contact, Website,
-   About, socials, Google Maps, address, Subscribe, and the
-   Brill Brains footer.
+   socials, address, Subscribe, and the Brill Brains footer.
    ══════════════════════════════════════════════════════ */
 
 const CardScreen = ({ scene, active }) => {
@@ -395,14 +390,6 @@ const CardScreen = ({ scene, active }) => {
                     className="w-full mt-1.5 py-2.5 rounded-lg text-[10px] font-bold border border-white/25 text-white/90">
                     Website
                   </motion.div>
-                )}
-
-                {/* About */}
-                {scene >= 7 && (
-                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
-                    className="text-[8.5px] text-white/55 leading-relaxed mt-3 px-1">
-                    {active.about}
-                  </motion.p>
                 )}
 
                 {/* Six social links */}

@@ -182,7 +182,7 @@ async function ogCardPreview(req, res, next) {
 
     const cd = card.card_data || {}
     const title = cd.brandName || card.title || 'Digital Card'
-    const description = cd.tagline || cd.about || `${title}'s digital business card — contact info, socials, and more.`
+    const description = cd.tagline || `${title}'s digital business card — contact info, socials, and more.`
     const image = cd.coverImage || cd.logo || card.logo_url || `${req.protocol}://${req.get('host')}/bb-logo.png`
     const url = `${req.protocol}://${req.get('host')}/${slug}`
 

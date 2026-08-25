@@ -138,7 +138,6 @@ export function paletteVariables(palette, theme = {}) {
     '--theme-company-name-text': theme.companyNameText || surfaceText,
     '--theme-tagline-text': theme.taglineText || theme.bodyText || surfaceText,
     '--theme-location-text': theme.locationText || theme.bodyText || surfaceText,
-    '--theme-about-text': theme.aboutText || theme.bodyText || surfaceText,
     '--theme-body-text': theme.bodyText || surfaceText,
     '--theme-primary-button': theme.primaryButton || palette.primary,
     '--theme-secondary-button': theme.secondaryButton || palette.accent,

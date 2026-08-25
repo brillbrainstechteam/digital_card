@@ -35,7 +35,6 @@ export function themeFromPalette(palette) {
     companyNameText: palette.ink,
     taglineText: palette.ink,
     locationText: palette.ink,
-    aboutText: palette.ink,
     bodyText: palette.ink,
     primaryButton: palette.primary,
     secondaryButton: palette.accent,

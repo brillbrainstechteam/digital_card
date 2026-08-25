@@ -1,5 +1,3 @@
-export const ABOUT_MAX_LENGTH = 165
-
 export const BUTTON_LABEL_MAX_LENGTH = 20
 
 export const BUTTON_LABEL_DEFAULTS = {
@@ -21,7 +19,6 @@ export const PRESET_DEFAULTS = {
     showCompanyName: false,
     showTagline: true,
     showLocation: true,
-    showAbout: true,
     showContactButtons: true,
     showCallButton: true,
     showEmailButton: true,
@@ -40,7 +37,6 @@ export const PRESET_DEFAULTS = {
     showCompanyName: true,
     showTagline: true,
     showLocation: true,
-    showAbout: true,
     showContactButtons: true,
     showCallButton: true,
     showEmailButton: true,
@@ -59,7 +55,6 @@ export const PRESET_DEFAULTS = {
     showCompanyName: true,
     showTagline: true,
     showLocation: true,
-    showAbout: true,
     showContactButtons: true,
     showCallButton: true,
     showEmailButton: true,
@@ -85,8 +80,6 @@ export const defaultProfile = {
   brandName: 'Brillbrains',
   handle: 'brillbrains',
   tagline: 'Strategic and Creative Forever',
-  about:
-    'Discover our latest work, useful links and the best ways to connect with our team.',
   email: 'vihaan.brillbrains@gmail.com',
   phone: '+91 8104258910',
   website: 'brillbrainsconsultants.com',
@@ -110,7 +103,6 @@ export const defaultProfile = {
     companyName: 'Inter, system-ui, sans-serif',
     tagline: 'Inter, system-ui, sans-serif',
     location: 'Inter, system-ui, sans-serif',
-    about: 'Inter, system-ui, sans-serif',
     buttonLabels: 'Inter, system-ui, sans-serif',
     footerText: 'Inter, system-ui, sans-serif',
     website: 'Inter, system-ui, sans-serif',
@@ -122,7 +114,6 @@ export const defaultProfile = {
     companyName: 18,
     tagline: 14,
     location: 13,
-    about: 14,
   },
   logo: '/brillbrains-logo.jpg',
   logoSource: '/brillbrains-logo.jpg',
@@ -158,7 +149,6 @@ export const defaultProfile = {
     companyNameText: '#ffffff',
     taglineText: '#ffffff',
     locationText: '#ffffff',
-    aboutText: '#ffffff',
     bodyText: '#ffffff',
     primaryButton: '#5274a3',
     secondaryButton: '#606977',

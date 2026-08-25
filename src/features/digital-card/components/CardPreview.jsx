@@ -346,7 +346,6 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null, s
         '--font-company-name': typography.companyName || defaultFont,
         '--font-tagline': typography.tagline || defaultFont,
         '--font-location': typography.location || defaultFont,
-        '--font-about': typography.about || defaultFont,
         '--font-button-labels': typography.buttonLabels || defaultFont,
         '--font-footer-text': typography.footerText || defaultFont,
         '--font-website': typography.website || defaultFont,
@@ -356,7 +355,6 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null, s
         '--fz-company-name': `${profile.fontSizes?.companyName || 18}px`,
         '--fz-tagline': `${profile.fontSizes?.tagline || 14}px`,
         '--fz-location': `${profile.fontSizes?.location || 13}px`,
-        '--fz-about': `${profile.fontSizes?.about || 14}px`,
         '--fz-button-labels': `${profile.fontSizes?.buttonLabels || 12}px`,
       }}
     >
@@ -462,8 +460,6 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null, s
           ))}
         </div>
       )}
-
-      {profile.showAbout !== false && profile.about && <p className="card-about">{profile.about}</p>}
 
       <footer className="card-footer">
         {profile.showSocialLinks !== false && visibleSocials.length > 0 && (

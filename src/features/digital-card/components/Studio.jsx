@@ -3,7 +3,7 @@ import { CardPreview } from './CardPreview'
 import { PageHeader } from '../../../components/PageHeader'
 import { Sidebar } from '../../../components/Sidebar'
 import { FONT_OPTIONS } from '../fontOptions'
-import { PRESET_DEFAULTS, getVisibilityFlags, ABOUT_MAX_LENGTH, BUTTON_LABEL_DEFAULTS, BUTTON_LABEL_MAX_LENGTH } from '../data'
+import { PRESET_DEFAULTS, getVisibilityFlags, BUTTON_LABEL_DEFAULTS, BUTTON_LABEL_MAX_LENGTH } from '../data'
 import { autoTextFor } from '../theme'
 
 function ScaledCardPreview({ profile }) {
@@ -161,7 +161,6 @@ const COLOR_FIELD_GROUPS = {
     { key: 'companyNameText', label: 'Company Name' },
     { key: 'taglineText', label: 'Tagline' },
     { key: 'locationText', label: 'Location' },
-    { key: 'aboutText', label: 'About' },
   ],
   buttons: [
     { key: 'callButton', label: 'Call Button' },
@@ -198,7 +197,6 @@ const TYPOGRAPHY_FIELD_GROUPS = {
     { key: 'companyName', label: 'Company Name' },
     { key: 'tagline', label: 'Tagline' },
     { key: 'location', label: 'Location' },
-    { key: 'about', label: 'About' },
     { key: 'website', label: 'Website' },
     { key: 'footerText', label: 'Footer' },
   ],
@@ -1288,7 +1286,7 @@ export function Studio({
         </section>
         )}
 
-        {activePanel === 'info' && (profile.showCompanyName !== false || profile.showTagline !== false || profile.showAbout !== false) && (
+        {activePanel === 'info' && (profile.showCompanyName !== false || profile.showTagline !== false) && (
         <section className="editor-section">
           <h2>Business Information</h2>
           <div className="field-grid">
@@ -1327,20 +1325,6 @@ export function Studio({
                 <span className="field-color-controls">
                   <VisibilityToggle label="Tagline" checked={profile.showTagline !== false} onChange={(v) => updateVisibility('showTagline', v)} />
                   <ColorField {...liveControlProps} {...applyColorProps} label="Tagline" value={profile.theme?.taglineText || profile.palette.ink} onChange={(value) => updateTheme('taglineText', value)} />
-                </span>
-              )}
-            />
-            <Field
-              {...liveControlProps}
-              label="About"
-              value={profile.about}
-              onChange={(value) => updateProfile('about', value)}
-              multiline
-              maxLength={ABOUT_MAX_LENGTH}
-              colorControl={(
-                <span className="field-color-controls">
-                  <VisibilityToggle label="About" checked={profile.showAbout !== false} onChange={(v) => updateVisibility('showAbout', v)} />
-                  <ColorField {...liveControlProps} {...applyColorProps} label="About" value={profile.theme?.aboutText || profile.palette.ink} onChange={(value) => updateTheme('aboutText', value)} />
                 </span>
               )}
             />
@@ -1760,7 +1744,6 @@ export function Studio({
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Company Name" value={profile.typography?.companyName || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('companyName', value)} sizeValue={profile.fontSizes?.companyName ?? 18} onSizeChange={(v) => updateFontSize('companyName', v)} />
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Tagline" value={profile.typography?.tagline || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('tagline', value)} sizeValue={profile.fontSizes?.tagline ?? 14} onSizeChange={(v) => updateFontSize('tagline', v)} />
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Location" value={profile.typography?.location || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('location', value)} sizeValue={profile.fontSizes?.location ?? 13} onSizeChange={(v) => updateFontSize('location', v)} />
-            <TypographyField {...liveControlProps} {...applyTypographyProps} label="About" value={profile.typography?.about || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('about', value)} sizeValue={profile.fontSizes?.about ?? 14} onSizeChange={(v) => updateFontSize('about', v)} />
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Button Labels" value={profile.typography?.buttonLabels || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('buttonLabels', value)} sizeValue={profile.fontSizes?.buttonLabels ?? 12} onSizeChange={(v) => updateFontSize('buttonLabels', v)} />
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Footer Text" value={profile.typography?.footerText || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('footerText', value)} />
             <TypographyField {...liveControlProps} {...applyTypographyProps} label="Website" value={profile.typography?.website || profile.fontFamily || FONT_OPTIONS[0].value} onChange={(value) => updateTypography('website', value)} />

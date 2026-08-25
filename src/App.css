@@ -1318,18 +1318,6 @@
   width: 16px;
 }
 
-.card-about {
-  color: var(--theme-about-text);
-  font-family: var(--font-about);
-  opacity: 0.88;
-  font-size: var(--fz-about, 13px);
-  line-height: 1.55;
-  margin-bottom: 19px;
-  overflow-wrap: break-word;
-  padding: 16px 3px;
-  word-break: break-word;
-}
-
 .card-written-address {
   color: var(--brand-ink, #fff);
   opacity: 0.7;
@@ -1624,7 +1612,6 @@
 }
 
 .editor-sidebar-nav button:hover {
-  background: rgba(255,255,255,0.08);
   color: var(--white);
 }
 
@@ -1673,7 +1660,6 @@
 }
 
 .sidebar-nav-parent:hover {
-  background: rgba(255,255,255,0.09);
   color: var(--white);
 }
 
@@ -1730,7 +1716,6 @@
 }
 
 .sidebar-nav-child:hover {
-  background: rgba(255,255,255,0.07);
   color: var(--white);
 }
 
@@ -1775,9 +1760,13 @@
   width: 100%;
 }
 
-.editor-sidebar-profile.active,
-.editor-sidebar-profile:hover {
+.editor-sidebar-profile.active {
   background: rgba(212,175,55,0.08);
+  border-radius: 10px;
+  padding-left: 8px;
+}
+
+.editor-sidebar-profile:hover {
   border-radius: 10px;
   padding-left: 8px;
 }
@@ -5464,9 +5453,6 @@ html { background: #f7f8fc; }
 .editor-sidebar-nav button.active {
   background: rgba(255,255,255,0.12);
   color: #fff;
-}
-.editor-sidebar-nav button:hover:not(.active) {
-  background: rgba(255,255,255,0.07);
 }
 .sidebar-nav-parent {
   border-radius: 10px;

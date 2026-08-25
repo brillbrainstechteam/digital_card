@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createCard, updateCard, uploadImage } from '../services/api'
-import { defaultProfile, getVisibilityFlags, ABOUT_MAX_LENGTH } from '../data'
+import { defaultProfile, getVisibilityFlags } from '../data'
 import { extractPaletteFromLogo, detectBackdrop, rgbToHex } from '../theme'
 import { themeFromPalette } from '../themeOptions'
 import { useAuth } from '../../../context/AuthContext'
@@ -113,7 +113,6 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
     designation: '',
     companyName: '',
     tagline: '',
-    about: '',
     location: '',
     palette: defaultProfile.palette,
     theme: defaultProfile.theme,
@@ -209,7 +208,7 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
         ...current.theme,
         ...(field === 'primary' ? { primaryButton: value, callButton: value, emailButton: value, whatsappButton: value, linkedinButton: value, instagramButton: value, facebookButton: value, twitterButton: value, youtubeButton: value, telegramButton: value } : {}),
         ...(field === 'surface' ? { pageBackground: value, cardBackground: value } : {}),
-        ...(field === 'ink' ? { headingText: value, designationText: value, companyNameText: value, taglineText: value, locationText: value, aboutText: value, bodyText: value, footerText: value } : {}),
+        ...(field === 'ink' ? { headingText: value, designationText: value, companyNameText: value, taglineText: value, locationText: value, bodyText: value, footerText: value } : {}),
       },
     }))
   }
@@ -258,7 +257,6 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
         brandName: titleName,
         handle: titleName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
         tagline: form.tagline.trim(),
-        about: form.about.trim(),
         email: '',
         phone: '',
         website: 'https://example.com',
@@ -432,17 +430,10 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
                 <input value={form.location} onChange={(event) => updateDetails('location', event.target.value)} />
               </label>
               {cardType === 'personal' && (
-                <>
-                  <label className="field">
-                    <span>Tagline</span>
-                    <input value={form.tagline} onChange={(event) => updateDetails('tagline', event.target.value)} />
-                  </label>
-                  <label className="field">
-                    <span>About</span>
-                    <textarea rows={4} maxLength={ABOUT_MAX_LENGTH} value={form.about} onChange={(event) => updateDetails('about', event.target.value.slice(0, ABOUT_MAX_LENGTH))} />
-                    <span className="field-char-counter">{form.about.length} / {ABOUT_MAX_LENGTH}</span>
-                  </label>
-                </>
+                <label className="field">
+                  <span>Tagline</span>
+                  <input value={form.tagline} onChange={(event) => updateDetails('tagline', event.target.value)} />
+                </label>
               )}
             </div>
           </>
@@ -466,11 +457,6 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
                   <input value={form.location} onChange={(event) => updateDetails('location', event.target.value)} />
                 </label>
               )}
-              <label className="field">
-                <span>About</span>
-                <textarea rows={4} maxLength={ABOUT_MAX_LENGTH} value={form.about} onChange={(event) => updateDetails('about', event.target.value.slice(0, ABOUT_MAX_LENGTH))} />
-                <span className="field-char-counter">{form.about.length} / {ABOUT_MAX_LENGTH}</span>
-              </label>
             </div>
           </>
         )}
