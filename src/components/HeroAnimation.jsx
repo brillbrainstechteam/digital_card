@@ -137,8 +137,8 @@ const SCENE_COUNT = SCENE_MS.length;
 const RESTING_SCENE = 10; // fully built card, before the publish overlay
 
 // The finished card is taller than the phone screen, exactly as a real card
-// is. Later scenes pan down it so the footer features (address, subscribe,
-// branding) are actually seen rather than clipped. How far to pan
+// is. Later scenes pan down it so the footer features (address, branding)
+// are actually seen rather than clipped. How far to pan
 // is measured at runtime rather than hardcoded — the overflow depends on the
 // persona (only two of three have an avatar), so a fixed pixel value
 // over-scrolls some cards and leaves a band of blank white below the content.
@@ -254,7 +254,7 @@ const HeroAnimation = () => {
    Scenes 4-12 assemble the same element order the real
    CardPreview renders: logo band, photo, name, designation,
    company, tagline, quick actions, Save Contact, Website,
-   socials, address, Subscribe, and the Brill Brains footer.
+   socials, address, and the Brill Brains footer.
    ══════════════════════════════════════════════════════ */
 
 const CardScreen = ({ scene, active }) => {
@@ -412,10 +412,9 @@ const CardScreen = ({ scene, active }) => {
                   </motion.p>
                 )}
 
-                {/* Subscribe + branding */}
+                {/* Branding */}
                 {scene >= 10 && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full mt-2.5 flex flex-col items-center gap-2">
-                    <span className="text-[9px] font-bold" style={{ color: c[2] }}>Subscribe</span>
                     <span className="text-[7px] text-white/30 tracking-wide">Powered by Brill Brains Consultants</span>
                   </motion.div>
                 )}

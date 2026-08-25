@@ -7,6 +7,5 @@ const router = Router()
 router.get('/:cardId', authenticate, analyticsController.getSummary)
 router.get('/:cardId/leads', authenticate, analyticsController.getLeads)
 router.get('/:cardId/activity', authenticate, analyticsController.getActivity)
-router.get('/:cardId/subscribers', authenticate, analyticsController.getSubscribers)
 
 module.exports = router

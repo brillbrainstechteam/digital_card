@@ -174,7 +174,6 @@ const COLOR_FIELD_GROUPS = {
     { key: 'emailButtonText', label: 'Email Button Text' },
     { key: 'whatsappButtonText', label: 'WhatsApp Button Text' },
     { key: 'saveContactButtonText', label: 'Save Contact Button Text' },
-    { key: 'subscribeButtonText', label: 'Subscribe Text' },
     { key: 'websiteButtonText', label: 'Website Button Text' },
     { key: 'googleMapsButtonText', label: 'Get Directions Text' },
   ],
@@ -1486,7 +1485,7 @@ export function Studio({
                     onChange={(value) => updateProfile('googleMapsUrl', value)}
                   />
                   <div className="button-setting-text-color">
-                    <ColorField {...liveControlProps} {...applyColorProps} label="Get Directions Text" value={profile.theme?.googleMapsButtonText || profile.theme?.subscribeButtonText || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('googleMapsButtonText', value)} />
+                    <ColorField {...liveControlProps} {...applyColorProps} label="Get Directions Text" value={profile.theme?.googleMapsButtonText || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('googleMapsButtonText', value)} />
                   </div>
                 </div>
               )}
@@ -1534,41 +1533,6 @@ export function Studio({
                 </div>
               </div>
             )}
-          </div>
-        </section>
-        )}
-
-        {activePanel === 'leads' && (
-        <section className="editor-section">
-          <h2>Subscribe</h2>
-          <p className="settings-description">Let visitors join your mailing list using just their email address.</p>
-          <div className="button-settings-list">
-            <div className="button-setting-row">
-              <label className="button-setting-toggle-row">
-                <span>Enable Subscribe</span>
-                <span className="button-setting-toggle-controls">
-                  <span className="switch">
-                    <input
-                      type="checkbox"
-                      checked={profile.showSubscribe === true}
-                      onChange={(event) => updateVisibility('showSubscribe', event.target.checked)}
-                    />
-                    <span />
-                  </span>
-                </span>
-              </label>
-              {profile.showSubscribe === true && (
-                <div className="button-setting-expand">
-                  <p className="field-hint">
-                    This displays Subscribe as fixed text and lets visitors join using only their email
-                    address.
-                  </p>
-                  <div className="button-setting-text-color">
-                    <ColorField {...liveControlProps} {...applyColorProps} label="Subscribe Text" value={profile.theme?.subscribeButtonText || profile.theme?.websiteButton || profile.theme?.primaryButton || profile.palette.primary} onChange={(value) => updateTheme('subscribeButtonText', value)} />
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </section>
         )}

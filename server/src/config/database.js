@@ -119,19 +119,6 @@ async function ensureSchema() {
   await pool.query('CREATE INDEX IF NOT EXISTS card_events_card_id_idx ON card_events (card_id)')
   await pool.query('CREATE INDEX IF NOT EXISTS card_events_created_at_idx ON card_events (created_at)')
 
-  // subscribers
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS subscribers (
-      id BIGSERIAL PRIMARY KEY,
-      card_id UUID NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
-      email TEXT NOT NULL,
-      subscribed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE(card_id, email)
-    )
-  `)
-  await pool.query('ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS subscribed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()')
-  await pool.query('CREATE INDEX IF NOT EXISTS subscribers_card_id_idx ON subscribers (card_id)')
-
   // qr_codes — one optional QR per card (enforced by the unique partial index
   // below), owned by the user who created it. `settings` stores the full
   // reusable QR settings object (features/qr's single source of truth) as-is.

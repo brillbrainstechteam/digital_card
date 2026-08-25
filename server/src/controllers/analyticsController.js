@@ -30,26 +30,6 @@ async function submitLead(req, res, next) {
   } catch (err) { next(err) }
 }
 
-async function submitSubscriber(req, res, next) {
-  try {
-    const { email } = req.body
-    const subscriber = await analyticsService.addSubscriber(req.params.slug, email)
-    res.status(201).json({ success: true, message: 'Subscribed successfully', data: { subscriber } })
-  } catch (err) { next(err) }
-}
-
-async function getSubscribers(req, res, next) {
-  try {
-    const { search = '', page = 1, limit = 10 } = req.query
-    const result = await analyticsService.getSubscribers(req.user.id, req.params.cardId, {
-      search,
-      page: clampInt(page, 1, 1, 10000),
-      limit: clampInt(limit, 10, 1, 100),
-    })
-    res.json({ success: true, data: result })
-  } catch (err) { next(err) }
-}
-
 async function getSummary(req, res, next) {
   try {
     const { dateRange = '', dateFrom = '', dateTo = '' } = req.query
@@ -92,5 +72,4 @@ async function getActivity(req, res, next) {
 
 module.exports = {
   trackView, trackButtonClick, submitLead, getSummary, getLeads, getActivity,
-  submitSubscriber, getSubscribers,
 }

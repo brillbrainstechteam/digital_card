@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { paletteVariables } from '../theme'
-import { trackButtonClick, submitCardLead, submitSubscriber } from '../services/api'
+import { trackButtonClick, submitCardLead } from '../services/api'
 import { BUTTON_LABEL_DEFAULTS } from '../data'
 import { buildDestinationValue } from '../../qr/utils/destinations'
 import { useToast } from '../../../context/ToastContext'
@@ -242,64 +242,8 @@ function SaveContactModal({ profile, onClose, trackingSlug }) {
   )
 }
 
-function SubscribeModal({ onClose, trackingSlug }) {
-  const [email, setEmail] = useState('')
-  const [error, setError] = useState('')
-  const [status, setStatus] = useState('idle')
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (!EMAIL_PATTERN.test(email.trim())) {
-      setError('Enter a valid email address')
-      return
-    }
-    setError('')
-    setStatus('saving')
-    try {
-      if (trackingSlug) await submitSubscriber(trackingSlug, email.trim())
-      setStatus('sent')
-      setTimeout(onClose, 1500)
-    } catch (err) {
-      setStatus('idle')
-      setError(err.message || 'Something went wrong')
-    }
-  }
-
-  return createPortal(
-    <div className="save-modal-overlay" onClick={onClose}>
-      <div className="save-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>Subscribe</h3>
-        <p className="save-modal-hint">Enter your email to receive future updates.</p>
-        {status === 'sent' ? (
-          <p className="save-modal-success">Subscribed! &#10003;</p>
-        ) : (
-          <form onSubmit={handleSubmit} noValidate>
-            <label className="save-modal-field">
-              <input
-                type="email"
-                placeholder="Email Address *"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); if (error) setError('') }}
-              />
-              {error && <span className="save-modal-error">{error}</span>}
-            </label>
-            <div className="save-modal-actions">
-              <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
-              <button type="submit" className="primary-button" disabled={status === 'saving'}>
-                {status === 'saving' ? 'Subscribing...' : 'Subscribe'}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>,
-    document.body
-  )
-}
-
 export function CardPreview({ profile, immersive = false, trackingSlug = null, showCreateCta = false }) {
   const [showSaveModal, setShowSaveModal] = useState(false)
-  const [showSubscribeModal, setShowSubscribeModal] = useState(false)
   const toast = useToast()
 
   function track(buttonType) {
@@ -501,14 +445,6 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null, s
           <p className="card-written-address">{profile.location}</p>
         )}
 
-        {profile.showSubscribe && (
-          <div className="footer-text-actions">
-            <button type="button" className="subscribe-text-action" onClick={() => setShowSubscribeModal(true)}>
-              {buttonLabels.subscribe}
-            </button>
-          </div>
-        )}
-
         {profile.branding?.poweredBy !== false && (
           <a
             className="powered-by"
@@ -532,7 +468,6 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null, s
         )}
       </footer>
       {showSaveModal && <SaveContactModal profile={profile} trackingSlug={trackingSlug} onClose={() => setShowSaveModal(false)} />}
-      {showSubscribeModal && <SubscribeModal trackingSlug={trackingSlug} onClose={() => setShowSubscribeModal(false)} />}
     </article>
   )
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchCards, fetchAnalytics, fetchAnalyticsLeads, fetchAnalyticsActivity, fetchAnalyticsSubscribers } from '../services/api'
+import { fetchCards, fetchAnalytics, fetchAnalyticsLeads, fetchAnalyticsActivity } from '../services/api'
 import { PageHeader } from '../../../components/PageHeader'
 import { Sidebar } from '../../../components/Sidebar'
 import { fetchQrAnalytics, fetchOverallQrAnalytics } from '../../qr'
@@ -11,7 +11,6 @@ const SAMPLE_SUMMARY = {
   totalViews: 1284,
   totalQrScans: 316,
   totalLeads: 87,
-  totalSubscribers: 142,
   totalButtonClicks: 694,
   conversionRate: 6.8,
   topPerformingAction: 'whatsapp',
@@ -28,11 +27,6 @@ const SAMPLE_ACTIVITY = [
   { event_type: 'view', created_at: new Date().toISOString(), metadata: {} },
   { event_type: 'button_click', created_at: new Date(Date.now() - 600000).toISOString(), metadata: { button: 'whatsapp' } },
   { event_type: 'lead_created', created_at: new Date(Date.now() - 1800000).toISOString(), metadata: { visitor_name: 'Aarav Sharma' } },
-]
-
-const SAMPLE_SUBSCRIBERS = [
-  { id: 'sample-sub-1', email: 'hello@example.com', subscribed_at: new Date().toISOString() },
-  { id: 'sample-sub-2', email: 'team@example.com', subscribed_at: new Date(Date.now() - 86400000).toISOString() },
 ]
 
 const SAMPLE_QR = {
@@ -105,21 +99,6 @@ function downloadCsv(rows) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url; a.download = 'leads.csv'; a.click()
-  URL.revokeObjectURL(url)
-}
-
-function downloadSubscribersCsv(rows) {
-  const header = ['Email', 'Subscribed On']
-  const lines = [header.join(',')]
-  for (const sub of rows) {
-    const subscribed = new Date(sub.subscribed_at).toLocaleString()
-    const cells = [sub.email, subscribed].map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`)
-    lines.push(cells.join(','))
-  }
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = 'subscribers.csv'; a.click()
   URL.revokeObjectURL(url)
 }
 
@@ -218,8 +197,6 @@ export function AnalyticsPage() {
   const [selectedCardId, setSelectedCardId] = useState('all')
   const [summary, setSummary] = useState(null)
   const [activity, setActivity] = useState([])
-  const [subscribers, setSubscribers] = useState([])
-  const [exportingSubscribers, setExportingSubscribers] = useState(false)
   const [qrAnalytics, setQrAnalytics] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showSample, setShowSample] = useState(false)
@@ -286,11 +263,10 @@ export function AnalyticsPage() {
   const loadAll = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const [summaryData, leadsData, activityData, subscribersData, qrData] = await Promise.all([
+      const [summaryData, leadsData, activityData, qrData] = await Promise.all([
         fetchAnalytics(selectedCardId, leadsParamsRef.current),
         fetchAnalyticsLeads(selectedCardId, leadsParamsRef.current),
         fetchAnalyticsActivity(selectedCardId, { limit: 5 }),
-        fetchAnalyticsSubscribers(selectedCardId, { limit: 5 }),
         (selectedCardId === 'all'
           ? fetchOverallQrAnalytics({ activeCardsOnly: true })
           : fetchQrAnalytics({ cardId: selectedCardId })).catch(() => null),
@@ -299,10 +275,9 @@ export function AnalyticsPage() {
       setLeads(leadCaptureEnabled ? leadsData.leads : [])
       setLeadsTotal(leadCaptureEnabled ? leadsData.total : 0)
       setActivity(activityData.events || [])
-      setSubscribers(subscribersData.subscribers || [])
       setQrAnalytics(qrData)
     } catch {
-      if (!silent) { setSummary(null); setLeads([]); setLeadsTotal(0); setActivity([]); setSubscribers([]); setQrAnalytics(null) }
+      if (!silent) { setSummary(null); setLeads([]); setLeadsTotal(0); setActivity([]); setQrAnalytics(null) }
     } finally {
       if (!silent) setLoading(false)
     }
@@ -316,7 +291,6 @@ export function AnalyticsPage() {
       setLeads(SAMPLE_LEADS)
       setLeadsTotal(SAMPLE_LEADS.length)
       setActivity(SAMPLE_ACTIVITY)
-      setSubscribers(SAMPLE_SUBSCRIBERS)
       setQrAnalytics(SAMPLE_QR)
       setLoading(false)
     } else {
@@ -356,16 +330,6 @@ export function AnalyticsPage() {
     : []
 
   const totalClicks = summary?.totalButtonClicks || 0
-
-  async function handleExportSubscribers() {
-    setExportingSubscribers(true)
-    try {
-      const res = await fetchAnalyticsSubscribers(selectedCardId, { limit: 10000 })
-      downloadSubscribersCsv(res.subscribers || [])
-    } catch { /* silent */ } finally {
-      setExportingSubscribers(false)
-    }
-  }
 
   return (
     <main className="studio studio-workspace">
@@ -444,7 +408,6 @@ export function AnalyticsPage() {
               ['Total Views', summary.totalViews],
               ['QR Scans', summary.totalQrScans ?? 0],
               ...((showSample || leadCaptureEnabled) ? [['Total Leads', summary.totalLeads]] : []),
-              ['Total Subscribers', summary.totalSubscribers],
               ['Button Clicks', summary.totalButtonClicks],
               ['Conversion %', `${summary.conversionRate}%`],
               ['Top Action', summary.topPerformingAction ? (ALL_BUTTON_LABELS[summary.topPerformingAction] || summary.topPerformingAction) : '—'],
@@ -553,32 +516,6 @@ export function AnalyticsPage() {
             <button className="analytics-view-all-btn" type="button" onClick={() => navigate('/activity')}>
               View All Activity →
             </button>
-          </section>
-
-          {/* Recent Subscribers */}
-          <section className="editor-section">
-            <div className="editor-title">
-              <h2>Recent Subscribers</h2>
-              <button className="secondary-button" type="button"
-                onClick={handleExportSubscribers} disabled={exportingSubscribers}>
-                {exportingSubscribers ? 'Exporting...' : 'Export Subscribers CSV'}
-              </button>
-            </div>
-            {subscribers.length === 0 ? (
-              <p className="settings-placeholder">No subscribers yet.</p>
-            ) : (
-              <table className="analytics-leads-table">
-                <thead><tr><th>Email</th><th>Subscribed</th></tr></thead>
-                <tbody>
-                  {subscribers.map((sub) => (
-                    <tr key={sub.id}>
-                      <td>{sub.email}</td>
-                      <td>{timeAgo(sub.subscribed_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
           </section>
 
           {/* Leads */}

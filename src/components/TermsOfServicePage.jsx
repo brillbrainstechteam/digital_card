@@ -86,7 +86,7 @@ const sections = [
           Service, unless you separately agree otherwise.
         </p>
         <p>
-          Leads and subscriber emails your card collects belong to you. We store them so we can show them to
+          Leads your card collects belong to you. We store them so we can show them to
           you in Analytics; we don't use them for our own outreach.
         </p>
         <p>

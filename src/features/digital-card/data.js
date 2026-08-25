@@ -6,7 +6,6 @@ export const BUTTON_LABEL_DEFAULTS = {
   whatsapp: 'WhatsApp',
   website: 'Website',
   saveContact: 'Save Contact',
-  subscribe: 'Subscribe',
   googleMaps: 'Get Directions',
 }
 
@@ -26,7 +25,6 @@ export const PRESET_DEFAULTS = {
     showSaveContactButton: true,
     showSocialLinks: true,
     showWebsite: true,
-    showSubscribe: false,
     showGoogleMaps: false,
   },
   professional: {
@@ -44,7 +42,6 @@ export const PRESET_DEFAULTS = {
     showSaveContactButton: true,
     showSocialLinks: true,
     showWebsite: true,
-    showSubscribe: false,
     showGoogleMaps: false,
   },
   business: {
@@ -62,7 +59,6 @@ export const PRESET_DEFAULTS = {
     showSaveContactButton: true,
     showSocialLinks: true,
     showWebsite: true,
-    showSubscribe: false,
     showGoogleMaps: false,
   },
 }
@@ -93,7 +89,6 @@ export const defaultProfile = {
     whatsapp: 'WhatsApp',
     website: 'Website',
     saveContact: 'Save Contact',
-    subscribe: 'Subscribe',
     googleMaps: 'Get Directions',
   },
   fontFamily: 'Inter, system-ui, sans-serif',

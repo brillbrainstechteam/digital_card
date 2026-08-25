@@ -66,11 +66,6 @@ export async function submitCardLead(slug, payload) {
   return data.data.lead
 }
 
-export async function submitSubscriber(slug, email) {
-  const { data } = await client.post(`/public/cards/${slug}/subscribe`, { email })
-  return data.data.subscriber
-}
-
 export async function fetchAnalytics(cardId, { dateRange = '', dateFrom = '', dateTo = '' } = {}) {
   const { data } = await client.get(`/analytics/${cardId}`, { params: { dateRange, dateFrom, dateTo } })
   return data.data
@@ -86,13 +81,6 @@ export async function fetchAnalyticsLeads(cardId, { search = '', page = 1, limit
 export async function fetchAnalyticsActivity(cardId, { search = '', page = 1, limit = 20, dateRange = '', dateFrom = '', dateTo = '', eventType = '' } = {}) {
   const { data } = await client.get(`/analytics/${cardId}/activity`, {
     params: { search, page, limit, dateRange, dateFrom, dateTo, eventType },
-  })
-  return data.data
-}
-
-export async function fetchAnalyticsSubscribers(cardId, { search = '', page = 1, limit = 10 } = {}) {
-  const { data } = await client.get(`/analytics/${cardId}/subscribers`, {
-    params: { search, page, limit },
   })
   return data.data
 }

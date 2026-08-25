@@ -49,31 +49,6 @@ async function createLead(slug, payload) {
   return result.rows[0]
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-// Subscriber writes are isolated here so a future email provider (Resend, Brevo,
-// Mailchimp, SendGrid...) can hook in without touching the database shape.
-async function addSubscriber(slug, email) {
-  const trimmed = (email || '').trim().toLowerCase()
-  if (!EMAIL_PATTERN.test(trimmed)) throw new AppError('Enter a valid email address', 400)
-
-  const card = await getCardBySlug(slug)
-  if (card.status !== 'published') throw new AppError('Card not found', 404)
-
-  const existing = await pool.query(
-    'SELECT id FROM subscribers WHERE card_id = $1 AND email = $2',
-    [card.id, trimmed]
-  )
-  if (existing.rows.length > 0) throw new AppError('This email is already subscribed', 409)
-
-  const result = await pool.query(
-    'INSERT INTO subscribers (card_id, email) VALUES ($1, $2) RETURNING *',
-    [card.id, trimmed]
-  )
-  // Future: trigger a welcome email via Resend / Brevo / Mailchimp / SendGrid here.
-  return result.rows[0]
-}
-
 async function verifyOwnership(userId, cardId) {
   if (!cardId || cardId === 'all') return null
   const result = await pool.query('SELECT id, status FROM cards WHERE id = $1 AND user_id = $2', [cardId, userId])
@@ -118,7 +93,7 @@ async function getSummary(userId, cardId, { dateRange = '', dateFrom = '', dateT
   const cardIds = await getOwnedCardIds(userId, cardId)
   if (cardIds.length === 0) {
     return {
-      totalViews: 0, totalLeads: 0, totalButtonClicks: 0, totalSubscribers: 0, totalQrScans: 0,
+      totalViews: 0, totalLeads: 0, totalButtonClicks: 0, totalQrScans: 0,
       conversionRate: 0, lastActivity: null, topPerformingAction: null,
       buttonClicks: Object.fromEntries(BUTTON_TYPES.map((t) => [t, 0])),
     }
@@ -138,10 +113,8 @@ async function getSummary(userId, cardId, { dateRange = '', dateFrom = '', dateT
   const viewsQ = withDateFilter('SELECT COUNT(*)::int AS count FROM card_views WHERE card_id = ANY($1::uuid[])__EXTRA__')
   const leadsQ = withDateFilter('SELECT COUNT(*)::int AS count FROM leads WHERE card_id = ANY($1::uuid[])__EXTRA__')
   const clicksQ = withDateFilter('SELECT button_type, COUNT(*)::int AS count FROM button_clicks WHERE card_id = ANY($1::uuid[])__EXTRA__ GROUP BY button_type')
-  const subscribersQ = withDateFilter('SELECT COUNT(*)::int AS count FROM subscribers WHERE card_id = ANY($1::uuid[])__EXTRA__')
-  // QR scans feed the same funnel (scan → view → click → lead → subscriber)
-  // without double counting: a scan is its own event, distinct from the
-  // page view it leads to.
+  // QR scans feed the same funnel (scan → view → click → lead) without double
+  // counting: a scan is its own event, distinct from the page view it leads to.
   const qrScansQ = withDateFilter(
     `SELECT COUNT(*)::int AS count FROM qr_scans s
      JOIN qr_codes qr ON qr.id = s.qr_id
@@ -149,18 +122,16 @@ async function getSummary(userId, cardId, { dateRange = '', dateFrom = '', dateT
     's.created_at'
   )
 
-  const [viewsRes, leadsRes, clicksRes, lastActivityRes, subscribersRes, qrScansRes] = await Promise.all([
+  const [viewsRes, leadsRes, clicksRes, lastActivityRes, qrScansRes] = await Promise.all([
     pool.query(viewsQ.sql, viewsQ.params),
     pool.query(leadsQ.sql, leadsQ.params),
     pool.query(clicksQ.sql, clicksQ.params),
     pool.query('SELECT MAX(created_at) AS last_activity FROM card_events WHERE card_id = ANY($1::uuid[])', [cardIds]),
-    pool.query(subscribersQ.sql, subscribersQ.params),
     pool.query(qrScansQ.sql, qrScansQ.params),
   ])
 
   const totalViews = viewsRes.rows[0].count
   const totalLeads = leadsRes.rows[0].count
-  const totalSubscribers = subscribersRes.rows[0].count
   const totalQrScans = qrScansRes.rows[0].count
   const buttonClicks = Object.fromEntries(BUTTON_TYPES.map((t) => [t, 0]))
   let totalButtonClicks = 0
@@ -173,10 +144,10 @@ async function getSummary(userId, cardId, { dateRange = '', dateFrom = '', dateT
     if (row.count > topCount) { topCount = row.count; topPerformingAction = row.button_type }
   }
 
-  const conversionRate = totalViews > 0 ? Number((((totalLeads + totalSubscribers) / totalViews) * 100).toFixed(1)) : 0
+  const conversionRate = totalViews > 0 ? Number(((totalLeads / totalViews) * 100).toFixed(1)) : 0
 
   return {
-    totalViews, totalLeads, totalButtonClicks, totalSubscribers, totalQrScans, conversionRate,
+    totalViews, totalLeads, totalButtonClicks, totalQrScans, conversionRate,
     lastActivity: lastActivityRes.rows[0].last_activity,
     topPerformingAction, buttonClicks,
   }
@@ -216,31 +187,6 @@ async function getLeads(userId, cardId, { search = '', page = 1, limit = 10, dat
   )
 
   return { leads: dataRes.rows, total: countRes.rows[0].total }
-}
-
-async function getSubscribers(userId, cardId, { search = '', page = 1, limit = 10 } = {}) {
-  const cardIds = await getOwnedCardIds(userId, cardId)
-  if (cardIds.length === 0) return { subscribers: [], total: 0 }
-
-  const params = [cardIds]
-  const conditions = ['card_id = ANY($1::uuid[])']
-
-  if (search) {
-    params.push(`%${search}%`)
-    conditions.push(`email ILIKE $${params.length}`)
-  }
-
-  const where = 'WHERE ' + conditions.join(' AND ')
-
-  const countRes = await pool.query(`SELECT COUNT(*)::int AS total FROM subscribers ${where}`, params)
-  const offset = (page - 1) * limit
-  params.push(limit, offset)
-  const dataRes = await pool.query(
-    `SELECT id, email, subscribed_at FROM subscribers ${where} ORDER BY subscribed_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
-    params
-  )
-
-  return { subscribers: dataRes.rows, total: countRes.rows[0].total }
 }
 
 async function getActivity(userId, cardId, { search = '', dateRange = '', dateFrom = '', dateTo = '', eventType = '', page = 1, limit = 20 } = {}) {
@@ -283,5 +229,4 @@ async function getActivity(userId, cardId, { search = '', dateRange = '', dateFr
 
 module.exports = {
   trackView, trackButtonClick, createLead, getSummary, getLeads, getActivity, BUTTON_TYPES,
-  addSubscriber, getSubscribers,
 }

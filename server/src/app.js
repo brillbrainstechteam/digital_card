@@ -117,7 +117,6 @@ app.use('/api/admin/login', makeAuthLimiter())
 // Unauthenticated writes reachable from any public card page.
 app.use('/api/public/cards/:slug/leads', publicWriteLimiter)
 app.use('/api/contact', publicWriteLimiter)
-app.use('/api/public/cards/:slug/subscribe', publicWriteLimiter)
 
 // View/click tracking is also an unauthenticated write. It was covered only by
 // the very generous global limiter, so anyone could inflate a card's analytics

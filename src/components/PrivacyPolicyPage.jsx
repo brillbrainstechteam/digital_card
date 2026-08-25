@@ -40,9 +40,9 @@ const sections = [
         </p>
         <h3>Information from your card's visitors</h3>
         <p>
-          If you enable lead capture or the newsletter form on your card, visitors who submit them share
-          their name, business name, email, and/or phone number directly with you. We store this data on
-          your behalf and show it to you in your Analytics dashboard; we do not use it for our own marketing.
+          If you enable lead capture on your card, visitors who submit the form share their name, business
+          name, email, and/or phone number directly with you. We store this data on your behalf and show it
+          to you in your Analytics dashboard; we do not use it for our own marketing.
         </p>
         <h3>Usage &amp; scan analytics</h3>
         <p>
@@ -67,7 +67,7 @@ const sections = [
     body: (
       <ul>
         <li>To create and operate your account, and to let you build and publish digital cards and QR codes.</li>
-        <li>To deliver the leads and subscribers your card collects to you, and to power your Analytics dashboard.</li>
+        <li>To deliver the leads your card collects to you, and to power your Analytics dashboard.</li>
         <li>To process payments and manage your subscription (publishing a card or activating a QR code is a recurring ₹1/month charge per item — see our <a href="/refund-policy">Refund &amp; Cancellation Policy</a>).</li>
         <li>To send you service-related email — password resets, payment receipts, and important account notices. We do not send marketing email without a separate opt-in.</li>
         <li>To keep the Service secure: detecting abuse, enforcing rate limits, and investigating suspicious activity.</li>
@@ -83,7 +83,7 @@ const sections = [
         <p>We don't sell your personal data. We share it only in these situations:</p>
         <ul>
           <li><strong>With people who view your card.</strong> Anything on a published card is public by design.</li>
-          <li><strong>With you, the card owner</strong> — leads and subscribers captured through your card are shared with you; that's the point of the feature.</li>
+          <li><strong>With you, the card owner</strong> — leads captured through your card are shared with you; that's the point of the feature.</li>
           <li><strong>Service providers</strong> who process data on our behalf under contract, listed in the table below.</li>
           <li><strong>Legal reasons</strong> — if required to comply with a court order, government request, or to protect the rights, property, or safety of Brill Brains, our users, or the public.</li>
           <li><strong>Business transfers</strong> — if Brill Brains is acquired or merges with another company, your information may transfer as part of that transaction, subject to this policy continuing to apply.</li>
