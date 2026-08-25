@@ -17,6 +17,7 @@ const qrPublicRoutes = require('./routes/qrPublicRoutes')
 const adminRoutes = require('./routes/adminRoutes')
 const paymentRoutes = require('./routes/paymentRoutes')
 const uploadRoutes = require('./routes/uploadRoutes')
+const contactRoutes = require('./routes/contactRoutes')
 const publicCardService = require('./services/publicCardService')
 
 const app = express()
@@ -115,6 +116,7 @@ app.use('/api/auth/change-password', makeAuthLimiter())
 app.use('/api/admin/login', makeAuthLimiter())
 // Unauthenticated writes reachable from any public card page.
 app.use('/api/public/cards/:slug/leads', publicWriteLimiter)
+app.use('/api/contact', publicWriteLimiter)
 app.use('/api/public/cards/:slug/subscribe', publicWriteLimiter)
 
 // View/click tracking is also an unauthenticated write. It was covered only by
@@ -156,6 +158,7 @@ app.use('/api/webhooks', webhookRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/payment', paymentRoutes)
 app.use('/api/upload', uploadRoutes)
+app.use('/api/contact', contactRoutes)
 
 const BOT_USER_AGENT = /facebookexternalhit|WhatsApp|Twitterbot|LinkedInBot|Slackbot|TelegramBot|Discordbot|Pinterest|redditbot|Googlebot|bingbot/i
 const RESERVED_SLUGS = new Set(['admin', 'login', 'signup', 'dashboard', 'create', 'qr-studio', 'analytics', 'activity', 'studio', 'settings', 'cart', 'checkout', 'preview', 'q', 'api'])

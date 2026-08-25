@@ -4,6 +4,7 @@ import {
   fetchStats, fetchInsights, fetchUsers, fetchCards, fetchQrCodes, fetchActivity,
   fetchUserDetail, updateCardStatus, updateQrLifecycle, deleteAdminCard, deleteAdminUser,
   fetchSubscriptions, resetUserPassword,
+  fetchContactMessages, updateContactMessageStatus,
 } from './adminApi'
 import { AdminStoreProvider, useAdminResource, useAdminStore, useLastUpdatedLabel } from './adminStore'
 import {
@@ -917,6 +918,125 @@ function QrTab() {
 }
 
 /* ══════════════════════════════════════════════════════
+   Contact messages
+   ══════════════════════════════════════════════════════ */
+
+function MessagesTab() {
+  const messages = useAdminResource('contactMessages', fetchContactMessages)
+  const { refresh, patchCache } = useAdminStore()
+  const toast = useAdminToast()
+  const [busyId, setBusyId] = useState(null)
+  const [filter, setFilter] = useState('all')
+  const [openMessage, setOpenMessage] = useState(null)
+
+  if (messages.error) return <ErrorState message={messages.error} onRetry={refresh} />
+  if (messages.loading || !messages.data) return <Skeleton rows={6} />
+
+  async function setStatus(msg, status) {
+    setBusyId(msg.id)
+    try {
+      await updateContactMessageStatus(msg.id, status)
+      patchCache('contactMessages', (list) => list.map((m) => (m.id === msg.id ? { ...m, status } : m)))
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  function openAndMarkRead(msg) {
+    setOpenMessage(msg)
+    if (msg.status === 'new') setStatus(msg, 'read')
+  }
+
+  const rows = filter === 'all' ? messages.data : messages.data.filter((m) => m.status === filter)
+  const newCount = messages.data.filter((m) => m.status === 'new').length
+
+  return (
+    <>
+      <div className="adm-stats-grid">
+        <StatCard label="Total messages" value={num(messages.data.length)} tone="accent" />
+        <StatCard label="Unread" value={num(newCount)} tone={newCount > 0 ? 'gold' : undefined} />
+        <StatCard label="Replied" value={num(messages.data.filter((m) => m.status === 'replied').length)} />
+      </div>
+
+      <SectionCard
+        title="Contact form submissions"
+        action={(
+          <div className="adm-segmented">
+            {['all', 'new', 'read', 'replied'].map((f) => (
+              <button key={f} type="button" className={`adm-segment${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>
+                {f[0].toUpperCase() + f.slice(1)}
+                <span className="adm-segment-count">{f === 'all' ? messages.data.length : messages.data.filter((m) => m.status === f).length}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      >
+        <DataTable
+          rows={rows}
+          getRowKey={(r) => r.id}
+          searchKeys={['name', 'email', 'subject', 'message']}
+          searchPlaceholder="Search name, email or message…"
+          exportName={`contact-messages-${filter}`}
+          defaultSort={{ key: 'created_at', dir: 'desc' }}
+          emptyMessage="No messages"
+          onRowClick={openAndMarkRead}
+          columns={[
+            {
+              key: 'status', label: '', sortable: false,
+              render: (m) => (m.status === 'new' ? <span className="adm-tag adm-tag--qr">New</span> : <StatusPill status={m.status} />),
+            },
+            {
+              key: 'name', label: 'From',
+              render: (m) => <><strong>{m.name}</strong><div className="adm-muted">{m.email}</div></>,
+            },
+            { key: 'subject', label: 'Subject', render: (m) => m.subject },
+            {
+              key: 'created_at', label: 'Received',
+              sortValue: (m) => new Date(m.created_at).getTime() || 0,
+              render: (m) => <span className="adm-muted" title={fmtDateTime(m.created_at)}>{timeAgo(m.created_at)}</span>,
+            },
+            {
+              key: 'actions', label: '', sortable: false, exportable: false,
+              render: (m) => (
+                <div className="adm-row-actions">
+                  <a className="adm-btn adm-btn--ghost" href={`mailto:${m.email}?subject=${encodeURIComponent(`Re: ${m.subject}`)}`} onClick={(e) => { e.stopPropagation(); setStatus(m, 'replied') }}>
+                    Reply
+                  </a>
+                </div>
+              ),
+            },
+          ]}
+        />
+      </SectionCard>
+
+      <Modal open={Boolean(openMessage)} title={openMessage?.subject} onClose={() => setOpenMessage(null)}>
+        {openMessage && (
+          <>
+            <div className="adm-detail-head">
+              <div><span className="adm-muted">From</span><strong>{openMessage.name}</strong></div>
+              <div><span className="adm-muted">Email</span><strong>{openMessage.email}</strong></div>
+              <div><span className="adm-muted">Received</span><strong>{fmtDateTime(openMessage.created_at)}</strong></div>
+            </div>
+            <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 14 }}>{openMessage.message}</p>
+            <div className="adm-modal-actions">
+              <a
+                className="adm-btn adm-btn--primary"
+                href={`mailto:${openMessage.email}?subject=${encodeURIComponent(`Re: ${openMessage.subject}`)}`}
+                onClick={() => setStatus(openMessage, 'replied')}
+              >
+                Reply by email
+              </a>
+            </div>
+          </>
+        )}
+      </Modal>
+    </>
+  )
+}
+
+/* ══════════════════════════════════════════════════════
    Shell
    ══════════════════════════════════════════════════════ */
 
@@ -928,6 +1048,7 @@ const TABS = [
   { id: 'users',         label: 'Users',         icon: '☰', component: UsersTab },
   { id: 'cards',         label: 'Digital Cards', icon: '▤', component: CardsTab },
   { id: 'qr',            label: 'QR Codes',      icon: '▦', component: QrTab },
+  { id: 'messages',      label: 'Messages',      icon: '✉', component: MessagesTab },
 ]
 
 const SUBTITLES = {
@@ -938,6 +1059,7 @@ const SUBTITLES = {
   users: 'Accounts, their content and admin actions',
   cards: 'Every digital card, with moderation controls',
   qr: 'Every QR code, paid state and scan volume',
+  messages: 'Submissions from the public Contact page',
 }
 
 function tabFromHash() {

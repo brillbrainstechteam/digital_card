@@ -22,13 +22,13 @@ export function Footer() {
             <h4>Company</h4>
             <ul>
               <li><a href="https://brillbrainsconsultants.com" target="_blank" rel="noreferrer">About</a></li>
-              <li><a href="mailto:support@brillbrainsconsultants.com">Contact</a></li>
+              <li><Link to="/contact">Contact</Link></li>
             </ul>
           </div>
           <div>
             <h4>Legal</h4>
             <ul>
-              <li><a href="mailto:support@brillbrainsconsultants.com">Help Center</a></li>
+              <li><Link to="/terms-of-service">Terms of Service</Link></li>
               <li><Link to="/privacy-policy">Privacy Policy</Link></li>
               <li><Link to="/refund-policy">Refund &amp; Cancellation</Link></li>
             </ul>

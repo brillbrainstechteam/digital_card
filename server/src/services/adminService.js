@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs')
 const crypto = require('crypto')
 const { pool } = require('../config/database')
+const contactService = require('./contactService')
 
 function generateTempPassword() {
   return crypto.randomBytes(6).toString('base64url')
@@ -68,6 +69,15 @@ async function getAdminAuditLog(limit = 200) {
     [Math.min(Math.max(parseInt(limit, 10) || 200, 1), 500)]
   )
   return result.rows
+}
+
+
+async function getContactMessages() {
+  return contactService.getAllMessages()
+}
+
+async function setContactMessageStatus(id, status) {
+  return contactService.updateMessageStatus(id, status)
 }
 
 async function getStats() {
@@ -347,4 +357,4 @@ async function getRecentActivity() {
   return result.rows
 }
 
-module.exports = { recordAdminAction, getAdminAuditLog, getStats, getInsights, getUserDetail, getAllUsers, getAllCards, getAllQrCodes, adminUpdateCardStatus, adminUpdateQrLifecycle, adminDeleteCard, adminDeleteUser, getRecentActivity, getSubscriptionStats, getAllSubscriptions, resetUserPassword }
+module.exports = { recordAdminAction, getAdminAuditLog, getContactMessages, setContactMessageStatus, getStats, getInsights, getUserDetail, getAllUsers, getAllCards, getAllQrCodes, adminUpdateCardStatus, adminUpdateQrLifecycle, adminDeleteCard, adminDeleteUser, getRecentActivity, getSubscriptionStats, getAllSubscriptions, resetUserPassword }

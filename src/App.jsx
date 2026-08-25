@@ -27,6 +27,8 @@ import { QrScanRedirect } from './features/qr'
 import { AdminPanel } from './features/admin/AdminPanel'
 import { PrivacyPolicyPage } from './components/PrivacyPolicyPage'
 import { RefundPolicyPage } from './components/RefundPolicyPage'
+import { TermsOfServicePage } from './components/TermsOfServicePage'
+import { ContactPage } from './components/ContactPage'
 
 function GuestRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
@@ -58,6 +60,8 @@ function App() {
               <Route path="/create" element={<CreateCardPage />} />
               <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
               <Route path="/refund-policy" element={<RefundPolicyPage />} />
+              <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+              <Route path="/contact" element={<ContactPage />} />
             </Route>
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/admin/*" element={<AdminPanel />} />

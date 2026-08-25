@@ -10,6 +10,8 @@ router.use(authenticateAdmin)
 router.get('/stats', ctrl.getStats)
 router.get('/insights', ctrl.getInsights)
 router.get('/audit-log', ctrl.getAuditLog)
+router.get('/contact-messages', ctrl.getContactMessages)
+router.patch('/contact-messages/:id/status', ctrl.updateContactMessageStatus)
 router.get('/users', ctrl.getUsers)
 // Must precede any other '/users/:userId/...' route only in the sense that
 // Express matches in order; kept adjacent to /users for readability.

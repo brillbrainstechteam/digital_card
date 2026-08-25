@@ -65,3 +65,7 @@ export const resetUserPassword = (userId) =>
   request(`/users/${userId}/reset-password`, { method: 'POST' })
 
 export const fetchSubscriptions = () => request('/subscriptions')
+
+export const fetchContactMessages = () => request('/contact-messages')
+export const updateContactMessageStatus = (id, status) =>
+  request(`/contact-messages/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })

@@ -46,6 +46,23 @@ async function getAuditLog(req, res, next) {
   }
 }
 
+async function getContactMessages(req, res, next) {
+  try {
+    res.json(await adminService.getContactMessages())
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function updateContactMessageStatus(req, res, next) {
+  try {
+    const result = await adminService.setContactMessageStatus(req.params.id, req.body.status)
+    res.json(result)
+  } catch (err) {
+    next(err)
+  }
+}
+
 async function getInsights(req, res, next) {
   try {
     res.json(await adminService.getInsights())
@@ -167,4 +184,4 @@ async function getSubscriptions(req, res, next) {
   }
 }
 
-module.exports = { login, getAuditLog, getStats, getInsights, getUserDetail, getUsers, getCards, getQrCodes, updateCardStatus, updateQrLifecycle, deleteCard, deleteUser, getActivity, getSubscriptions, resetUserPassword }
+module.exports = { login, getAuditLog, getContactMessages, updateContactMessageStatus, getStats, getInsights, getUserDetail, getUsers, getCards, getQrCodes, updateCardStatus, updateQrLifecycle, deleteCard, deleteUser, getActivity, getSubscriptions, resetUserPassword }
