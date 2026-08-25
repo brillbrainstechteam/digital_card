@@ -1,4 +1,4 @@
-import client from '../../../api/client'
+import client, { getToken } from '../../../api/client'
 
 export async function fetchCards() {
   const { data } = await client.get('/cards')
@@ -120,15 +120,28 @@ export async function uploadImage(file, onProgress) {
   // our Cloudinary account. Falls back to the unsigned preset when the server
   // has no Cloudinary credentials configured, so uploads keep working.
   let cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD || 'demo'
-  try {
-    const { data } = await client.post('/upload/sign')
-    const sig = data.data
-    form.append('api_key', sig.apiKey)
-    form.append('timestamp', sig.timestamp)
-    form.append('signature', sig.signature)
-    form.append('folder', sig.folder)
-    if (sig.cloudName) cloudName = sig.cloudName
-  } catch {
+  let signed = false
+
+  // Guests legitimately upload a logo while building a card at /create, and
+  // /upload/sign requires auth. Skip the request entirely when there is no
+  // token — otherwise every guest upload takes a pointless 401, and the
+  // client's 401 interceptor clears the token as a side effect.
+  if (getToken()) {
+    try {
+      const { data } = await client.post('/upload/sign')
+      const sig = data.data
+      form.append('api_key', sig.apiKey)
+      form.append('timestamp', sig.timestamp)
+      form.append('signature', sig.signature)
+      form.append('folder', sig.folder)
+      if (sig.cloudName) cloudName = sig.cloudName
+      signed = true
+    } catch {
+      signed = false // server has no Cloudinary credentials yet — fall back
+    }
+  }
+
+  if (!signed) {
     form.append('upload_preset', import.meta.env.VITE_CLOUDINARY_PRESET || 'digital_card_logos')
     form.append('folder', 'digital-cards')
   }
