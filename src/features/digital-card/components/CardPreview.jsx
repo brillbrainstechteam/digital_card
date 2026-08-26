@@ -309,9 +309,17 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null, s
           />
         </div>
       )}
+      <div className="card-hero">
       <header className="card-header">
         {profile.showProfilePhoto !== false && (
-          <div className="profile-photo-ring" style={{ transform: `translateY(${coverSettings.offsetY ?? 0}px)` }}>
+          <div
+            className="profile-photo-ring"
+            style={{
+              transform: `translateY(${coverSettings.offsetY ?? 0}px)`,
+              width: `${(coverSettings.size ?? 110) + 8}px`,
+              height: `${(coverSettings.size ?? 110) + 8}px`,
+            }}
+          >
             <div
               className="profile-photo"
               style={{
@@ -319,6 +327,8 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null, s
                 backgroundSize: coverSettings.bgSize ? `${coverSettings.bgSize}%` : 'cover',
                 backgroundPosition: `${coverSettings.positionX ?? 50}% ${coverSettings.positionY ?? 50}%`,
                 backgroundRepeat: 'no-repeat',
+                width: `${coverSettings.size ?? 110}px`,
+                height: `${coverSettings.size ?? 110}px`,
               }}
             />
           </div>
@@ -391,6 +401,7 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null, s
           ))}
         </div>
       )}
+      </div>
 
       <footer className="card-footer">
         {profile.showSocialLinks !== false && visibleSocials.length > 0 && (

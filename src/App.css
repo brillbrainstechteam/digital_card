@@ -3157,6 +3157,16 @@
   max-width: 430px;
 }
 
+/* On the live public card, keep the photo/name/contact-buttons "hero"
+   filling roughly one screen so socials and Google Maps only appear once
+   the visitor scrolls, instead of everything being visible at once. */
+.profile-card--immersive .card-hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: calc(100dvh - 100px);
+}
+
 .setup-wizard {
   margin: 0 auto;
   max-width: 760px;

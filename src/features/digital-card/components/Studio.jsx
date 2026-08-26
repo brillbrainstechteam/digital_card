@@ -1204,7 +1204,7 @@ export function Studio({
         </section>
         )}
 
-        {activePanel === 'design' && (profile.showProfilePhoto !== false || profile.showPersonName !== false) && (
+        {activePanel === 'info' && (profile.showProfilePhoto !== false || profile.showPersonName !== false) && (
         <section className="editor-section cover-box">
           <div className="editor-title">
             <h2>Personal Information</h2>
@@ -1237,9 +1237,19 @@ export function Studio({
               label="Vertical position"
               value={coverSettings.offsetY ?? 0}
               min={-60}
-              max={0}
+              max={80}
               suffix="px"
               onChange={(value) => updateCoverSetting('offsetY', value)}
+              onBegin={beginLiveEdit}
+              onCommit={commitNow}
+            />
+            <RangeControl
+              label="Photo size"
+              value={coverSettings.size ?? 110}
+              min={70}
+              max={180}
+              suffix="px"
+              onChange={(value) => updateCoverSetting('size', value)}
               onBegin={beginLiveEdit}
               onCommit={commitNow}
             />
