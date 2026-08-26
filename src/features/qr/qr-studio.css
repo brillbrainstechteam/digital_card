@@ -257,8 +257,10 @@
 
 .qr-code-surface {
   align-items: center;
+  border-radius: 20px;
   display: flex;
   justify-content: center;
+  overflow: hidden;
 }
 
 .qr-code-surface svg,

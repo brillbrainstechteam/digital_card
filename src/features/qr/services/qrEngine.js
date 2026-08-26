@@ -21,7 +21,7 @@ export function createDefaultQrSettings() {
     // Hardcoding 'H' made every static QR maximally dense, which both wasted
     // half the byte budget and made long vCards hard for cameras to read.
     errorCorrectionLevel: 'auto',
-    dotsType: 'square',
+    dotsType: 'extra-rounded',
     foreground: '#000000',
     background: '#ffffff',
     transparentBackground: false,
@@ -98,7 +98,7 @@ export function buildQrCodeOptions(settings, { lockable = false } = {}) {
     imageOptions: {
       imageSize: settings.logoSizeRatio ?? 0.22,
       hideBackgroundDots: true,
-      margin: 4,
+      margin: 6,
       // Our logos are already data URLs, so we never need the library's
       // re-fetch-as-blob step. That step performs an XMLHttpRequest GET
       // against the image URL (even for data: URIs) to re-encode it, which
@@ -108,14 +108,14 @@ export function buildQrCodeOptions(settings, { lockable = false } = {}) {
       saveAsBlob: false,
     },
     dotsOptions: dotsGradient
-      ? { type: settings.dotsType || 'square', gradient: dotsGradient }
-      : { type: settings.dotsType || 'square', color: settings.foreground },
+      ? { type: settings.dotsType || 'extra-rounded', gradient: dotsGradient }
+      : { type: settings.dotsType || 'extra-rounded', color: settings.foreground },
     cornersSquareOptions: {
-      type: 'square',
+      type: 'extra-rounded',
       color: dotsGradient ? cornerColorFor(settings.gradient) : settings.foreground,
     },
     cornersDotOptions: {
-      type: 'square',
+      type: 'dot',
       color: dotsGradient ? cornerColorFor(settings.gradient) : settings.foreground,
     },
     backgroundOptions: settings.transparentBackground
@@ -128,12 +128,53 @@ export function createQrCodeInstance(settings, { lockable = false } = {}) {
   return new QRCodeStyling(buildQrCodeOptions(settings, { lockable }))
 }
 
+// Mirrors the logo-rounding clip applied to the live preview (see
+// useQrCode.js) onto an exported SVG's raw markup. PNG/PDF exports rasterize
+// the logo inside qr-code-styling's own canvas render with no hook to
+// intercept it, so this only covers the 'svg' download format.
+function roundLogoCornersInSvgMarkup(svgText) {
+  const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml')
+  const svg = doc.documentElement
+  const image = svg.querySelector('image')
+  if (!image) return svgText
+
+  const x = Number.parseFloat(image.getAttribute('x')) || 0
+  const y = Number.parseFloat(image.getAttribute('y')) || 0
+  const width = Number.parseFloat(image.getAttribute('width')) || 0
+  const height = Number.parseFloat(image.getAttribute('height')) || 0
+  if (!width || !height) return svgText
+
+  const clipId = 'qr-logo-clip-export'
+  let defs = svg.querySelector('defs')
+  if (!defs) {
+    defs = doc.createElementNS('http://www.w3.org/2000/svg', 'defs')
+    svg.insertBefore(defs, svg.firstChild)
+  }
+  const clipPath = doc.createElementNS('http://www.w3.org/2000/svg', 'clipPath')
+  clipPath.setAttribute('id', clipId)
+  const rect = doc.createElementNS('http://www.w3.org/2000/svg', 'rect')
+  rect.setAttribute('x', x)
+  rect.setAttribute('y', y)
+  rect.setAttribute('width', width)
+  rect.setAttribute('height', height)
+  rect.setAttribute('rx', Math.min(width, height) * 0.22)
+  rect.setAttribute('ry', Math.min(width, height) * 0.22)
+  clipPath.appendChild(rect)
+  defs.appendChild(clipPath)
+  image.setAttribute('clip-path', `url(#${clipId})`)
+
+  return new XMLSerializer().serializeToString(svg)
+}
+
 // Renders a fresh, offscreen instance and returns the raw Blob for the
 // requested format. Used for downloads so the visible preview instance is
 // never mutated by export concerns.
 export async function renderQrToBlob(settings, extension, { lockable = false } = {}) {
   const instance = new QRCodeStyling(buildQrCodeOptions(settings, { lockable }))
-  return instance.getRawData(extension)
+  const blob = await instance.getRawData(extension)
+  if (extension !== 'svg' || !blob || !settings.logo) return blob
+  const svgText = await blob.text()
+  return new Blob([roundLogoCornersInSvgMarkup(svgText)], { type: 'image/svg+xml' })
 }
 
 // Renders a fresh, offscreen instance and returns a data URL — for
@@ -146,8 +187,23 @@ export async function renderQrToDataUrl(settings, extension = 'png', { lockable 
   return blobToDataUrl(blob)
 }
 
+function triggerBlobDownload(blob, fileName, extension) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${fileName}.${extension}`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 export async function downloadQrCode(settings, { extension, fileName = 'qr-code', lockable = false } = {}) {
   if (extension === 'pdf') return downloadQrAsPdf(settings, fileName, { lockable })
+  // SVG goes through renderQrToBlob (not instance.download) so the exported
+  // markup also gets the logo-corner rounding applied to the live preview.
+  if (extension === 'svg') {
+    const blob = await renderQrToBlob(settings, extension, { lockable })
+    return triggerBlobDownload(blob, fileName, extension)
+  }
   const instance = new QRCodeStyling(buildQrCodeOptions(settings, { lockable }))
   return instance.download({ name: fileName, extension })
 }

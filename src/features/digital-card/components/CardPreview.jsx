@@ -307,7 +307,6 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null, s
           className="card-top-band"
           style={{
             height: `${logoSettings.bandHeight ?? 130}px`,
-            backgroundColor: profile.logoBg || undefined,
           }}
         >
           <img

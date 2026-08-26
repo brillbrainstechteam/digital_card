@@ -1660,7 +1660,9 @@
 .sidebar-nav-children {
   display: flex;
   flex-direction: column;
+  gap: 4px;
   margin-left: 28px;
+  margin-top: 4px;
   margin-bottom: 4px;
   border-left: 1.5px solid rgba(255,255,255,0.12);
   padding-left: 4px;
