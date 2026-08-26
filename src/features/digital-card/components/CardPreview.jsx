@@ -80,22 +80,6 @@ export function SocialIcon({ platform }) {
     ),
   }
 
-  if (platform === 'instagram') {
-    return (
-      <svg aria-hidden="true" className="social-icon" viewBox="0 0 24 24" fill="url(#ig-gradient)">
-        <defs>
-          <linearGradient id="ig-gradient" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#FFDD55" />
-            <stop offset="30%" stopColor="#FF543E" />
-            <stop offset="60%" stopColor="#C837AB" />
-            <stop offset="100%" stopColor="#5851DB" />
-          </linearGradient>
-        </defs>
-        {paths.instagram}
-      </svg>
-    )
-  }
-
   return (
     <svg aria-hidden="true" className="social-icon" viewBox="0 0 24 24" fill="currentColor">
       {paths[platform] ?? null}
@@ -171,7 +155,6 @@ function SaveContactModal({ profile, onClose, trackingSlug }) {
     e.preventDefault()
     if (!validate()) return
     setStatus('saving')
-    buildContactFile(profile)
     if (trackingSlug) {
       trackButtonClick(trackingSlug, 'save_contact')
       try {
@@ -253,14 +236,19 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null, s
   const defaultFont = profile.fontFamily || 'Inter, system-ui, sans-serif'
   const displayName = profile.personName || profile.brandName || profile.companyName
   const companyName = profile.companyName || (profile.personName ? profile.brandName : '')
+  // In the editor's own live preview (immersive === false) a toggled-on
+  // button should stay visible even before its field is filled in, so the
+  // person editing can see what they're building toward — the empty-field
+  // check only matters once this becomes the real, public-facing card.
+  const requireField = immersive
   const contactActionCount = [
-    profile.showCallButton !== false && profile.phone,
-    profile.showEmailButton !== false && profile.email,
-    profile.showWhatsappButton !== false && profile.whatsapp,
+    profile.showCallButton !== false && (!requireField || profile.phone),
+    profile.showEmailButton !== false && (!requireField || profile.email),
+    profile.showWhatsappButton !== false && (!requireField || profile.whatsapp),
   ].filter(Boolean).length || 1
-  const hasAnyQuickAction = (profile.showCallButton !== false && profile.phone)
-    || (profile.showEmailButton !== false && profile.email)
-    || (profile.showWhatsappButton !== false && profile.whatsapp)
+  const hasAnyQuickAction = (profile.showCallButton !== false && (!requireField || profile.phone))
+    || (profile.showEmailButton !== false && (!requireField || profile.email))
+    || (profile.showWhatsappButton !== false && (!requireField || profile.whatsapp))
     || profile.showSaveContactButton !== false
   const buttonLabels = { ...BUTTON_LABEL_DEFAULTS, ...(profile.buttonLabels || {}) }
   const visibleSocials = (profile.socials || []).filter((s) => s.enabled !== false)
@@ -314,8 +302,8 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null, s
             src={profile.logo}
             alt={`${profile.brandName} logo`}
             style={{
-              maxWidth: `${logoSettings.width ?? 100}%`,
-              maxHeight: `${logoSettings.width ?? 100}%`,
+              width: `${logoSettings.width ?? 100}%`,
+              height: `${logoSettings.width ?? 100}%`,
               transform: `translateY(${logoSettings.offsetY}px)`,
             }}
           />
@@ -347,17 +335,17 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null, s
           aria-label="Contact actions"
           style={{ gridTemplateColumns: `repeat(${contactActionCount}, minmax(0, 1fr))` }}
         >
-          {profile.showCallButton !== false && profile.phone && <a className="quick-action-call" href={`tel:${profile.phone.replaceAll(' ', '')}`} aria-label="Call" onClick={() => track('call')}>
+          {profile.showCallButton !== false && (!requireField || profile.phone) && <a className="quick-action-call" href={profile.phone ? `tel:${profile.phone.replaceAll(' ', '')}` : undefined} aria-label="Call" onClick={() => track('call')}>
             <ActionIcon type="call" />
             <span>{buttonLabels.call}</span>
           </a>}
-          {profile.showEmailButton !== false && profile.email && <a className="quick-action-email" href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(profile.email)}`} target="_blank" rel="noreferrer" aria-label="Email" onClick={() => track('email')}>
+          {profile.showEmailButton !== false && (!requireField || profile.email) && <a className="quick-action-email" href={profile.email ? `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(profile.email)}` : undefined} target="_blank" rel="noreferrer" aria-label="Email" onClick={() => track('email')}>
             <ActionIcon type="email" />
             <span>{buttonLabels.email}</span>
           </a>}
-          {profile.showWhatsappButton !== false && profile.whatsapp && <a
+          {profile.showWhatsappButton !== false && (!requireField || profile.whatsapp) && <a
             className="quick-action-whatsapp"
-            href={`https://wa.me/${profile.whatsapp.replaceAll('+', '')}`}
+            href={profile.whatsapp ? `https://wa.me/${profile.whatsapp.replaceAll('+', '')}` : undefined}
             target="_blank"
             rel="noreferrer"
             aria-label="WhatsApp"

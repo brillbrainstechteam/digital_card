@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createCard, updateCard, uploadImage } from '../services/api'
 import { defaultProfile, getVisibilityFlags } from '../data'
-import { extractPaletteFromLogo, detectBackdrop, rgbToHex } from '../theme'
+import { extractPaletteFromLogo } from '../theme'
 import { themeFromPalette } from '../themeOptions'
 import { useAuth } from '../../../context/AuthContext'
 
@@ -87,14 +87,14 @@ function AssetUpload({ label, required, value, progress, error, onChange, onRemo
 
 const PRESET_INFO = {
   personal: { label: 'Personal', desc: 'Photo, name, designation & social links', icon: '👤' },
-  professional: { label: 'Professional', desc: 'Logo, photo, name, company & full details', icon: '💼' },
-  business: { label: 'Business', desc: 'Logo & company branding focused', icon: '🏢' },
+  professional: { label: 'Professional', desc: 'Photo, name, company & full details', icon: '💼' },
+  business: { label: 'Business', desc: 'Photo & company branding focused', icon: '🏢' },
 }
 
 function getWizardSteps(cardType) {
   if (cardType === 'personal') return ['assets_photo', 'details_personal', 'theme']
-  if (cardType === 'business') return ['assets_logo', 'details_business', 'theme']
-  return ['assets_both', 'details_personal', 'details_business', 'theme']
+  if (cardType === 'business') return ['assets_photo', 'details_business', 'theme']
+  return ['assets_photo', 'details_personal', 'details_business', 'theme']
 }
 
 export function SetupWizard({ onCancel, onComplete, toast }) {
@@ -105,8 +105,6 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
   const [curationIndex, setCurationIndex] = useState(0)
   const [curationProgress, setCurationProgress] = useState(8)
   const [form, setForm] = useState({
-    logo: '',
-    logoPreview: '',
     profilePhoto: '',
     profilePhotoPreview: '',
     personName: '',
@@ -116,15 +114,13 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
     location: '',
     palette: defaultProfile.palette,
     theme: defaultProfile.theme,
-    logoBg: defaultProfile.logoBg,
-    logoSettings: defaultProfile.logoSettings,
   })
 
   const wizardSteps = cardType ? getWizardSteps(cardType) : []
   const totalSteps = wizardSteps.length
   const currentStepId = wizardSteps[step - 1]
-  const [uploadProgress, setUploadProgress] = useState({ logo: 0, profilePhoto: 0 })
-  const [uploadErrors, setUploadErrors] = useState({ logo: '', profilePhoto: '' })
+  const [uploadProgress, setUploadProgress] = useState({ profilePhoto: 0 })
+  const [uploadErrors, setUploadErrors] = useState({ profilePhoto: '' })
   const [error, setError] = useState('')
 
   const extractedColors = useMemo(() => [
@@ -151,33 +147,13 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
     try {
       const preview = await readFile(file)
       let uploadSource = file
-      if (field === 'logo') {
-        setForm((current) => ({ ...current, logoPreview: preview, logo: preview }))
-        const [palette, backdrop] = await Promise.all([
-          extractPaletteFromLogo(preview),
-          detectBackdrop(preview),
-        ])
-        setForm((current) => ({
-          ...current,
-          logo: preview,
-          logoPreview: preview,
-          palette,
-          theme: { ...current.theme, ...themeFromPalette(palette) },
-          logoBg: backdrop ? rgbToHex(backdrop) : current.logoBg,
-        }))
-      } else {
-        setForm((current) => ({ ...current, profilePhotoPreview: preview, profilePhoto: preview }))
-        const [palette, backdrop] = await Promise.all([
-          extractPaletteFromLogo(preview),
-          detectBackdrop(preview),
-        ])
-        setForm((current) => ({
-          ...current,
-          palette,
-          theme: { ...current.theme, ...themeFromPalette(palette) },
-          logoBg: backdrop ? rgbToHex(backdrop) : current.logoBg,
-        }))
-      }
+      setForm((current) => ({ ...current, profilePhotoPreview: preview, profilePhoto: preview }))
+      const palette = await extractPaletteFromLogo(preview)
+      setForm((current) => ({
+        ...current,
+        palette,
+        theme: { ...current.theme, ...themeFromPalette(palette) },
+      }))
 
       const cloudUrl = await uploadImage(uploadSource, (progress) => {
         setUploadProgress((current) => ({ ...current, [field]: progress }))
@@ -214,14 +190,6 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
   }
 
   function validateStep() {
-    if (currentStepId === 'assets_both' && !form.logo) {
-      setError('Business Logo is required.')
-      return false
-    }
-    if (currentStepId === 'assets_logo' && !form.logo) {
-      setError('Business Logo is required.')
-      return false
-    }
     if (currentStepId === 'details_personal' && !form.personName.trim()) {
       setError('Person Name is required.')
       return false
@@ -263,13 +231,11 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
         whatsapp: '',
         location: form.location.trim(),
         socials: DEFAULT_SOCIALS,
-        logo: form.logo,
-        logoSource: form.logo,
+        logo: form.profilePhoto,
+        logoSource: form.profilePhoto,
         coverImage: form.profilePhoto || '',
         palette: form.palette,
         theme: form.theme,
-        logoBg: form.logoBg,
-        logoSettings: form.logoSettings,
         branding: { ...defaultProfile.branding, poweredBy: true },
       }
       // Guests get the fully-designed profile handed straight back — no
@@ -355,59 +321,17 @@ export function SetupWizard({ onCancel, onComplete, toast }) {
       <section className="editor-section setup-wizard-card">
         <p className="eyebrow">Step {step} of {totalSteps}</p>
 
-        {currentStepId === 'assets_both' && (
-          <>
-            <h1>Upload Assets</h1>
-            <div className="wizard-upload-grid">
-              <AssetUpload
-                label="Business Logo"
-                required
-                value={form.logoPreview}
-                progress={uploadProgress.logo}
-                error={uploadErrors.logo}
-                onChange={(event) => handleAsset('logo', event)}
-                onRemove={() => setForm((current) => ({ ...current, logo: '', logoPreview: '' }))}
-              />
-              <AssetUpload
-                label="Profile Photo"
-                value={form.profilePhotoPreview}
-                progress={uploadProgress.profilePhoto}
-                error={uploadErrors.profilePhoto}
-                onChange={(event) => handleAsset('profilePhoto', event)}
-                onRemove={() => setForm((current) => ({ ...current, profilePhoto: '', profilePhotoPreview: '' }))}
-              />
-            </div>
-          </>
-        )}
-
         {currentStepId === 'assets_photo' && (
           <>
-            <h1>Upload Profile Photo</h1>
+            <h1>Upload Photo</h1>
             <div className="wizard-upload-grid">
               <AssetUpload
-                label="Profile Photo"
+                label="Photo"
                 value={form.profilePhotoPreview}
                 progress={uploadProgress.profilePhoto}
                 error={uploadErrors.profilePhoto}
                 onChange={(event) => handleAsset('profilePhoto', event)}
                 onRemove={() => setForm((current) => ({ ...current, profilePhoto: '', profilePhotoPreview: '' }))}
-              />
-            </div>
-          </>
-        )}
-
-        {currentStepId === 'assets_logo' && (
-          <>
-            <h1>Upload Business Logo</h1>
-            <div className="wizard-upload-grid">
-              <AssetUpload
-                label="Business Logo"
-                required
-                value={form.logoPreview}
-                progress={uploadProgress.logo}
-                error={uploadErrors.logo}
-                onChange={(event) => handleAsset('logo', event)}
-                onRemove={() => setForm((current) => ({ ...current, logo: '', logoPreview: '' }))}
               />
             </div>
           </>

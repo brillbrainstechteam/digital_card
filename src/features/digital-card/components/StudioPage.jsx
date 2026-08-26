@@ -305,6 +305,19 @@ export function StudioPage() {
       setAuthModalOpen(true)
       return
     }
+    const missing = []
+    if (editorProfile.showCallButton !== false && !editorProfile.phone) missing.push('Call number')
+    if (editorProfile.showEmailButton !== false && !editorProfile.email) missing.push('Email address')
+    if (editorProfile.showWhatsappButton !== false && !editorProfile.whatsapp) missing.push('WhatsApp number')
+    if (missing.length > 0) {
+      setConfirmModal({
+        message: `These buttons are turned on but still empty: ${missing.join(', ')}. They won't work on your published card until filled in. Continue to checkout anyway?`,
+        confirmLabel: 'Continue anyway',
+        onConfirm: () => { setConfirmModal(null); runPublishSequence() },
+        onCancel: () => setConfirmModal(null),
+      })
+      return
+    }
     runPublishSequence()
   }, [editorProfile, isAuthenticated, runPublishSequence])
 

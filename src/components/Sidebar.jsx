@@ -40,7 +40,6 @@ const EDITOR_ITEMS = [
   { key: 'buttons',  label: 'Button Settings' },
   { key: 'leads',    label: 'Leads'           },
   { key: 'social',   label: 'Social Links'    },
-  { key: 'settings', label: 'Logo Settings'   },
   { key: 'colors',   label: 'Colors'          },
   { key: 'fonts',    label: 'Fonts'           },
   { key: 'footer',   label: 'Footer'          },
@@ -176,9 +175,6 @@ export function Sidebar({
                   onClick={() => onEditorNav?.(item.key)}
                 >
                   {item.label}
-                  {completionMap[item.key] && (
-                    <span className="sidebar-completion-dot" title="Filled in" />
-                  )}
                 </button>
               ))}
             </>

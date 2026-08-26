@@ -28,7 +28,7 @@ export const PRESET_DEFAULTS = {
     showGoogleMaps: false,
   },
   professional: {
-    showLogo: true,
+    showLogo: false,
     showProfilePhoto: true,
     showPersonName: true,
     showDesignation: true,
@@ -45,8 +45,8 @@ export const PRESET_DEFAULTS = {
     showGoogleMaps: false,
   },
   business: {
-    showLogo: true,
-    showProfilePhoto: false,
+    showLogo: false,
+    showProfilePhoto: true,
     showPersonName: false,
     showDesignation: false,
     showCompanyName: true,
