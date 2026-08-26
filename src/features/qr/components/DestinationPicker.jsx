@@ -24,9 +24,12 @@ export function DestinationPicker({ type, fields, onChange, qrType = 'static' })
     onChange(type, { ...fields, phones })
   }
 
+  const MAX_VCARD_PHONES = 5
+
   function addPhone() {
-    const phones = [...(fields.phones || []), { label: '', number: '' }]
-    onChange(type, { ...fields, phones })
+    const phones = fields.phones || []
+    if (phones.length >= MAX_VCARD_PHONES) return
+    onChange(type, { ...fields, phones: [...phones, { label: '', number: '' }] })
   }
 
   function removePhone(index) {
@@ -245,7 +248,12 @@ export function DestinationPicker({ type, fields, onChange, qrType = 'static' })
                 </button>
               </div>
             ))}
-            <button type="button" className="qr-repeatable-add" onClick={addPhone}>+ Add another number</button>
+            {(fields.phones || []).length < MAX_VCARD_PHONES && (
+              <button type="button" className="qr-repeatable-add" onClick={addPhone}>+ Add another number</button>
+            )}
+            {(fields.phones || []).length >= MAX_VCARD_PHONES && (
+              <p className="qr-field-hint">Maximum of {MAX_VCARD_PHONES} phone numbers per contact card.</p>
+            )}
           </div>
           <label className="qr-field">
             <span className="qr-field-label">Email</span>

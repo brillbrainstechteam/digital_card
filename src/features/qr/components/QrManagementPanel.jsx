@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { QRCode } from './QRCode'
 import { QRCustomizationPanel } from './QRCustomizationPanel'
-import { QRWarnings } from './QRWarnings'
 import { DestinationPicker } from './DestinationPicker'
 import { buildDestinationValue } from '../utils/destinations'
 import { updateQrSettings } from '../services/qrApi'
@@ -103,7 +102,6 @@ export function QrManagementPanel({ qr, onUpdated, onClose, toast }) {
         </div>
         <div className="qr-integration-preview">
           <QRCode settings={liveSettings} size={220} lockable />
-          <QRWarnings settings={liveSettings} />
         </div>
       </div>
 

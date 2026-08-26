@@ -3,7 +3,6 @@ import { PageHeader } from '../../../components/PageHeader'
 import { Sidebar } from '../../../components/Sidebar'
 import { QRCode } from '../components/QRCode'
 import { QRCustomizationPanel } from '../components/QRCustomizationPanel'
-import { QRWarnings } from '../components/QRWarnings'
 import { DestinationPicker } from '../components/DestinationPicker'
 import { createDefaultQrSettings } from '../services/qrEngine'
 import { publishStandaloneQr } from '../services/qrApi'
@@ -183,7 +182,6 @@ export function QRStudioPage({ brandTheme = null, initialDestination = null }) {
           <QRCode settings={liveSettings} size={220} lockable />
         </div>
         <QrPreviewNotice />
-        <QRWarnings settings={liveSettings} />
         <button type="button" className="primary-button qr-publish-btn" disabled={publishing} onClick={handlePublish}>
           {publishing ? 'Adding...' : 'Add QR to Cart'}
         </button>

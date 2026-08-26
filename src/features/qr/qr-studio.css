@@ -251,12 +251,6 @@
   flex: 0 0 auto;
 }
 
-.qr-studio-preview .qr-warnings {
-  margin-top: 4px;
-  max-height: 90px;
-  overflow: auto;
-}
-
 .qr-studio-preview .qr-publish-btn {
   margin-top: 4px;
 }
@@ -272,29 +266,6 @@
   height: 100% !important;
   max-width: 100%;
   width: 100% !important;
-}
-
-.qr-warnings {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.qr-warning-item {
-  align-items: flex-start;
-  background: #fff7e6;
-  border: 1px solid #f2d896;
-  border-radius: 10px;
-  color: #7a5b00;
-  display: flex;
-  font-size: 12px;
-  gap: 8px;
-  padding: 10px 12px;
-}
-
-.qr-warning-icon {
-  flex: none;
 }
 
 .qr-palette-swatch {

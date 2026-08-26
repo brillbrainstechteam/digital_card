@@ -1674,11 +1674,6 @@ export function Studio({
               <span />
             </span>
           </label>
-          {profile.branding?.poweredBy === false && (
-            <p className="branding-off-warning">
-              ⚠️ Removing the BrillBrains footer is a premium feature and will incur an additional charge on your subscription. Re-enable it to avoid extra billing.
-            </p>
-          )}
         </section>
         )}
 

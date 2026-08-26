@@ -166,7 +166,9 @@ function buildVCard(fields = {}) {
   if (fields.designation) lines.push(`TITLE:${escapeVCardValue(fields.designation)}`)
 
   let itemIndex = 1
-  const phones = Array.isArray(fields.phones) ? fields.phones : []
+  // Capped at 5 regardless of caller — enforced here too since this is the
+  // one place both static and dynamic saveContact payloads funnel through.
+  const phones = (Array.isArray(fields.phones) ? fields.phones : []).slice(0, 5)
   phones.forEach((entry) => {
     const number = onlyDigits(entry?.number)
     if (!number) return

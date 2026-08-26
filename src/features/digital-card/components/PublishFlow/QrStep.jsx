@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { QRCode, QRCustomizationPanel, QRWarnings, QrPreviewNotice, createDefaultQrSettings } from '../../../qr'
+import { QRCode, QRCustomizationPanel, QrPreviewNotice, createDefaultQrSettings } from '../../../qr'
 
 // The QR step in the post-publish flow only ever encodes one thing — a
 // temporary preview link for the card that was just published — so unlike
@@ -29,7 +29,6 @@ export function QrStep({ profile, previewUrl, initialSettings, saving, onBack, o
       <div className="publish-flow-qr-columns">
         <div className="publish-flow-qr-preview">
           <QRCode settings={liveSettings} size={220} lockable />
-          <QRWarnings settings={liveSettings} />
           {unlocked ? (
             <p className="publish-flow-qr-note">
               This QR points to a temporary preview of your card — it only opens in this browser and can't be shared to other devices.
