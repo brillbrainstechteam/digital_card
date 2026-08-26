@@ -55,8 +55,15 @@ export function QrAnalyticsPage() {
     return () => { active = false }
   }, [])
 
-  const activeQrs = qrs.filter((qr) => qr.settings?.lifecycleStatus !== 'archived').length
-  const archivedQrs = qrs.filter((qr) => qr.settings?.lifecycleStatus === 'archived').length
+  // An unpurchased QR ("Payment Pending" — see QrCodesListPage) can't actually
+  // resolve for a public scanner; resolveScan returns notPurchased and shows a
+  // lock screen instead of redirecting. Counting it as "Active" here claimed
+  // it was live when it functionally wasn't, inflating this number against
+  // what scan analytics could ever show.
+  const purchasedQrs = qrs.filter((qr) => qr.settings?.purchased === 'true')
+  const activeQrs = purchasedQrs.filter((qr) => qr.settings?.lifecycleStatus !== 'archived').length
+  const archivedQrs = purchasedQrs.filter((qr) => qr.settings?.lifecycleStatus === 'archived').length
+  const pendingQrs = qrs.length - purchasedQrs.length
 
   async function handleQrSelection(event) {
     const qrId = event.target.value
@@ -121,6 +128,12 @@ export function QrAnalyticsPage() {
                 <span>Archived QRs</span>
                 <strong>{archivedQrs}</strong>
               </div>
+              {pendingQrs > 0 && (
+                <div className="dashboard-summary-card">
+                  <span>Payment Pending</span>
+                  <strong>{pendingQrs}</strong>
+                </div>
+              )}
               <div className="dashboard-summary-card">
                 <span>{selectedQrId ? 'Selected QR Scans' : 'Total Scans'}</span>
                 <strong>{analytics?.totalScans || 0}</strong>

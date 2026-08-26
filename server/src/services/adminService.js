@@ -125,11 +125,22 @@ async function getStats() {
 
 // Daily buckets for the last 30 days, one row per calendar day even when
 // nothing happened — a series with gaps would draw a misleading chart.
+//
+// The DB server runs in UTC, but the business and its users are in India
+// (see the matching note in analyticsService.js). `created_at::date` truncates
+// using the session timezone (UTC), so an event at 1:30 AM IST — still 20:00
+// the previous day in UTC — landed one bucket early. Every truncation below
+// goes through IST first.
 async function getInsights() {
+  const TZ = 'Asia/Kolkata'
   const [series, topCards, devices, countries] = await Promise.all([
     pool.query(`
       WITH days AS (
-        SELECT generate_series((NOW() - INTERVAL '29 days')::date, NOW()::date, '1 day')::date AS day
+        SELECT generate_series(
+          (NOW() AT TIME ZONE '${TZ}')::date - INTERVAL '29 days',
+          (NOW() AT TIME ZONE '${TZ}')::date,
+          '1 day'
+        )::date AS day
       )
       SELECT
         d.day,
@@ -138,10 +149,10 @@ async function getInsights() {
         COALESCE(v.c, 0) AS views,
         COALESCE(s.c, 0) AS scans
       FROM days d
-      LEFT JOIN (SELECT created_at::date AS day, COUNT(*) c FROM users      WHERE created_at >= NOW() - INTERVAL '30 days' GROUP BY 1) u ON u.day = d.day
-      LEFT JOIN (SELECT created_at::date AS day, COUNT(*) c FROM cards      WHERE created_at >= NOW() - INTERVAL '30 days' GROUP BY 1) c ON c.day = d.day
-      LEFT JOIN (SELECT created_at::date AS day, COUNT(*) c FROM card_views WHERE created_at >= NOW() - INTERVAL '30 days' GROUP BY 1) v ON v.day = d.day
-      LEFT JOIN (SELECT created_at::date AS day, COUNT(*) c FROM qr_scans   WHERE created_at >= NOW() - INTERVAL '30 days' GROUP BY 1) s ON s.day = d.day
+      LEFT JOIN (SELECT (created_at AT TIME ZONE '${TZ}')::date AS day, COUNT(*) c FROM users      WHERE created_at >= NOW() - INTERVAL '31 days' GROUP BY 1) u ON u.day = d.day
+      LEFT JOIN (SELECT (created_at AT TIME ZONE '${TZ}')::date AS day, COUNT(*) c FROM cards      WHERE created_at >= NOW() - INTERVAL '31 days' GROUP BY 1) c ON c.day = d.day
+      LEFT JOIN (SELECT (created_at AT TIME ZONE '${TZ}')::date AS day, COUNT(*) c FROM card_views WHERE created_at >= NOW() - INTERVAL '31 days' GROUP BY 1) v ON v.day = d.day
+      LEFT JOIN (SELECT (created_at AT TIME ZONE '${TZ}')::date AS day, COUNT(*) c FROM qr_scans   WHERE created_at >= NOW() - INTERVAL '31 days' GROUP BY 1) s ON s.day = d.day
       ORDER BY d.day
     `),
     pool.query(`

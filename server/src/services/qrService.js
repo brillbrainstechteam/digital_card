@@ -4,6 +4,10 @@ const { pool } = require('../config/database')
 const AppError = require('../utils/AppError')
 const { isValidSlugFormat } = require('../utils/slug')
 
+// The DB server runs in UTC ("SHOW timezone" -> Etc/UTC) but the business and
+// its users are in India — see the matching note in analyticsService.js.
+const REPORTING_TZ = 'Asia/Kolkata'
+
 function generateSlug() {
   return crypto.randomBytes(5).toString('hex')
 }
@@ -544,9 +548,21 @@ async function getQrAnalytics(userId, { qrId, cardId, activeCardsOnly = false } 
   const [totalRes, uniqueRes, dailyRes, deviceRes, browserRes, osRes, countryRes, recentRes] = await Promise.all([
     pool.query('SELECT COUNT(*)::int AS count FROM qr_scans WHERE qr_id = ANY($1::uuid[])', [qrIds]),
     pool.query('SELECT COUNT(DISTINCT visitor_hash)::int AS count FROM qr_scans WHERE qr_id = ANY($1::uuid[])', [qrIds]),
+    // CURRENT_DATE/day here used to be plain UTC dates compared straight
+    // against a timestamptz column — the DB runs in UTC, so a scan at, say,
+    // 1:30 AM IST (still 20:00 the previous day in UTC) landed one bucket
+    // early. Both the series bounds and the join condition are now anchored
+    // to IST wall-clock midnight.
     pool.query(`SELECT TO_CHAR(day, 'YYYY-MM-DD') AS date, COUNT(scan.id)::int AS count
-      FROM GENERATE_SERIES(CURRENT_DATE - INTERVAL '29 days', CURRENT_DATE, INTERVAL '1 day') day
-      LEFT JOIN qr_scans scan ON scan.created_at >= day AND scan.created_at < day + INTERVAL '1 day' AND scan.qr_id = ANY($1::uuid[])
+      FROM GENERATE_SERIES(
+        (NOW() AT TIME ZONE '${REPORTING_TZ}')::date - INTERVAL '29 days',
+        (NOW() AT TIME ZONE '${REPORTING_TZ}')::date,
+        INTERVAL '1 day'
+      ) day
+      LEFT JOIN qr_scans scan
+        ON scan.created_at >= (day AT TIME ZONE '${REPORTING_TZ}')
+       AND scan.created_at < ((day + INTERVAL '1 day') AT TIME ZONE '${REPORTING_TZ}')
+       AND scan.qr_id = ANY($1::uuid[])
       GROUP BY day ORDER BY day`, [qrIds]),
     pool.query('SELECT device_type, COUNT(*)::int AS count FROM qr_scans WHERE qr_id = ANY($1::uuid[]) GROUP BY device_type', [qrIds]),
     pool.query('SELECT browser, COUNT(*)::int AS count FROM qr_scans WHERE qr_id = ANY($1::uuid[]) GROUP BY browser', [qrIds]),

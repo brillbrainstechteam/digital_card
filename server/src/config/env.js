@@ -16,8 +16,10 @@ const env = {
     password: process.env.DB_PASSWORD || '',
   },
   admin: {
-    email: process.env.ADMIN_EMAIL || 'admin@brillbrainsconsultants.com',
-    password: process.env.ADMIN_PASSWORD || 'admin@123',
+    // email/password are no longer read from env — admin identities live in
+    // the admin_users table (see migration 003) with per-account bcrypt
+    // hashes, so more than one admin can exist and each is individually
+    // attributable in admin_audit_log. `secret` still signs the admin JWT.
     secret: process.env.ADMIN_JWT_SECRET || 'admin-secret-change-in-prod',
   },
   cloudinary: {
@@ -40,7 +42,6 @@ if (env.nodeEnv === 'production') {
   const insecure = []
   if (env.jwt.secret === 'change-this-secret-in-production') insecure.push('JWT_SECRET')
   if (env.admin.secret === 'admin-secret-change-in-prod') insecure.push('ADMIN_JWT_SECRET')
-  if (env.admin.password === 'admin@123') insecure.push('ADMIN_PASSWORD')
 
   if (insecure.length > 0) {
     console.error(

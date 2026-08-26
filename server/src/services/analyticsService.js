@@ -68,23 +68,39 @@ async function getOwnedCardIds(userId, cardId) {
   return result.rows.map((r) => r.id)
 }
 
+// The DB server runs in UTC (`SHOW timezone` -> Etc/UTC) but the business and
+// every user of this analytics page is in India. Every "day" boundary below
+// used to be computed in UTC — `NOW()::date`, `CURRENT_DATE`, a bare date
+// literal — so a view/lead/scan that happened at, say, 1:30 AM IST landed
+// under UTC's "yesterday" (that instant is still 20:00 the previous day in
+// UTC). "Today" silently excluded the first 5.5 hours of the actual day, and
+// "This Month" had the same slip at month boundaries. Every comparison here
+// is now anchored to IST wall-clock midnight instead.
+const REPORTING_TZ = 'Asia/Kolkata'
+
 function applyDateFilter(conditions, params, dateRange, dateFrom, dateTo, column = 'created_at') {
   if (dateRange === 'today') {
-    conditions.push(`${column} >= NOW()::date`)
+    conditions.push(`${column} >= ((NOW() AT TIME ZONE '${REPORTING_TZ}')::date AT TIME ZONE '${REPORTING_TZ}')`)
   } else if (dateRange === 'last7') {
+    // A rolling 7/30-day window is a fixed duration regardless of timezone —
+    // "now minus 7 days" is the same instant everywhere, so these two need no
+    // conversion.
     conditions.push(`${column} >= NOW() - INTERVAL '7 days'`)
   } else if (dateRange === 'last30') {
     conditions.push(`${column} >= NOW() - INTERVAL '30 days'`)
   } else if (dateRange === 'thisMonth') {
-    conditions.push(`date_trunc('month', ${column}) = date_trunc('month', NOW())`)
+    conditions.push(`date_trunc('month', ${column} AT TIME ZONE '${REPORTING_TZ}') = date_trunc('month', NOW() AT TIME ZONE '${REPORTING_TZ}')`)
   } else if (dateRange === 'custom') {
+    // dateFrom/dateTo come from an HTML <input type="date"> as a bare
+    // "YYYY-MM-DD" — the user means that calendar day in their own timezone,
+    // not a UTC date.
     if (dateFrom) {
       params.push(dateFrom)
-      conditions.push(`${column} >= $${params.length}::date`)
+      conditions.push(`${column} >= ($${params.length}::date AT TIME ZONE '${REPORTING_TZ}')`)
     }
     if (dateTo) {
       params.push(dateTo)
-      conditions.push(`${column} < ($${params.length}::date + INTERVAL '1 day')`)
+      conditions.push(`${column} < (($${params.length}::date + INTERVAL '1 day') AT TIME ZONE '${REPORTING_TZ}')`)
     }
   }
 }

@@ -14,6 +14,53 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+// A static QR's raw encoded payload is a full vCard/Wi-Fi/URL string that can
+// run to hundreds of characters — dumping it verbatim into the list read as a
+// wall of unreadable text. Show a human summary per destination type instead,
+// with the raw payload available on demand for anyone who actually needs it.
+function staticQrSummary(settings) {
+  const type = settings?.destinationType
+  const fields = settings?.destinationFields || {}
+  switch (type) {
+    case 'saveContact':
+      return { label: fields.fullName || fields.companyName || 'Contact card', detail: 'Saves a contact on scan' }
+    case 'wifi':
+      return { label: fields.ssid ? `Wi-Fi: ${fields.ssid}` : 'Wi-Fi network', detail: 'Joins a network on scan' }
+    case 'website':
+      return { label: fields.url || 'Website', detail: 'Opens a link on scan' }
+    case 'phone':
+      return { label: fields.number || 'Phone number', detail: 'Starts a call on scan' }
+    case 'email':
+      return { label: fields.address || 'Email address', detail: 'Opens an email draft on scan' }
+    case 'whatsapp':
+      return { label: fields.number || 'WhatsApp', detail: 'Opens a WhatsApp chat on scan' }
+    default:
+      return { label: 'Custom content', detail: 'Encoded directly in the pattern' }
+  }
+}
+
+function StaticQrSummary({ settings, onCopy }) {
+  const [showRaw, setShowRaw] = useState(false)
+  const { label, detail } = staticQrSummary(settings)
+  const raw = settings?.data || ''
+
+  return (
+    <div className="qr-static-summary">
+      <div className="qr-static-summary-main">
+        <span className="qr-static-summary-label" title={label}>{label}</span>
+        <span className="qr-static-note">{detail} — cannot be changed after printing</span>
+      </div>
+      <div className="qr-static-summary-actions">
+        <button className="link-button" type="button" onClick={onCopy}>Copy</button>
+        <button className="link-button" type="button" onClick={() => setShowRaw((v) => !v)}>
+          {showRaw ? 'Hide raw data' : 'View raw data'}
+        </button>
+      </div>
+      {showRaw && <pre className="qr-static-raw">{raw}</pre>}
+    </div>
+  )
+}
+
 function ConfirmDialog({ title, message, actionLabel, onCancel, onConfirm, busy = false, destructive = false }) {
   return (
     <div className="confirm-overlay">
@@ -238,21 +285,11 @@ export function QrCodesListPage() {
                       {!unlocked && !archived && <span className="status-badge status-draft">Payment pending</span>}
                     </div>
                     {isStatic ? (
-                      <div className="qr-slug-display">
-                        <span className="qr-slug-link">{qr.settings?.data || '—'}</span>
-                        <button
-                          className="link-button"
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(qr.settings?.data || '')
-                              .then(() => toast.success('Encoded content copied'))
-                              .catch(() => toast.error('Could not copy'))
-                          }}
-                        >
-                          Copy
-                        </button>
-                        <span className="qr-static-note">Encoded in the code — cannot be changed after printing</span>
-                      </div>
+                      <StaticQrSummary settings={qr.settings} onCopy={() => {
+                        navigator.clipboard.writeText(qr.settings?.data || '')
+                          .then(() => toast.success('Encoded content copied'))
+                          .catch(() => toast.error('Could not copy'))
+                      }} />
                     ) : editingSlugId === qr.id ? (
                       <div className="qr-slug-editor">
                         <span className="share-link-prefix">{window.location.origin}/q/</span>
@@ -289,17 +326,26 @@ export function QrCodesListPage() {
                     )}
                   </div>
                   <div className="card-list-actions">
-                    <button className="secondary-button" type="button" onClick={() => setOpenPanel((current) => current === qr.id ? null : qr.id)}>
-                      Edit QR
-                    </button>
-                    {archived ? (
-                      <button className="primary-button" type="button" onClick={() => setPendingConfirm({ kind: 'archive', qr })}>
-                        Re-subscribe
-                      </button>
-                    ) : (
-                      <button className="secondary-button" type="button" onClick={() => setPendingConfirm({ kind: 'cancel', qr })}>
-                        Cancel Subscription
-                      </button>
+                    {/* Static QR is a one-time purchase with a payload baked
+                        directly into the pattern — there's nothing to edit
+                        (the printed code can't change) and nothing to cancel
+                        (no recurring charge exists to cancel). Both controls
+                        only make sense for a dynamic QR's monthly renewal. */}
+                    {!isStatic && (
+                      <>
+                        <button className="secondary-button" type="button" onClick={() => setOpenPanel((current) => current === qr.id ? null : qr.id)}>
+                          Edit QR
+                        </button>
+                        {archived ? (
+                          <button className="primary-button" type="button" onClick={() => setPendingConfirm({ kind: 'archive', qr })}>
+                            Re-subscribe
+                          </button>
+                        ) : (
+                          <button className="secondary-button" type="button" onClick={() => setPendingConfirm({ kind: 'cancel', qr })}>
+                            Cancel Subscription
+                          </button>
+                        )}
+                      </>
                     )}
                     <button className="secondary-button" type="button" onClick={() => setPendingConfirm({ kind: 'delete', qr })}>
                       Delete

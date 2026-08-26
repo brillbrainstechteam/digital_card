@@ -7,38 +7,6 @@ import { fetchQrAnalytics, fetchOverallQrAnalytics } from '../../qr'
 
 const POLL_INTERVAL = 15000
 
-const SAMPLE_SUMMARY = {
-  totalViews: 1284,
-  totalQrScans: 316,
-  totalLeads: 87,
-  totalButtonClicks: 694,
-  conversionRate: 6.8,
-  topPerformingAction: 'whatsapp',
-  lastActivity: new Date().toISOString(),
-  buttonClicks: { call: 96, email: 74, whatsapp: 238, website: 151, save_contact: 87, instagram: 48 },
-}
-
-const SAMPLE_LEADS = [
-  { id: 'sample-1', visitor_name: 'Aarav Sharma', business_name: 'Northstar Studio', email: 'aarav@example.com', phone: '+91 98765 43210', created_at: new Date().toISOString() },
-  { id: 'sample-2', visitor_name: 'Meera Patel', business_name: 'Vertex Labs', email: 'meera@example.com', phone: '+91 99887 76655', created_at: new Date(Date.now() - 86400000).toISOString() },
-]
-
-const SAMPLE_ACTIVITY = [
-  { event_type: 'view', created_at: new Date().toISOString(), metadata: {} },
-  { event_type: 'button_click', created_at: new Date(Date.now() - 600000).toISOString(), metadata: { button: 'whatsapp' } },
-  { event_type: 'lead_created', created_at: new Date(Date.now() - 1800000).toISOString(), metadata: { visitor_name: 'Aarav Sharma' } },
-]
-
-const SAMPLE_QR = {
-  totalScans: 316,
-  uniqueScans: 241,
-  deviceBreakdown: { Mobile: 252, Desktop: 64 },
-  browserBreakdown: { Chrome: 211, Safari: 105 },
-  osBreakdown: { Android: 168, iOS: 84, Windows: 64 },
-  countryBreakdown: { India: 268, 'United States': 48 },
-  recentScans: [],
-}
-
 const BUTTON_LABELS = {
   call: 'Call', email: 'Email', whatsapp: 'WhatsApp',
   website: 'Website', save_contact: 'Save Contact', google_maps: 'Google Maps',
@@ -199,7 +167,6 @@ export function AnalyticsPage() {
   const [activity, setActivity] = useState([])
   const [qrAnalytics, setQrAnalytics] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [showSample, setShowSample] = useState(false)
   const pollRef = useRef(null)
 
   // Leads filter state
@@ -248,8 +215,8 @@ export function AnalyticsPage() {
   leadsParamsRef.current = { search, page, limit, dateRange, dateFrom, dateTo, sortBy }
 
   const fetchLeads = useCallback(async () => {
-    if (showSample || !leadCaptureEnabled) {
-      if (!showSample) { setLeads([]); setLeadsTotal(0) }
+    if (!leadCaptureEnabled) {
+      setLeads([]); setLeadsTotal(0)
       return
     }
     try {
@@ -258,7 +225,7 @@ export function AnalyticsPage() {
       setLeadsTotal(res.total)
     } catch { /* silent */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCardId, search, page, limit, dateRange, dateFrom, dateTo, sortBy, showSample, leadCaptureEnabled])
+  }, [selectedCardId, search, page, limit, dateRange, dateFrom, dateTo, sortBy, leadCaptureEnabled])
 
   const loadAll = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -286,38 +253,27 @@ export function AnalyticsPage() {
 
   // Full reload on card change only
   useEffect(() => {
-    if (showSample) {
-      setSummary(SAMPLE_SUMMARY)
-      setLeads(SAMPLE_LEADS)
-      setLeadsTotal(SAMPLE_LEADS.length)
-      setActivity(SAMPLE_ACTIVITY)
-      setQrAnalytics(SAMPLE_QR)
-      setLoading(false)
-    } else {
-      loadAll(false)
-    }
-  }, [selectedCardId, showSample]) // eslint-disable-line
+    loadAll(false)
+  }, [selectedCardId]) // eslint-disable-line
 
   // Silent leads refresh on filter change
-  useEffect(() => { if (!showSample) fetchLeads() }, [fetchLeads, showSample])
+  useEffect(() => { fetchLeads() }, [fetchLeads])
 
   // Refresh the summary stats (views/scans/clicks/etc.) whenever the date
   // filter changes — the leads table and the summary cards should agree on
   // the same time window.
   useEffect(() => {
-    if (showSample) return
     fetchAnalytics(selectedCardId, { dateRange, dateFrom, dateTo })
       .then((data) => setSummary(leadCaptureEnabled ? data : { ...data, totalLeads: 0 }))
       .catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCardId, dateRange, dateFrom, dateTo, showSample, leadCaptureEnabled])
+  }, [selectedCardId, dateRange, dateFrom, dateTo, leadCaptureEnabled])
 
   // Polling
   useEffect(() => {
-    if (showSample) return undefined
     pollRef.current = setInterval(() => loadAll(true), POLL_INTERVAL)
     return () => clearInterval(pollRef.current)
-  }, [loadAll, showSample])
+  }, [loadAll])
 
   const totalPages = Math.max(1, Math.ceil(leadsTotal / limit))
 
@@ -341,16 +297,12 @@ export function AnalyticsPage() {
           subtitle="Views, leads, button clicks and activity across your digital cards."
           actions={(
             <div className="analytics-header-actions">
-              <label className="analytics-sample-toggle">
-                <input type="checkbox" checked={showSample} onChange={(event) => setShowSample(event.target.checked)} />
-                <span>View sample analytics</span>
-              </label>
-              <select className="analytics-card-filter" value={selectedCardId} disabled={showSample}
+              <select className="analytics-card-filter" value={selectedCardId}
                 onChange={(e) => { setSelectedCardId(e.target.value); setPage(1) }}>
                 <option value="all">All Cards</option>
                 {cards.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
               </select>
-              <select className="analytics-card-filter" value={dateRange} disabled={showSample}
+              <select className="analytics-card-filter" value={dateRange}
                 onChange={(e) => { setDateRange(e.target.value); setDateFrom(''); setDateTo(''); setPage(1) }}>
                 {DATE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -358,7 +310,7 @@ export function AnalyticsPage() {
           )}
         />
 
-        {dateRange === 'custom' && !showSample && (
+        {dateRange === 'custom' && (
           <div className="leads-filters" style={{ marginBottom: 20 }}>
             <input type="date" className="leads-filter-select" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1) }} />
             <input type="date" className="leads-filter-select" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1) }} />
@@ -367,7 +319,7 @@ export function AnalyticsPage() {
 
         {loading || !summary ? (
           <p className="settings-placeholder">Loading analytics...</p>
-        ) : summary.totalViews === 0 && !showSample ? (
+        ) : summary.totalViews === 0 ? (
           <div className="analytics-empty-state">
             <div className="analytics-empty-icon">📊</div>
             <h2>No data yet</h2>
@@ -395,10 +347,6 @@ export function AnalyticsPage() {
                 </div>
               </div>
             </div>
-            <label className="analytics-sample-toggle" style={{ marginTop: '24px' }}>
-              <input type="checkbox" checked={showSample} onChange={(event) => setShowSample(event.target.checked)} />
-              <span>Preview with sample data</span>
-            </label>
           </div>
         ) : (
         <>
@@ -407,7 +355,7 @@ export function AnalyticsPage() {
             {[
               ['Total Views', summary.totalViews],
               ['QR Scans', summary.totalQrScans ?? 0],
-              ...((showSample || leadCaptureEnabled) ? [['Total Leads', summary.totalLeads]] : []),
+              ...(leadCaptureEnabled ? [['Total Leads', summary.totalLeads]] : []),
               ['Button Clicks', summary.totalButtonClicks],
               ['Conversion %', `${summary.conversionRate}%`],
               ['Top Action', summary.topPerformingAction ? (ALL_BUTTON_LABELS[summary.topPerformingAction] || summary.topPerformingAction) : '—'],
@@ -519,7 +467,7 @@ export function AnalyticsPage() {
           </section>
 
           {/* Leads */}
-          {(showSample || leadCaptureEnabled) && <section className="editor-section">
+          {leadCaptureEnabled && <section className="editor-section">
             <div className="editor-title">
               <h2>Leads</h2>
               <div className="leads-header-actions">

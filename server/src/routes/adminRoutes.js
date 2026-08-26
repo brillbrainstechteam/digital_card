@@ -7,6 +7,8 @@ const router = Router()
 router.post('/login', ctrl.login)
 
 router.use(authenticateAdmin)
+router.get('/admins', ctrl.listAdmins)
+router.post('/admins', ctrl.createAdmin)
 router.get('/stats', ctrl.getStats)
 router.get('/insights', ctrl.getInsights)
 router.get('/audit-log', ctrl.getAuditLog)

@@ -1,29 +1,42 @@
-const crypto = require('crypto')
-const jwt = require('jsonwebtoken')
-const env = require('../config/env')
 const AppError = require('../utils/AppError')
 const adminService = require('../services/adminService')
-
-// Length-safe constant-time compare, so admin credentials can't be recovered
-// character-by-character from response timing.
-function safeEqual(a, b) {
-  const bufA = Buffer.from(String(a ?? ''), 'utf8')
-  const bufB = Buffer.from(String(b ?? ''), 'utf8')
-  const hashA = crypto.createHash('sha256').update(bufA).digest()
-  const hashB = crypto.createHash('sha256').update(bufB).digest()
-  return crypto.timingSafeEqual(hashA, hashB)
-}
+const adminAuthService = require('../services/adminAuthService')
 
 async function login(req, res, next) {
   try {
     const { email, password } = req.body
-    const emailOk = safeEqual(String(email || '').trim().toLowerCase(), String(env.admin.email).toLowerCase())
-    const passwordOk = safeEqual(password, env.admin.password)
-    if (!emailOk || !passwordOk) {
-      return next(new AppError('Invalid admin credentials', 401))
-    }
-    const token = jwt.sign({ role: 'admin', email }, env.admin.secret, { expiresIn: '12h' })
+    const { token } = await adminAuthService.login(email, password)
     res.json({ token })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// Any logged-in admin can create another admin account. There's no
+// self-signup for this role — an admin_users row only ever comes from here
+// or a direct DB insert during initial setup.
+async function createAdmin(req, res, next) {
+  try {
+    const { email, password } = req.body
+    if (!email || !password) return next(new AppError('Email and password are required', 400))
+    const admin = await adminAuthService.createAdmin(email, password)
+    await adminService.recordAdminAction({
+      actor: req.admin?.email || 'admin',
+      ip: req.ip,
+      action: 'admin.create',
+      targetType: 'admin_user',
+      targetId: admin.id,
+      detail: { email: admin.email },
+    })
+    res.status(201).json({ success: true, data: admin })
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function listAdmins(req, res, next) {
+  try {
+    res.json(await adminAuthService.listAdmins())
   } catch (err) {
     next(err)
   }
@@ -184,4 +197,4 @@ async function getSubscriptions(req, res, next) {
   }
 }
 
-module.exports = { login, getAuditLog, getContactMessages, updateContactMessageStatus, getStats, getInsights, getUserDetail, getUsers, getCards, getQrCodes, updateCardStatus, updateQrLifecycle, deleteCard, deleteUser, getActivity, getSubscriptions, resetUserPassword }
+module.exports = { login, createAdmin, listAdmins, getAuditLog, getContactMessages, updateContactMessageStatus, getStats, getInsights, getUserDetail, getUsers, getCards, getQrCodes, updateCardStatus, updateQrLifecycle, deleteCard, deleteUser, getActivity, getSubscriptions, resetUserPassword }

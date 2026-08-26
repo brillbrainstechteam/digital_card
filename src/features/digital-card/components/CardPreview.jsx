@@ -425,18 +425,46 @@ export function CardPreview({ profile, immersive = false, trackingSlug = null, s
             onClick={() => track('google_maps')}
           >
             <div className="maps-card-visual">
-              <div className="maps-card-grid">
-                {Array.from({ length: 20 }).map((_, i) => <span key={i} />)}
-              </div>
+              {/* A static illustration standing in for an actual map tile —
+                  this card never had real map coordinates to render, only a
+                  destination URL, so it was always a mock rather than a real
+                  map. Modelled on Google's own thumbnail style (cream
+                  basemap, white roads, muted terrain blocks, a teardrop pin
+                  with a shadow) instead of a plain tinted grid. */}
+              <svg className="maps-card-svg" viewBox="0 0 320 148" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <rect width="320" height="148" fill="#e9e5d8" />
+                <path d="M-10 34 L120 20 L210 46 L330 30" stroke="#f4f1e8" strokeWidth="9" fill="none" />
+                <path d="M-10 96 L100 108 L230 84 L330 100" stroke="#f4f1e8" strokeWidth="9" fill="none" />
+                <path d="M46 -10 L64 60 L38 148" stroke="#f4f1e8" strokeWidth="8" fill="none" />
+                <path d="M180 -10 L168 70 L196 148" stroke="#f4f1e8" strokeWidth="8" fill="none" />
+                <path d="M266 -10 L252 148" stroke="#f4f1e8" strokeWidth="7" fill="none" />
+                <path d="M-10 62 L330 46" stroke="#f7dcae" strokeWidth="4.5" fill="none" opacity="0.9" />
+                <polygon points="70,10 118,4 130,44 82,54" fill="#d8dcc9" opacity="0.8" />
+                <polygon points="210,60 268,52 276,96 214,102" fill="#cfe0c4" opacity="0.85" />
+                <polygon points="20,90 62,84 68,128 24,134" fill="#d8dcc9" opacity="0.7" />
+                <polygon points="240,10 296,6 300,38 244,42" fill="#d8dcc9" opacity="0.7" />
+              </svg>
               <div className="maps-card-pin">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                <svg viewBox="0 0 32 40" width="30" height="38" aria-hidden="true">
+                  <path d="M16 0C7.2 0 0 7.2 0 16c0 11 16 24 16 24s16-13 16-24c0-8.8-7.2-16-16-16Z" fill="#EA4335" />
+                  <circle cx="16" cy="16" r="6.5" fill="#fff" />
                 </svg>
+                <span className="maps-card-pin-shadow" />
               </div>
             </div>
             <div className="maps-card-info">
-              <span className="maps-card-name">{profile.companyName || profile.personName || profile.brandName}</span>
-              <span className="maps-card-action">{buttonLabels.googleMaps} →</span>
+              <div className="maps-card-info-text">
+                <span className="maps-card-name">{profile.companyName || profile.personName || profile.brandName}</span>
+                {profile.showLocation !== false && profile.location && (
+                  <span className="maps-card-address">{profile.location}</span>
+                )}
+              </div>
+              <span className="maps-card-action">
+                {buttonLabels.googleMaps}
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </span>
             </div>
           </a>
         )}
